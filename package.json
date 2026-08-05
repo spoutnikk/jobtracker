@@ -1,0 +1,11 @@
+{
+  "name": "jobtracker",
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "pnpm@10.12.4",
+  "scripts": {
+    "dev": "echo \"Utilisez les applications backend et frontend\"",
+    "lint": "echo \"Lint global à configurer\"",
+    "test": "echo \"Tests globaux à configurer\""
+  }
+}
