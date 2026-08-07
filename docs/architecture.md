@@ -67,3 +67,37 @@ apps/frontend/src/
 └── main.tsx
 
 Cette organisation reste simple au début mais s'adapte très bien lorsque le projet grandit.
+
+Une proposition d'architecture
+
+J'aimerais profiter du fait que nous sommes encore au début pour adopter une architecture qui restera agréable à maintenir.
+
+Je te propose :
+
+apps/
+├── backend/
+│ ├── src/
+│ │ ├── auth/
+│ │ ├── users/
+│ │ ├── companies/
+│ │ ├── applications/
+│ │ ├── dashboard/
+│ │ ├── health/
+│ │ ├── common/
+│ │ └── config/
+│
+└── frontend/
+├── src/
+│ ├── app/
+│ ├── api/
+│ ├── components/
+│ ├── features/
+│ ├── layouts/
+│ ├── pages/
+│ ├── routes/
+│ ├── hooks/
+│ ├── lib/
+│ ├── styles/
+│ └── types/
+
+Cette structure est simple, mais suffisamment évolutive pour accueillir les fonctionnalités à venir sans devenir désordonnée.
