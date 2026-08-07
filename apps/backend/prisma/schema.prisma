@@ -1,0 +1,63 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  firstName String
+  lastName  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  applications Application[]
+}
+
+model Company {
+  id        Int      @id @default(autoincrement())
+  name      String
+  website   String?
+  city      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  jobOffers JobOffer[]
+}
+
+model JobOffer {
+  id           Int       @id @default(autoincrement())
+  title        String
+  url          String?
+  description  String?
+  location     String?
+  contractType String?
+  salary       String?
+  publishedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  companyId    Int
+  company      Company       @relation(fields: [companyId], references: [id])
+  applications Application[]
+}
+
+model Application {
+  id        Int       @id @default(autoincrement())
+  status    String    @default("DRAFT")
+  appliedAt DateTime?
+  source    String?
+  notes     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+
+  jobOfferId Int
+  jobOffer   JobOffer @relation(fields: [jobOfferId], references: [id])
+}
