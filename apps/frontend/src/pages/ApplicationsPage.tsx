@@ -4,6 +4,7 @@ import {
   getApplications,
   type ApplicationStatus,
 } from "../api/applications";
+import { getJobOffers } from "../api/job-offers";
 import { useState } from "react";
 
 function ApplicationsPage() {
@@ -11,6 +12,13 @@ function ApplicationsPage() {
 
   const [status, setStatus] = useState<ApplicationStatus>("DRAFT");
   const [source, setSource] = useState("");
+
+  const [jobOfferId, setJobOfferId] = useState<number | null>(null);
+
+  const jobOffersQuery = useQuery({
+    queryKey: ["job-offers"],
+    queryFn: getJobOffers,
+  });
 
   const createApplicationMutation = useMutation({
     mutationFn: createApplication,
@@ -27,9 +35,13 @@ function ApplicationsPage() {
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
+    if (jobOfferId === null) {
+      return;
+    }
+
     createApplicationMutation.mutate({
       userId: 1,
-      jobOfferId: 1,
+      jobOfferId,
       status,
       source: source || undefined,
     });
@@ -65,6 +77,31 @@ function ApplicationsPage() {
           className="mt-6 rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
         >
           <h2 className="text-lg font-semibold">Nouvelle candidature</h2>
+
+          <label className="flex flex-col gap-1">
+            <span className="text-sm font-medium text-gray-700">
+              Offre d'emploi
+            </span>
+
+            <select
+              value={jobOfferId ?? ""}
+              onChange={(event) =>
+                setJobOfferId(
+                  event.target.value ? Number(event.target.value) : null,
+                )
+              }
+              className="rounded-md border border-gray-300 px-3 py-2"
+              required
+            >
+              <option value="">Sélectionner une offre</option>
+
+              {jobOffersQuery.data?.map((jobOffer) => (
+                <option key={jobOffer.id} value={jobOffer.id}>
+                  {jobOffer.title} — {jobOffer.company.name}
+                </option>
+              ))}
+            </select>
+          </label>
 
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <label className="flex flex-col gap-1">
