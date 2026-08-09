@@ -1,6 +1,6 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider     = "prisma-client"
+  output       = "../generated/prisma"
   moduleFormat = "cjs"
 }
 
@@ -31,16 +31,16 @@ model Company {
 }
 
 model JobOffer {
-  id           Int       @id @default(autoincrement())
+  id           Int           @id @default(autoincrement())
   title        String
   url          String?
   description  String?
   location     String?
-  contractType String?
+  contractType ContractType?
   salary       String?
   publishedAt  DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 
   companyId    Int
   company      Company       @relation(fields: [companyId], references: [id])
@@ -48,17 +48,39 @@ model JobOffer {
 }
 
 model Application {
-  id        Int       @id @default(autoincrement())
-  status    String    @default("DRAFT")
-  appliedAt DateTime?
-  source    String?
-  notes     String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id           Int               @id @default(autoincrement())
+  status       ApplicationStatus @default(DRAFT)
+  appliedAt    DateTime?
+  source       String?
+  notes        String?
+  contactName  String?
+  contactEmail String?
+  followUpAt   DateTime?
+  interviewAt  DateTime?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
 
   userId Int
   user   User @relation(fields: [userId], references: [id])
 
   jobOfferId Int
   jobOffer   JobOffer @relation(fields: [jobOfferId], references: [id])
+}
+
+enum ApplicationStatus {
+  DRAFT
+  APPLIED
+  FOLLOW_UP
+  INTERVIEW
+  ACCEPTED
+  REJECTED
+}
+
+enum ContractType {
+  CDI
+  CDD
+  INTERNSHIP
+  FREELANCE
+  TEMPORARY
+  OTHER
 }
