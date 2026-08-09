@@ -12,6 +12,12 @@ function ApplicationsPage() {
 
   const [status, setStatus] = useState<ApplicationStatus>("DRAFT");
   const [source, setSource] = useState("");
+  const [appliedAt, setAppliedAt] = useState("");
+  const [notes, setNotes] = useState("");
+  const [contactName, setContactName] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [followUpAt, setFollowUpAt] = useState("");
+  const [interviewAt, setInterviewAt] = useState("");
 
   const [jobOfferId, setJobOfferId] = useState<number | null>(null);
 
@@ -25,6 +31,12 @@ function ApplicationsPage() {
     onSuccess: async () => {
       setStatus("DRAFT");
       setSource("");
+      setAppliedAt("");
+      setNotes("");
+      setContactName("");
+      setContactEmail("");
+      setFollowUpAt("");
+      setInterviewAt("");
 
       await queryClient.invalidateQueries({
         queryKey: ["applications"],
@@ -44,6 +56,14 @@ function ApplicationsPage() {
       jobOfferId,
       status,
       source: source || undefined,
+      appliedAt: appliedAt ? new Date(appliedAt).toISOString() : undefined,
+      notes: notes || undefined,
+      contactName: contactName || undefined,
+      contactEmail: contactEmail || undefined,
+      followUpAt: followUpAt ? new Date(followUpAt).toISOString() : undefined,
+      interviewAt: interviewAt
+        ? new Date(interviewAt).toISOString()
+        : undefined,
     });
   }
 
@@ -135,6 +155,78 @@ function ApplicationsPage() {
               />
             </label>
           </div>
+
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-medium text-gray-700">
+                Date de candidature
+              </span>
+              <input
+                type="date"
+                value={appliedAt}
+                onChange={(event) => setAppliedAt(event.target.value)}
+                className="rounded-md border border-gray-300 px-3 py-2"
+              />
+            </label>
+
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-medium text-gray-700">
+                Nom du contact
+              </span>
+              <input
+                type="text"
+                value={contactName}
+                onChange={(event) => setContactName(event.target.value)}
+                className="rounded-md border border-gray-300 px-3 py-2"
+              />
+            </label>
+
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-medium text-gray-700">
+                Email du contact
+              </span>
+              <input
+                type="email"
+                value={contactEmail}
+                onChange={(event) => setContactEmail(event.target.value)}
+                className="rounded-md border border-gray-300 px-3 py-2"
+              />
+            </label>
+
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-medium text-gray-700">
+                Date de relance
+              </span>
+              <input
+                type="date"
+                value={followUpAt}
+                onChange={(event) => setFollowUpAt(event.target.value)}
+                className="rounded-md border border-gray-300 px-3 py-2"
+              />
+            </label>
+
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-medium text-gray-700">
+                Date d'entretien
+              </span>
+              <input
+                type="datetime-local"
+                value={interviewAt}
+                onChange={(event) => setInterviewAt(event.target.value)}
+                className="rounded-md border border-gray-300 px-3 py-2"
+              />
+            </label>
+          </div>
+
+          <label className="mt-4 flex flex-col gap-1">
+            <span className="text-sm font-medium text-gray-700">Notes</span>
+            <textarea
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+              rows={4}
+              className="rounded-md border border-gray-300 px-3 py-2"
+            />
+          </label>
 
           <button
             type="submit"
