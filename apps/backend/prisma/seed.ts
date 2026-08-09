@@ -27,7 +27,39 @@ async function main() {
     },
   });
 
+  const company =
+    (await prisma.company.findFirst({
+      where: {
+        name: 'Acme Corp',
+      },
+    })) ??
+    (await prisma.company.create({
+      data: {
+        name: 'Acme Corp',
+        website: 'https://example.com',
+        city: 'Paris',
+      },
+    }));
+
+  const jobOffer =
+    (await prisma.jobOffer.findFirst({
+      where: {
+        title: 'Développeur TypeScript',
+        companyId: company.id,
+      },
+    })) ??
+    (await prisma.jobOffer.create({
+      data: {
+        title: 'Développeur TypeScript',
+        location: 'Paris',
+        contractType: 'CDI',
+        companyId: company.id,
+      },
+    }));
+
   console.log('Seeded user:', user);
+  console.log('Seeded company:', company);
+  console.log('Seeded job offer:', jobOffer);
 }
 
 main()
