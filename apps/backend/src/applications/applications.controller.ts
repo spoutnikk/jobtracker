@@ -5,6 +5,7 @@ import {
   Param,
   ParseIntPipe,
   Patch,
+  Delete,
   Post,
 } from '@nestjs/common';
 import { ApplicationsService } from './applications.service';
@@ -36,5 +37,10 @@ export class ApplicationsController {
     @Body() updateApplicationDto: UpdateApplicationDto,
   ) {
     return this.applicationsService.update(id, updateApplicationDto);
+  }
+
+  @Delete(':id')
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.applicationsService.remove(id);
   }
 }

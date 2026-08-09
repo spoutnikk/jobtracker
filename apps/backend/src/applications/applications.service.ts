@@ -107,4 +107,14 @@ export class ApplicationsService {
       },
     });
   }
+
+  async remove(id: number) {
+    await this.findOne(id);
+
+    return this.prisma.application.delete({
+      where: {
+        id,
+      },
+    });
+  }
 }
