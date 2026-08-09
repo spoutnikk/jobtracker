@@ -1,12 +1,31 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { PrismaService } from '../prisma/prisma.service';
 import { ApplicationsService } from './applications.service';
 
 describe('ApplicationsService', () => {
   let service: ApplicationsService;
 
+  const prismaServiceMock = {
+    application: {
+      create: jest.fn(),
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+    },
+  };
+
   beforeEach(async () => {
+    jest.clearAllMocks();
+
     const module: TestingModule = await Test.createTestingModule({
-      providers: [ApplicationsService],
+      providers: [
+        ApplicationsService,
+        {
+          provide: PrismaService,
+          useValue: prismaServiceMock,
+        },
+      ],
     }).compile();
 
     service = module.get<ApplicationsService>(ApplicationsService);
@@ -14,5 +33,182 @@ describe('ApplicationsService', () => {
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  it('should return all applications', async () => {
+    const applications = [
+      {
+        id: 1,
+        status: 'APPLIED',
+      },
+    ];
+
+    prismaServiceMock.application.findMany.mockResolvedValue(applications);
+
+    await expect(service.findAll()).resolves.toEqual(applications);
+
+    expect(prismaServiceMock.application.findMany).toHaveBeenCalledWith({
+      include: {
+        jobOffer: {
+          include: {
+            company: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+  });
+
+  it('should return one application', async () => {
+    const application = {
+      id: 1,
+      status: 'APPLIED',
+    };
+
+    prismaServiceMock.application.findUnique.mockResolvedValue(application);
+
+    await expect(service.findOne(1)).resolves.toEqual(application);
+
+    expect(prismaServiceMock.application.findUnique).toHaveBeenCalledWith({
+      where: {
+        id: 1,
+      },
+      include: {
+        jobOffer: {
+          include: {
+            company: true,
+          },
+        },
+      },
+    });
+  });
+
+  it('should throw NotFoundException when application does not exist', async () => {
+    prismaServiceMock.application.findUnique.mockResolvedValue(null);
+
+    await expect(service.findOne(9999)).rejects.toThrow(
+      'Application with id 9999 not found',
+    );
+  });
+
+  it('should create an application', async () => {
+    const createdApplication = {
+      id: 1,
+      status: 'APPLIED',
+    };
+
+    prismaServiceMock.application.create.mockResolvedValue(createdApplication);
+
+    const dto = {
+      userId: 1,
+      jobOfferId: 1,
+      status: 'APPLIED' as const,
+      source: 'France Travail',
+      appliedAt: '2026-08-09T10:00:00.000Z',
+    };
+
+    await expect(service.create(dto)).resolves.toEqual(createdApplication);
+
+    expect(prismaServiceMock.application.create).toHaveBeenCalledWith({
+      data: {
+        userId: 1,
+        jobOfferId: 1,
+        status: 'APPLIED',
+        appliedAt: new Date('2026-08-09T10:00:00.000Z'),
+        source: 'France Travail',
+        notes: undefined,
+        contactName: undefined,
+        contactEmail: undefined,
+        followUpAt: undefined,
+        interviewAt: undefined,
+      },
+      include: {
+        jobOffer: {
+          include: {
+            company: true,
+          },
+        },
+      },
+    });
+  });
+
+  it('should update an application', async () => {
+    const existingApplication = {
+      id: 1,
+      status: 'APPLIED',
+    };
+
+    const updatedApplication = {
+      id: 1,
+      status: 'INTERVIEW',
+    };
+
+    prismaServiceMock.application.findUnique.mockResolvedValue(
+      existingApplication,
+    );
+    prismaServiceMock.application.update.mockResolvedValue(updatedApplication);
+
+    const dto = {
+      status: 'INTERVIEW' as const,
+      contactName: 'Marie Dupont',
+      interviewAt: '2026-08-20T14:00:00.000Z',
+    };
+
+    await expect(service.update(1, dto)).resolves.toEqual(updatedApplication);
+
+    expect(prismaServiceMock.application.update).toHaveBeenCalledWith({
+      where: {
+        id: 1,
+      },
+      data: {
+        userId: undefined,
+        jobOfferId: undefined,
+        status: 'INTERVIEW',
+        appliedAt: undefined,
+        source: undefined,
+        notes: undefined,
+        contactName: 'Marie Dupont',
+        contactEmail: undefined,
+        followUpAt: undefined,
+        interviewAt: new Date('2026-08-20T14:00:00.000Z'),
+      },
+      include: {
+        jobOffer: {
+          include: {
+            company: true,
+          },
+        },
+      },
+    });
+  });
+
+  it('should remove an application', async () => {
+    const application = {
+      id: 1,
+      status: 'INTERVIEW',
+    };
+
+    prismaServiceMock.application.findUnique.mockResolvedValue(application);
+    prismaServiceMock.application.delete.mockResolvedValue(application);
+
+    await expect(service.remove(1)).resolves.toEqual(application);
+
+    expect(prismaServiceMock.application.delete).toHaveBeenCalledWith({
+      where: {
+        id: 1,
+      },
+    });
+  });
+
+  it('should throw NotFoundException when removing an unknown application', async () => {
+    prismaServiceMock.application.findUnique.mockResolvedValue(null);
+
+    await expect(service.remove(9999)).rejects.toThrow(
+      'Application with id 9999 not found',
+    );
+
+    expect(prismaServiceMock.application.delete).not.toHaveBeenCalled();
   });
 });
