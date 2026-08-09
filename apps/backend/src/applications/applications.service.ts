@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateApplicationDto } from './dto/create-application.dto';
 
@@ -49,5 +49,26 @@ export class ApplicationsService {
         createdAt: 'desc',
       },
     });
+  }
+
+  async findOne(id: number) {
+    const application = await this.prisma.application.findUnique({
+      where: {
+        id,
+      },
+      include: {
+        jobOffer: {
+          include: {
+            company: true,
+          },
+        },
+      },
+    });
+
+    if (!application) {
+      throw new NotFoundException(`Application with id ${id} not found`);
+    }
+
+    return application;
   }
 }
