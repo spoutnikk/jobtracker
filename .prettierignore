@@ -1,0 +1,10 @@
+node_modules/
+dist/
+docs/
+coverage/
+apps/backend/generated/
+apps/backend/.agents/
+apps/backend/.claude/
+apps/backend/.windsurf/
+*.lock
+pnpm-lock.yaml
