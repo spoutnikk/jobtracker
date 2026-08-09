@@ -1,7 +1,40 @@
-import { useQuery } from "@tanstack/react-query";
-import { getApplications } from "../api/applications";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  createApplication,
+  getApplications,
+  type ApplicationStatus,
+} from "../api/applications";
+import { useState } from "react";
 
 function ApplicationsPage() {
+  const queryClient = useQueryClient();
+
+  const [status, setStatus] = useState<ApplicationStatus>("DRAFT");
+  const [source, setSource] = useState("");
+
+  const createApplicationMutation = useMutation({
+    mutationFn: createApplication,
+    onSuccess: async () => {
+      setStatus("DRAFT");
+      setSource("");
+
+      await queryClient.invalidateQueries({
+        queryKey: ["applications"],
+      });
+    },
+  });
+
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    createApplicationMutation.mutate({
+      userId: 1,
+      jobOfferId: 1,
+      status,
+      source: source || undefined,
+    });
+  }
+
   const applicationsQuery = useQuery({
     queryKey: ["applications"],
     queryFn: getApplications,
@@ -27,7 +60,61 @@ function ApplicationsPage() {
     <main className="min-h-screen p-8">
       <div className="mx-auto max-w-5xl">
         <h1 className="text-3xl font-bold">Candidatures</h1>
+        <form
+          onSubmit={handleSubmit}
+          className="mt-6 rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
+        >
+          <h2 className="text-lg font-semibold">Nouvelle candidature</h2>
 
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-medium text-gray-700">Statut</span>
+
+              <select
+                value={status}
+                onChange={(event) =>
+                  setStatus(event.target.value as ApplicationStatus)
+                }
+                className="rounded-md border border-gray-300 px-3 py-2"
+              >
+                <option value="DRAFT">À préparer</option>
+                <option value="APPLIED">Envoyée</option>
+                <option value="FOLLOW_UP">Relance</option>
+                <option value="INTERVIEW">Entretien</option>
+                <option value="ACCEPTED">Acceptée</option>
+                <option value="REJECTED">Refusée</option>
+              </select>
+            </label>
+
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-medium text-gray-700">Source</span>
+
+              <input
+                type="text"
+                value={source}
+                onChange={(event) => setSource(event.target.value)}
+                placeholder="France Travail, LinkedIn..."
+                className="rounded-md border border-gray-300 px-3 py-2"
+              />
+            </label>
+          </div>
+
+          <button
+            type="submit"
+            disabled={createApplicationMutation.isPending}
+            className="mt-4 rounded-md bg-blue-600 px-4 py-2 font-medium text-white disabled:opacity-50"
+          >
+            {createApplicationMutation.isPending
+              ? "Création..."
+              : "Créer la candidature"}
+          </button>
+
+          {createApplicationMutation.isError && (
+            <p className="mt-3 text-sm text-red-600">
+              Impossible de créer la candidature.
+            </p>
+          )}
+        </form>
         {applicationsQuery.data.length === 0 ? (
           <p className="mt-6 text-gray-600">Aucune candidature enregistrée.</p>
         ) : (

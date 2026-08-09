@@ -52,3 +52,24 @@ export async function getApplications(): Promise<Application[]> {
 
   return response.data;
 }
+
+export interface CreateApplicationInput {
+  userId: number;
+  jobOfferId: number;
+  status?: ApplicationStatus;
+  appliedAt?: string;
+  source?: string;
+  notes?: string;
+  contactName?: string;
+  contactEmail?: string;
+  followUpAt?: string;
+  interviewAt?: string;
+}
+
+export async function createApplication(
+  input: CreateApplicationInput,
+): Promise<Application> {
+  const response = await apiClient.post<Application>("/applications", input);
+
+  return response.data;
+}
