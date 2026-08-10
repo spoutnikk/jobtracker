@@ -1,5 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createCompany, getCompanies, updateCompany } from "../api/companies";
+import {
+  createCompany,
+  getCompanies,
+  updateCompany,
+  deleteCompany,
+} from "../api/companies";
 import { useState } from "react";
 
 function CompaniesPage() {
@@ -17,6 +22,10 @@ function CompaniesPage() {
   const [editName, setEditName] = useState("");
   const [editWebsite, setEditWebsite] = useState("");
   const [editCity, setEditCity] = useState("");
+
+  const [deleteErrorCompanyId, setDeleteErrorCompanyId] = useState<
+    number | null
+  >(null);
 
   const createCompanyMutation = useMutation({
     mutationFn: createCompany,
@@ -49,6 +58,22 @@ function CompaniesPage() {
       await queryClient.invalidateQueries({
         queryKey: ["companies"],
       });
+    },
+  });
+
+  const deleteCompanyMutation = useMutation({
+    mutationFn: deleteCompany,
+
+    onSuccess: async () => {
+      setDeleteErrorCompanyId(null);
+
+      await queryClient.invalidateQueries({
+        queryKey: ["companies"],
+      });
+    },
+
+    onError: (_error, companyId) => {
+      setDeleteErrorCompanyId(companyId);
     },
   });
 
@@ -153,18 +178,62 @@ function CompaniesPage() {
                 key={company.id}
                 className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
               >
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditingCompanyId(company.id);
-                    setEditName(company.name);
-                    setEditWebsite(company.website ?? "");
-                    setEditCity(company.city ?? "");
-                  }}
-                  className="mt-4 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                >
-                  Modifier
-                </button>
+                <h2 className="text-xl font-semibold">{company.name}</h2>
+
+                <div className="mt-3 space-y-1 text-sm text-gray-600">
+                  {company.city && <p>Ville : {company.city}</p>}
+
+                  {company.website && (
+                    <p>
+                      Site :{" "}
+                      <a
+                        href={company.website}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-blue-600 hover:underline"
+                      >
+                        {company.website}
+                      </a>
+                    </p>
+                  )}
+
+                  <p>
+                    {company.jobOffers.length} offre
+                    {company.jobOffers.length > 1 ? "s" : ""} d'emploi
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingCompanyId(company.id);
+                      setEditName(company.name);
+                      setEditWebsite(company.website ?? "");
+                      setEditCity(company.city ?? "");
+                    }}
+                    className="mt-4 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Modifier
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const confirmed = window.confirm(
+                        `Supprimer l'entreprise "${company.name}" ?`,
+                      );
+
+                      if (confirmed) {
+                        deleteCompanyMutation.mutate(company.id);
+                        deleteCompanyMutation.mutate(company.id);
+                      }
+                    }}
+                    disabled={deleteCompanyMutation.isPending}
+                    className="mt-4 rounded-md border border-red-300 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+                  >
+                    Supprimer
+                  </button>
+                </div>
+
                 {editingCompanyId === company.id && (
                   <form
                     className="mt-4 space-y-3 rounded-md border border-gray-200 bg-gray-50 p-4"
@@ -237,30 +306,12 @@ function CompaniesPage() {
                     </div>
                   </form>
                 )}
-                <h2 className="text-xl font-semibold">{company.name}</h2>
-
-                <div className="mt-3 space-y-1 text-sm text-gray-600">
-                  {company.city && <p>Ville : {company.city}</p>}
-
-                  {company.website && (
-                    <p>
-                      Site :{" "}
-                      <a
-                        href={company.website}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-blue-600 hover:underline"
-                      >
-                        {company.website}
-                      </a>
-                    </p>
-                  )}
-
-                  <p>
-                    {company.jobOffers.length} offre
-                    {company.jobOffers.length > 1 ? "s" : ""} d'emploi
+                {deleteErrorCompanyId === company.id && (
+                  <p className="mt-3 text-sm text-red-600">
+                    Impossible de supprimer cette entreprise. Vérifiez qu'aucune
+                    offre d'emploi ne lui est encore associée.
                   </p>
-                </div>
+                )}
               </article>
             ))}
           </div>
