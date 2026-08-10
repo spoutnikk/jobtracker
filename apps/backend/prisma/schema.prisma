@@ -55,6 +55,7 @@ model Application {
   notes        String?
   contactName  String?
   contactEmail String?
+  documents    Document[]
   followUpAt   DateTime?
   interviewAt  DateTime?
   createdAt    DateTime          @default(now())
@@ -65,6 +66,28 @@ model Application {
 
   jobOfferId Int
   jobOffer   JobOffer @relation(fields: [jobOfferId], references: [id])
+}
+
+model Document {
+  id           Int          @id @default(autoincrement())
+  name         String
+  originalName String
+  mimeType     String
+  size         Int
+  path         String
+  type         DocumentType
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  applicationId Int?
+  application   Application? @relation(fields: [applicationId], references: [id])
+}
+
+enum DocumentType {
+  CV
+  COVER_LETTER
+  JOB_OFFER
+  OTHER
 }
 
 enum ApplicationStatus {
