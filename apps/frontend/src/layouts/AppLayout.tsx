@@ -45,6 +45,16 @@ function AppLayout() {
           >
             Calendrier
           </NavLink>
+          <NavLink
+            to="/dashboard"
+            className={({ isActive }) =>
+              isActive
+                ? "font-semibold text-blue-600"
+                : "text-gray-600 hover:text-gray-900"
+            }
+          >
+            Tableau de Bord
+          </NavLink>
         </nav>
       </header>
 

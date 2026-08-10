@@ -4,6 +4,7 @@ import ApplicationsPage from "../pages/ApplicationsPage";
 import HomePage from "../pages/HomePage";
 import CompaniesPage from "../pages/CompaniesPage";
 import CalendarPage from "../pages/CalendarPage";
+import DashboardPage from "../pages/DashboardPage";
 
 export const router = createBrowserRouter([
   {
@@ -24,6 +25,10 @@ export const router = createBrowserRouter([
       {
         path: "/calendar",
         element: <CalendarPage />,
+      },
+      {
+        path: "/dashboard",
+        element: <DashboardPage />,
       },
     ],
   },
