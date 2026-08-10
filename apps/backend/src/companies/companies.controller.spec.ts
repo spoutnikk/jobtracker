@@ -9,6 +9,7 @@ describe('CompaniesController', () => {
     findAll: jest.fn(),
     findOne: jest.fn(),
     create: jest.fn(),
+    update: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -81,5 +82,25 @@ describe('CompaniesController', () => {
     await expect(controller.create(dto)).resolves.toEqual(company);
 
     expect(companiesServiceMock.create).toHaveBeenCalledWith(dto);
+  });
+
+  it('should update a company', async () => {
+    const dto = {
+      city: 'Villeurbanne',
+    };
+
+    const company = {
+      id: 2,
+      name: 'TechNova',
+      website: 'https://technova.example',
+      city: 'Villeurbanne',
+      jobOffers: [],
+    };
+
+    companiesServiceMock.update.mockResolvedValue(company);
+
+    await expect(controller.update(2, dto)).resolves.toEqual(company);
+
+    expect(companiesServiceMock.update).toHaveBeenCalledWith(2, dto);
   });
 });

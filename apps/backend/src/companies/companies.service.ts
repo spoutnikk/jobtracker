@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCompanyDto } from './dto/create-company.dto';
+import { UpdateCompanyDto } from './dto/update-company.dto';
 
 @Injectable()
 export class CompaniesService {
@@ -35,6 +36,20 @@ export class CompaniesService {
   create(createCompanyDto: CreateCompanyDto) {
     return this.prisma.company.create({
       data: createCompanyDto,
+      include: {
+        jobOffers: true,
+      },
+    });
+  }
+
+  async update(id: number, updateCompanyDto: UpdateCompanyDto) {
+    await this.findOne(id);
+
+    return this.prisma.company.update({
+      where: {
+        id,
+      },
+      data: updateCompanyDto,
       include: {
         jobOffers: true,
       },

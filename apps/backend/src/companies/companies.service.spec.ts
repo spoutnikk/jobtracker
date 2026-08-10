@@ -10,6 +10,7 @@ describe('CompaniesService', () => {
       findMany: jest.fn(),
       findUnique: jest.fn(),
       create: jest.fn(),
+      update: jest.fn(),
     },
   };
 
@@ -112,5 +113,51 @@ describe('CompaniesService', () => {
         jobOffers: true,
       },
     });
+  });
+
+  it('should update a company', async () => {
+    const existingCompany = {
+      id: 2,
+      name: 'TechNova',
+      website: 'https://technova.example',
+      city: 'Lyon',
+      jobOffers: [],
+    };
+
+    const updatedCompany = {
+      ...existingCompany,
+      city: 'Villeurbanne',
+    };
+
+    prismaServiceMock.company.findUnique.mockResolvedValue(existingCompany);
+    prismaServiceMock.company.update.mockResolvedValue(updatedCompany);
+
+    const dto = {
+      city: 'Villeurbanne',
+    };
+
+    await expect(service.update(2, dto)).resolves.toEqual(updatedCompany);
+
+    expect(prismaServiceMock.company.update).toHaveBeenCalledWith({
+      where: {
+        id: 2,
+      },
+      data: dto,
+      include: {
+        jobOffers: true,
+      },
+    });
+  });
+
+  it('should throw NotFoundException when updating an unknown company', async () => {
+    prismaServiceMock.company.findUnique.mockResolvedValue(null);
+
+    await expect(
+      service.update(9999, {
+        city: 'Paris',
+      }),
+    ).rejects.toThrow('Company with id 9999 not found');
+
+    expect(prismaServiceMock.company.update).not.toHaveBeenCalled();
   });
 });
