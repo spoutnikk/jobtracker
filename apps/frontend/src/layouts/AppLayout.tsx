@@ -15,7 +15,16 @@ function AppLayout() {
           >
             Accueil
           </NavLink>
-
+          <NavLink
+            to="/companies"
+            className={({ isActive }) =>
+              isActive
+                ? "font-semibold text-blue-600"
+                : "text-gray-600 hover:text-gray-900"
+            }
+          >
+            Entreprises
+          </NavLink>
           <NavLink
             to="/applications"
             className={({ isActive }) =>
