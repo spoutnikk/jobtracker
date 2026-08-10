@@ -10,6 +10,7 @@ describe('CompaniesController', () => {
     findOne: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
+    remove: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -102,5 +103,20 @@ describe('CompaniesController', () => {
     await expect(controller.update(2, dto)).resolves.toEqual(company);
 
     expect(companiesServiceMock.update).toHaveBeenCalledWith(2, dto);
+  });
+
+  it('should remove a company', async () => {
+    const company = {
+      id: 2,
+      name: 'TechNova',
+      website: 'https://technova.example',
+      city: 'Villeurbanne',
+    };
+
+    companiesServiceMock.remove.mockResolvedValue(company);
+
+    await expect(controller.remove(2)).resolves.toEqual(company);
+
+    expect(companiesServiceMock.remove).toHaveBeenCalledWith(2);
   });
 });

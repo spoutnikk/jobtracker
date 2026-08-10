@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
@@ -52,6 +56,22 @@ export class CompaniesService {
       data: updateCompanyDto,
       include: {
         jobOffers: true,
+      },
+    });
+  }
+
+  async remove(id: number) {
+    const company = await this.findOne(id);
+
+    if (company.jobOffers.length > 0) {
+      throw new ConflictException(
+        `Company with id ${id} cannot be deleted because it has job offers`,
+      );
+    }
+
+    return this.prisma.company.delete({
+      where: {
+        id,
       },
     });
   }

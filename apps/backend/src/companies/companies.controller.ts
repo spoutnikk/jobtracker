@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseIntPipe,
@@ -36,5 +37,10 @@ export class CompaniesController {
     @Body() updateCompanyDto: UpdateCompanyDto,
   ) {
     return this.companiesService.update(id, updateCompanyDto);
+  }
+
+  @Delete(':id')
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.companiesService.remove(id);
   }
 }
