@@ -8,6 +8,7 @@ describe('CompaniesService', () => {
   const prismaServiceMock = {
     company: {
       findMany: jest.fn(),
+      findUnique: jest.fn(),
     },
   };
 
@@ -54,5 +55,34 @@ describe('CompaniesService', () => {
         createdAt: 'desc',
       },
     });
+  });
+
+  it('should return one company', async () => {
+    const company = {
+      id: 1,
+      name: 'Acme Corp',
+      jobOffers: [],
+    };
+
+    prismaServiceMock.company.findUnique.mockResolvedValue(company);
+
+    await expect(service.findOne(1)).resolves.toEqual(company);
+
+    expect(prismaServiceMock.company.findUnique).toHaveBeenCalledWith({
+      where: {
+        id: 1,
+      },
+      include: {
+        jobOffers: true,
+      },
+    });
+  });
+
+  it('should throw NotFoundException when company does not exist', async () => {
+    prismaServiceMock.company.findUnique.mockResolvedValue(null);
+
+    await expect(service.findOne(9999)).rejects.toThrow(
+      'Company with id 9999 not found',
+    );
   });
 });
