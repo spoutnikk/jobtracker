@@ -35,6 +35,16 @@ function AppLayout() {
           >
             Candidatures
           </NavLink>
+          <NavLink
+            to="/calendar"
+            className={({ isActive }) =>
+              isActive
+                ? "font-semibold text-blue-600"
+                : "text-gray-600 hover:text-gray-900"
+            }
+          >
+            Calendrier
+          </NavLink>
         </nav>
       </header>
 

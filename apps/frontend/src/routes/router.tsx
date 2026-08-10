@@ -3,6 +3,7 @@ import AppLayout from "../layouts/AppLayout";
 import ApplicationsPage from "../pages/ApplicationsPage";
 import HomePage from "../pages/HomePage";
 import CompaniesPage from "../pages/CompaniesPage";
+import CalendarPage from "../pages/CalendarPage";
 
 export const router = createBrowserRouter([
   {
@@ -19,6 +20,10 @@ export const router = createBrowserRouter([
       {
         path: "/companies",
         element: <CompaniesPage />,
+      },
+      {
+        path: "/calendar",
+        element: <CalendarPage />,
       },
     ],
   },

@@ -95,3 +95,19 @@ export async function deleteApplication(id: number): Promise<Application> {
 
   return response.data;
 }
+
+export async function getFollowUps(): Promise<Application[]> {
+  const response = await apiClient.get<Application[]>(
+    "/applications/follow-ups",
+  );
+
+  return response.data;
+}
+
+export async function getInterviews(): Promise<Application[]> {
+  const response = await apiClient.get<Application[]>(
+    "/applications/interviews",
+  );
+
+  return response.data;
+}
