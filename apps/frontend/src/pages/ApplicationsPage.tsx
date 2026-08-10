@@ -28,6 +28,9 @@ function ApplicationsPage() {
   const [editSource, setEditSource] = useState("");
   const [editContactName, setEditContactName] = useState("");
 
+  const [editFollowUpAt, setEditFollowUpAt] = useState("");
+  const [editInterviewAt, setEditInterviewAt] = useState("");
+
   const jobOffersQuery = useQuery({
     queryKey: ["job-offers"],
     queryFn: getJobOffers,
@@ -61,14 +64,24 @@ function ApplicationsPage() {
         status?: ApplicationStatus;
         source?: string;
         contactName?: string;
+        followUpAt?: string;
+        interviewAt?: string;
       };
     }) => updateApplication(id, input),
     onSuccess: async () => {
       setEditingApplicationId(null);
 
-      await queryClient.invalidateQueries({
-        queryKey: ["applications"],
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["applications"],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["follow-ups"],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["interviews"],
+        }),
+      ]);
     },
   });
 
@@ -328,6 +341,20 @@ function ApplicationsPage() {
                       setEditStatus(application.status);
                       setEditSource(application.source ?? "");
                       setEditContactName(application.contactName ?? "");
+                      setEditFollowUpAt(
+                        application.followUpAt
+                          ? new Date(application.followUpAt)
+                              .toISOString()
+                              .slice(0, 10)
+                          : "",
+                      );
+                      setEditInterviewAt(
+                        application.interviewAt
+                          ? new Date(application.interviewAt)
+                              .toISOString()
+                              .slice(0, 16)
+                          : "",
+                      );
                     }}
                     className="mt-4 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
                   >
@@ -362,6 +389,14 @@ function ApplicationsPage() {
                           status: editStatus,
                           source: editSource || undefined,
                           contactName: editContactName || undefined,
+
+                          followUpAt: editFollowUpAt
+                            ? new Date(editFollowUpAt).toISOString()
+                            : undefined,
+
+                          interviewAt: editInterviewAt
+                            ? new Date(editInterviewAt).toISOString()
+                            : undefined,
                         },
                       });
                     }}
@@ -411,7 +446,35 @@ function ApplicationsPage() {
                         className="rounded-md border border-gray-300 px-3 py-2"
                       />
                     </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="text-sm font-medium text-gray-700">
+                        Date de relance
+                      </span>
 
+                      <input
+                        type="date"
+                        value={editFollowUpAt}
+                        onChange={(event) =>
+                          setEditFollowUpAt(event.target.value)
+                        }
+                        className="rounded-md border border-gray-300 px-3 py-2"
+                      />
+                    </label>
+
+                    <label className="flex flex-col gap-1">
+                      <span className="text-sm font-medium text-gray-700">
+                        Date d'entretien
+                      </span>
+
+                      <input
+                        type="datetime-local"
+                        value={editInterviewAt}
+                        onChange={(event) =>
+                          setEditInterviewAt(event.target.value)
+                        }
+                        className="rounded-md border border-gray-300 px-3 py-2"
+                      />
+                    </label>
                     <div className="flex gap-2">
                       <button
                         type="submit"
