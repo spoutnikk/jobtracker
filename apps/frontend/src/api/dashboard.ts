@@ -12,6 +12,8 @@ export interface DashboardStats {
   totalJobOffers: number;
   upcomingFollowUps: number;
   upcomingInterviews: number;
+  recentApplications: number;
+  interviewRate: number;
   applicationsByStatus: ApplicationsByStatus[];
 }
 

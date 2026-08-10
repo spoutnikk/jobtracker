@@ -32,7 +32,7 @@ function DashboardPage() {
       <div className="mx-auto max-w-5xl">
         <h1 className="text-3xl font-bold">Tableau de bord</h1>
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <article className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
             <p className="text-sm text-gray-600">Candidatures</p>
             <p className="mt-2 text-3xl font-bold">{stats.totalApplications}</p>
@@ -58,6 +58,17 @@ function DashboardPage() {
             <p className="mt-2 text-3xl font-bold">
               {stats.upcomingInterviews}
             </p>
+          </article>
+          <article className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+            <p className="text-sm text-gray-600">Candidatures sur 30 jours</p>
+            <p className="mt-2 text-3xl font-bold">
+              {stats.recentApplications}
+            </p>
+          </article>
+
+          <article className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+            <p className="text-sm text-gray-600">Taux d'entretien</p>
+            <p className="mt-2 text-3xl font-bold">{stats.interviewRate}%</p>
           </article>
         </div>
 

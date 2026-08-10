@@ -40,9 +40,11 @@ describe('DashboardService', () => {
 
   it('should return dashboard statistics', async () => {
     prismaServiceMock.application.count
-      .mockResolvedValueOnce(2)
-      .mockResolvedValueOnce(1)
-      .mockResolvedValueOnce(1);
+      .mockResolvedValueOnce(2) // totalApplications
+      .mockResolvedValueOnce(1) // upcomingFollowUps
+      .mockResolvedValueOnce(1) // upcomingInterviews
+      .mockResolvedValueOnce(2) // recentApplications
+      .mockResolvedValueOnce(1); // applicationsWithInterview
 
     prismaServiceMock.company.count.mockResolvedValue(3);
     prismaServiceMock.jobOffer.count.mockResolvedValue(1);
@@ -68,19 +70,19 @@ describe('DashboardService', () => {
       totalJobOffers: 1,
       upcomingFollowUps: 1,
       upcomingInterviews: 1,
+      recentApplications: 2,
+      interviewRate: 50,
       applicationsByStatus: [
-        {
-          status: 'DRAFT',
-          count: 1,
-        },
-        {
-          status: 'APPLIED',
-          count: 1,
-        },
+        { status: 'DRAFT', count: 1 },
+        { status: 'APPLIED', count: 1 },
+        { status: 'FOLLOW_UP', count: 0 },
+        { status: 'INTERVIEW', count: 0 },
+        { status: 'ACCEPTED', count: 0 },
+        { status: 'REJECTED', count: 0 },
       ],
     });
 
-    expect(prismaServiceMock.application.count).toHaveBeenCalledTimes(3);
+    expect(prismaServiceMock.application.count).toHaveBeenCalledTimes(5);
     expect(prismaServiceMock.company.count).toHaveBeenCalledTimes(1);
     expect(prismaServiceMock.jobOffer.count).toHaveBeenCalledTimes(1);
 
