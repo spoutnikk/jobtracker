@@ -3,6 +3,7 @@ import {
   createApplication,
   getApplications,
   updateApplication,
+  deleteApplication,
   type ApplicationStatus,
 } from "../api/applications";
 import { getJobOffers } from "../api/job-offers";
@@ -65,6 +66,15 @@ function ApplicationsPage() {
     onSuccess: async () => {
       setEditingApplicationId(null);
 
+      await queryClient.invalidateQueries({
+        queryKey: ["applications"],
+      });
+    },
+  });
+
+  const deleteApplicationMutation = useMutation({
+    mutationFn: deleteApplication,
+    onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: ["applications"],
       });
@@ -310,18 +320,36 @@ function ApplicationsPage() {
                     <p>Contact : {application.contactName}</p>
                   )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditingApplicationId(application.id);
-                    setEditStatus(application.status);
-                    setEditSource(application.source ?? "");
-                    setEditContactName(application.contactName ?? "");
-                  }}
-                  className="mt-4 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                >
-                  Modifier
-                </button>
+                <div className="mt-4 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingApplicationId(application.id);
+                      setEditStatus(application.status);
+                      setEditSource(application.source ?? "");
+                      setEditContactName(application.contactName ?? "");
+                    }}
+                    className="mt-4 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Modifier
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const confirmed = window.confirm(
+                        `Supprimer la candidature "${application.jobOffer.title}" ?`,
+                      );
+
+                      if (confirmed) {
+                        deleteApplicationMutation.mutate(application.id);
+                      }
+                    }}
+                    disabled={deleteApplicationMutation.isPending}
+                    className="mt-4 rounded-md border border-red-300 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+                  >
+                    Supprimer
+                  </button>
+                </div>
                 {editingApplicationId === application.id && (
                   <form
                     className="mt-4 space-y-3 rounded-md border border-gray-200 bg-gray-50 p-4"

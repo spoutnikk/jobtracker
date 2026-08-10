@@ -89,3 +89,9 @@ export async function updateApplication(
 
   return response.data;
 }
+
+export async function deleteApplication(id: number): Promise<Application> {
+  const response = await apiClient.delete<Application>(`/applications/${id}`);
+
+  return response.data;
+}
