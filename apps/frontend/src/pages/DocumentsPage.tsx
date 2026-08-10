@@ -7,6 +7,7 @@ import {
   uploadDocument,
   type DocumentType,
 } from "../api/documents";
+import { getApplications } from "../api/applications";
 
 function DocumentsPage() {
   const queryClient = useQueryClient();
@@ -14,6 +15,13 @@ function DocumentsPage() {
   const [file, setFile] = useState<File | null>(null);
   const [name, setName] = useState("");
   const [type, setType] = useState<DocumentType>("OTHER");
+
+  const [applicationId, setApplicationId] = useState<number | null>(null);
+
+  const applicationsQuery = useQuery({
+    queryKey: ["applications"],
+    queryFn: getApplications,
+  });
 
   const documentsQuery = useQuery({
     queryKey: ["documents"],
@@ -26,6 +34,7 @@ function DocumentsPage() {
       setFile(null);
       setName("");
       setType("OTHER");
+      setApplicationId(null);
 
       await queryClient.invalidateQueries({
         queryKey: ["documents"],
@@ -53,6 +62,7 @@ function DocumentsPage() {
       file,
       name,
       type,
+      applicationId: applicationId ?? undefined,
     });
   }
 
@@ -83,7 +93,7 @@ function DocumentsPage() {
         >
           <h2 className="text-lg font-semibold">Ajouter un document</h2>
 
-          <div className="mt-4 grid gap-4 md:grid-cols-3">
+          <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <label className="flex flex-col gap-1">
               <span className="text-sm font-medium text-gray-700">Nom</span>
 
@@ -123,6 +133,30 @@ function DocumentsPage() {
                 required
                 className="rounded-md border border-gray-300 px-3 py-2"
               />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-medium text-gray-700">
+                Candidature associée
+              </span>
+
+              <select
+                value={applicationId ?? ""}
+                onChange={(event) =>
+                  setApplicationId(
+                    event.target.value ? Number(event.target.value) : null,
+                  )
+                }
+                className="rounded-md border border-gray-300 px-3 py-2"
+              >
+                <option value="">Aucune candidature</option>
+
+                {applicationsQuery.data?.map((application) => (
+                  <option key={application.id} value={application.id}>
+                    {application.jobOffer.title} —{" "}
+                    {application.jobOffer.company.name}
+                  </option>
+                ))}
+              </select>
             </label>
           </div>
 
