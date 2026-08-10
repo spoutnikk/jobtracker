@@ -117,4 +117,44 @@ export class ApplicationsService {
       },
     });
   }
+
+  findFollowUps() {
+    return this.prisma.application.findMany({
+      where: {
+        followUpAt: {
+          gte: new Date(),
+        },
+      },
+      include: {
+        jobOffer: {
+          include: {
+            company: true,
+          },
+        },
+      },
+      orderBy: {
+        followUpAt: 'asc',
+      },
+    });
+  }
+
+  findInterviews() {
+    return this.prisma.application.findMany({
+      where: {
+        interviewAt: {
+          gte: new Date(),
+        },
+      },
+      include: {
+        jobOffer: {
+          include: {
+            company: true,
+          },
+        },
+      },
+      orderBy: {
+        interviewAt: 'asc',
+      },
+    });
+  }
 }

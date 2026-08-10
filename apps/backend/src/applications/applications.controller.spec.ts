@@ -11,6 +11,8 @@ describe('ApplicationsController', () => {
     findOne: jest.fn(),
     update: jest.fn(),
     remove: jest.fn(),
+    findFollowUps: jest.fn(),
+    findInterviews: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -98,5 +100,35 @@ describe('ApplicationsController', () => {
     await expect(controller.remove(1)).resolves.toEqual(application);
 
     expect(applicationsServiceMock.remove).toHaveBeenCalledWith(1);
+  });
+
+  it('should return upcoming follow-ups', async () => {
+    const applications = [
+      {
+        id: 1,
+        followUpAt: '2026-08-15T10:00:00.000Z',
+      },
+    ];
+
+    applicationsServiceMock.findFollowUps.mockResolvedValue(applications);
+
+    await expect(controller.findFollowUps()).resolves.toEqual(applications);
+
+    expect(applicationsServiceMock.findFollowUps).toHaveBeenCalledTimes(1);
+  });
+
+  it('should return upcoming interviews', async () => {
+    const applications = [
+      {
+        id: 1,
+        interviewAt: '2026-08-20T14:00:00.000Z',
+      },
+    ];
+
+    applicationsServiceMock.findInterviews.mockResolvedValue(applications);
+
+    await expect(controller.findInterviews()).resolves.toEqual(applications);
+
+    expect(applicationsServiceMock.findInterviews).toHaveBeenCalledTimes(1);
   });
 });

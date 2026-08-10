@@ -26,6 +26,16 @@ export class ApplicationsController {
     return this.applicationsService.findAll();
   }
 
+  @Get('follow-ups')
+  findFollowUps() {
+    return this.applicationsService.findFollowUps();
+  }
+
+  @Get('interviews')
+  findInterviews() {
+    return this.applicationsService.findInterviews();
+  }
+
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.applicationsService.findOne(id);

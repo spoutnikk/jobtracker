@@ -211,4 +211,72 @@ describe('ApplicationsService', () => {
 
     expect(prismaServiceMock.application.delete).not.toHaveBeenCalled();
   });
+
+  it('should return upcoming follow-ups ordered by date', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-08-10T10:00:00.000Z'));
+
+    const applications = [
+      {
+        id: 1,
+        followUpAt: new Date('2026-08-15T10:00:00.000Z'),
+      },
+    ];
+
+    prismaServiceMock.application.findMany.mockResolvedValue(applications);
+
+    await expect(service.findFollowUps()).resolves.toEqual(applications);
+
+    expect(prismaServiceMock.application.findMany).toHaveBeenCalledWith({
+      where: {
+        followUpAt: {
+          gte: new Date('2026-08-10T10:00:00.000Z'),
+        },
+      },
+      include: {
+        jobOffer: {
+          include: {
+            company: true,
+          },
+        },
+      },
+      orderBy: {
+        followUpAt: 'asc',
+      },
+    });
+  });
+
+  it('should return upcoming interviews ordered by date', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-08-10T10:00:00.000Z'));
+
+    const applications = [
+      {
+        id: 1,
+        interviewAt: new Date('2026-08-20T14:00:00.000Z'),
+      },
+    ];
+
+    prismaServiceMock.application.findMany.mockResolvedValue(applications);
+
+    await expect(service.findInterviews()).resolves.toEqual(applications);
+
+    expect(prismaServiceMock.application.findMany).toHaveBeenCalledWith({
+      where: {
+        interviewAt: {
+          gte: new Date('2026-08-10T10:00:00.000Z'),
+        },
+      },
+      include: {
+        jobOffer: {
+          include: {
+            company: true,
+          },
+        },
+      },
+      orderBy: {
+        interviewAt: 'asc',
+      },
+    });
+  });
 });
