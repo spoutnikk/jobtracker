@@ -1,6 +1,21 @@
 import { useQuery } from "@tanstack/react-query";
 import { getFollowUps, getInterviews } from "../api/applications";
 
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat("fr-FR", {
+    dateStyle: "full",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
+
+function isSoon(value: string) {
+  const eventDate = new Date(value).getTime();
+  const now = Date.now();
+  const threeDays = 3 * 24 * 60 * 60 * 1000;
+
+  return eventDate >= now && eventDate - now <= threeDays;
+}
+
 function CalendarPage() {
   const followUpsQuery = useQuery({
     queryKey: ["follow-ups"],
@@ -54,11 +69,26 @@ function CalendarPage() {
                   <p className="mt-1 text-gray-600">
                     {application.jobOffer.company.name}
                   </p>
+                  <div className="mt-2 flex flex-wrap gap-2 text-sm text-gray-600">
+                    {application.jobOffer.location && (
+                      <span>{application.jobOffer.location}</span>
+                    )}
 
+                    {application.jobOffer.contractType && (
+                      <span>• {application.jobOffer.contractType}</span>
+                    )}
+
+                    <span>• {application.status}</span>
+                  </div>
                   {application.followUpAt && (
-                    <p className="mt-3 text-sm text-gray-700">
-                      Relance prévue le{" "}
-                      {new Date(application.followUpAt).toLocaleString("fr-FR")}
+                    <p
+                      className={
+                        isSoon(application.followUpAt)
+                          ? "mt-3 text-sm font-semibold text-orange-600"
+                          : "mt-3 text-sm text-gray-700"
+                      }
+                    >
+                      Relance prévue le {formatDateTime(application.followUpAt)}
                     </p>
                   )}
                 </article>
@@ -86,13 +116,27 @@ function CalendarPage() {
                   <p className="mt-1 text-gray-600">
                     {application.jobOffer.company.name}
                   </p>
+                  <div className="mt-2 flex flex-wrap gap-2 text-sm text-gray-600">
+                    {application.jobOffer.location && (
+                      <span>{application.jobOffer.location}</span>
+                    )}
 
+                    {application.jobOffer.contractType && (
+                      <span>• {application.jobOffer.contractType}</span>
+                    )}
+
+                    <span>• {application.status}</span>
+                  </div>
                   {application.interviewAt && (
-                    <p className="mt-3 text-sm text-gray-700">
+                    <p
+                      className={
+                        isSoon(application.interviewAt)
+                          ? "mt-3 text-sm font-semibold text-orange-600"
+                          : "mt-3 text-sm text-gray-700"
+                      }
+                    >
                       Entretien prévu le{" "}
-                      {new Date(application.interviewAt).toLocaleString(
-                        "fr-FR",
-                      )}
+                      {formatDateTime(application.interviewAt)}
                     </p>
                   )}
                 </article>
