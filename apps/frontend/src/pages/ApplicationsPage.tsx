@@ -7,6 +7,11 @@ import {
   type ApplicationStatus,
 } from "../api/applications";
 import { getJobOffers } from "../api/job-offers";
+import {
+  createApplicationEvent,
+  getApplicationEvents,
+  type ApplicationEventType,
+} from "../api/application-events";
 import { useState } from "react";
 
 function ApplicationsPage() {
@@ -31,9 +36,23 @@ function ApplicationsPage() {
   const [editFollowUpAt, setEditFollowUpAt] = useState("");
   const [editInterviewAt, setEditInterviewAt] = useState("");
 
+  const [journalApplicationId, setJournalApplicationId] = useState<
+    number | null
+  >(null);
+
+  const [eventType, setEventType] = useState<ApplicationEventType>("NOTE");
+  const [eventTitle, setEventTitle] = useState("");
+  const [eventDescription, setEventDescription] = useState("");
+
   const jobOffersQuery = useQuery({
     queryKey: ["job-offers"],
     queryFn: getJobOffers,
+  });
+
+  const applicationEventsQuery = useQuery({
+    queryKey: ["application-events", journalApplicationId],
+    queryFn: () => getApplicationEvents(journalApplicationId!),
+    enabled: journalApplicationId !== null,
   });
 
   const createApplicationMutation = useMutation({
@@ -90,6 +109,19 @@ function ApplicationsPage() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: ["applications"],
+      });
+    },
+  });
+
+  const createApplicationEventMutation = useMutation({
+    mutationFn: createApplicationEvent,
+    onSuccess: async () => {
+      setEventType("NOTE");
+      setEventTitle("");
+      setEventDescription("");
+
+      await queryClient.invalidateQueries({
+        queryKey: ["application-events", journalApplicationId],
       });
     },
   });
@@ -376,7 +408,144 @@ function ApplicationsPage() {
                   >
                     Supprimer
                   </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setJournalApplicationId((current) =>
+                        current === application.id ? null : application.id,
+                      )
+                    }
+                    className="mt-4 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Journal
+                  </button>
                 </div>
+                {journalApplicationId === application.id && (
+                  <section className="mt-4 rounded-md border border-gray-200 bg-gray-50 p-4">
+                    <h3 className="text-lg font-semibold">Journal</h3>
+
+                    {applicationEventsQuery.isPending && (
+                      <p className="mt-3 text-sm text-gray-600">
+                        Chargement du journal...
+                      </p>
+                    )}
+
+                    {applicationEventsQuery.isError && (
+                      <p className="mt-3 text-sm text-red-600">
+                        Impossible de charger le journal.
+                      </p>
+                    )}
+
+                    {applicationEventsQuery.isSuccess && (
+                      <>
+                        {applicationEventsQuery.data.length === 0 ? (
+                          <p className="mt-3 text-sm text-gray-600">
+                            Aucun événement enregistré.
+                          </p>
+                        ) : (
+                          <div className="mt-4 space-y-3">
+                            {applicationEventsQuery.data.map((event) => (
+                              <article
+                                key={event.id}
+                                className="rounded-md border border-gray-200 bg-white p-3"
+                              >
+                                <div className="flex items-start justify-between gap-4">
+                                  <div>
+                                    <p className="font-medium">{event.title}</p>
+                                    <p className="mt-1 text-xs text-gray-500">
+                                      {event.type}
+                                    </p>
+                                  </div>
+
+                                  <time className="text-xs text-gray-500">
+                                    {new Date(event.occurredAt).toLocaleString(
+                                      "fr-FR",
+                                    )}
+                                  </time>
+                                </div>
+
+                                {event.description && (
+                                  <p className="mt-2 text-sm text-gray-700">
+                                    {event.description}
+                                  </p>
+                                )}
+                              </article>
+                            ))}
+                          </div>
+                        )}
+
+                        <form
+                          className="mt-5 space-y-3"
+                          onSubmit={(event) => {
+                            event.preventDefault();
+
+                            createApplicationEventMutation.mutate({
+                              applicationId: application.id,
+                              type: eventType,
+                              title: eventTitle,
+                              description: eventDescription || undefined,
+                            });
+                          }}
+                        >
+                          <h4 className="font-medium">Ajouter un événement</h4>
+
+                          <select
+                            value={eventType}
+                            onChange={(event) =>
+                              setEventType(
+                                event.target.value as ApplicationEventType,
+                              )
+                            }
+                            className="w-full rounded-md border border-gray-300 px-3 py-2"
+                          >
+                            <option value="NOTE">Note</option>
+                            <option value="STATUS_CHANGED">
+                              Changement de statut
+                            </option>
+                            <option value="APPLICATION_SENT">
+                              Candidature envoyée
+                            </option>
+                            <option value="FOLLOW_UP">Relance</option>
+                            <option value="INTERVIEW">Entretien</option>
+                            <option value="DOCUMENT_ADDED">
+                              Document ajouté
+                            </option>
+                            <option value="OTHER">Autre</option>
+                          </select>
+
+                          <input
+                            type="text"
+                            value={eventTitle}
+                            onChange={(event) =>
+                              setEventTitle(event.target.value)
+                            }
+                            placeholder="Titre de l'événement"
+                            required
+                            className="w-full rounded-md border border-gray-300 px-3 py-2"
+                          />
+
+                          <textarea
+                            value={eventDescription}
+                            onChange={(event) =>
+                              setEventDescription(event.target.value)
+                            }
+                            placeholder="Description facultative"
+                            rows={3}
+                            className="w-full rounded-md border border-gray-300 px-3 py-2"
+                          />
+
+                          <button
+                            type="submit"
+                            disabled={createApplicationEventMutation.isPending}
+                            className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+                          >
+                            Ajouter au journal
+                          </button>
+                        </form>
+                      </>
+                    )}
+                  </section>
+                )}
                 {editingApplicationId === application.id && (
                   <form
                     className="mt-4 space-y-3 rounded-md border border-gray-200 bg-gray-50 p-4"
