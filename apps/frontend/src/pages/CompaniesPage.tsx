@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createCompany, getCompanies } from "../api/companies";
+import { createCompany, getCompanies, updateCompany } from "../api/companies";
 import { useState } from "react";
 
 function CompaniesPage() {
@@ -13,12 +13,38 @@ function CompaniesPage() {
   const [website, setWebsite] = useState("");
   const [city, setCity] = useState("");
 
+  const [editingCompanyId, setEditingCompanyId] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editWebsite, setEditWebsite] = useState("");
+  const [editCity, setEditCity] = useState("");
+
   const createCompanyMutation = useMutation({
     mutationFn: createCompany,
     onSuccess: async () => {
       setName("");
       setWebsite("");
       setCity("");
+
+      await queryClient.invalidateQueries({
+        queryKey: ["companies"],
+      });
+    },
+  });
+
+  const updateCompanyMutation = useMutation({
+    mutationFn: ({
+      id,
+      input,
+    }: {
+      id: number;
+      input: {
+        name?: string;
+        website?: string;
+        city?: string;
+      };
+    }) => updateCompany(id, input),
+    onSuccess: async () => {
+      setEditingCompanyId(null);
 
       await queryClient.invalidateQueries({
         queryKey: ["companies"],
@@ -127,6 +153,90 @@ function CompaniesPage() {
                 key={company.id}
                 className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
               >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingCompanyId(company.id);
+                    setEditName(company.name);
+                    setEditWebsite(company.website ?? "");
+                    setEditCity(company.city ?? "");
+                  }}
+                  className="mt-4 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Modifier
+                </button>
+                {editingCompanyId === company.id && (
+                  <form
+                    className="mt-4 space-y-3 rounded-md border border-gray-200 bg-gray-50 p-4"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+
+                      updateCompanyMutation.mutate({
+                        id: company.id,
+                        input: {
+                          name: editName,
+                          website: editWebsite || undefined,
+                          city: editCity || undefined,
+                        },
+                      });
+                    }}
+                  >
+                    <label className="flex flex-col gap-1">
+                      <span className="text-sm font-medium text-gray-700">
+                        Nom
+                      </span>
+                      <input
+                        type="text"
+                        value={editName}
+                        onChange={(event) => setEditName(event.target.value)}
+                        required
+                        className="rounded-md border border-gray-300 px-3 py-2"
+                      />
+                    </label>
+
+                    <label className="flex flex-col gap-1">
+                      <span className="text-sm font-medium text-gray-700">
+                        Site web
+                      </span>
+                      <input
+                        type="url"
+                        value={editWebsite}
+                        onChange={(event) => setEditWebsite(event.target.value)}
+                        className="rounded-md border border-gray-300 px-3 py-2"
+                      />
+                    </label>
+
+                    <label className="flex flex-col gap-1">
+                      <span className="text-sm font-medium text-gray-700">
+                        Ville
+                      </span>
+                      <input
+                        type="text"
+                        value={editCity}
+                        onChange={(event) => setEditCity(event.target.value)}
+                        className="rounded-md border border-gray-300 px-3 py-2"
+                      />
+                    </label>
+
+                    <div className="flex gap-2">
+                      <button
+                        type="submit"
+                        disabled={updateCompanyMutation.isPending}
+                        className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+                      >
+                        Enregistrer
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setEditingCompanyId(null)}
+                        className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+                      >
+                        Annuler
+                      </button>
+                    </div>
+                  </form>
+                )}
                 <h2 className="text-xl font-semibold">{company.name}</h2>
 
                 <div className="mt-3 space-y-1 text-sm text-gray-600">
