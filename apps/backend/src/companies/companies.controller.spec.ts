@@ -8,6 +8,7 @@ describe('CompaniesController', () => {
   const companiesServiceMock = {
     findAll: jest.fn(),
     findOne: jest.fn(),
+    create: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -60,5 +61,25 @@ describe('CompaniesController', () => {
     await expect(controller.findOne(1)).resolves.toEqual(company);
 
     expect(companiesServiceMock.findOne).toHaveBeenCalledWith(1);
+  });
+
+  it('should create a company', async () => {
+    const dto = {
+      name: 'TechNova',
+      website: 'https://technova.example',
+      city: 'Lyon',
+    };
+
+    const company = {
+      id: 2,
+      ...dto,
+      jobOffers: [],
+    };
+
+    companiesServiceMock.create.mockResolvedValue(company);
+
+    await expect(controller.create(dto)).resolves.toEqual(company);
+
+    expect(companiesServiceMock.create).toHaveBeenCalledWith(dto);
   });
 });

@@ -9,6 +9,7 @@ describe('CompaniesService', () => {
     company: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
+      create: jest.fn(),
     },
   };
 
@@ -84,5 +85,32 @@ describe('CompaniesService', () => {
     await expect(service.findOne(9999)).rejects.toThrow(
       'Company with id 9999 not found',
     );
+  });
+
+  it('should create a company', async () => {
+    const company = {
+      id: 2,
+      name: 'TechNova',
+      website: 'https://technova.example',
+      city: 'Lyon',
+      jobOffers: [],
+    };
+
+    prismaServiceMock.company.create.mockResolvedValue(company);
+
+    const dto = {
+      name: 'TechNova',
+      website: 'https://technova.example',
+      city: 'Lyon',
+    };
+
+    await expect(service.create(dto)).resolves.toEqual(company);
+
+    expect(prismaServiceMock.company.create).toHaveBeenCalledWith({
+      data: dto,
+      include: {
+        jobOffers: true,
+      },
+    });
   });
 });
