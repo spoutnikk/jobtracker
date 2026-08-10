@@ -9,6 +9,7 @@ import { JobOffersModule } from './job-offers/job-offers.module';
 import { CompaniesModule } from './companies/companies.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { DocumentsModule } from './documents/documents.module';
+import { ApplicationEventsModule } from './application-events/application-events.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { DocumentsModule } from './documents/documents.module';
     CompaniesModule,
     DashboardModule,
     DocumentsModule,
+    ApplicationEventsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -66,6 +66,8 @@ model Application {
 
   jobOfferId Int
   jobOffer   JobOffer @relation(fields: [jobOfferId], references: [id])
+
+  events ApplicationEvent[]
 }
 
 model Document {
@@ -81,6 +83,31 @@ model Document {
 
   applicationId Int?
   application   Application? @relation(fields: [applicationId], references: [id])
+}
+
+model ApplicationEvent {
+  id          Int                  @id @default(autoincrement())
+  type        ApplicationEventType
+  title       String
+  description String?
+  occurredAt  DateTime             @default(now())
+  createdAt   DateTime             @default(now())
+
+  applicationId Int
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId, occurredAt])
+}
+
+enum ApplicationEventType {
+  CREATED
+  STATUS_CHANGED
+  APPLICATION_SENT
+  FOLLOW_UP
+  INTERVIEW
+  DOCUMENT_ADDED
+  NOTE
+  OTHER
 }
 
 enum DocumentType {
