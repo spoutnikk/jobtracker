@@ -55,6 +55,16 @@ function AppLayout() {
           >
             Tableau de Bord
           </NavLink>
+          <NavLink
+            to="/documents"
+            className={({ isActive }) =>
+              isActive
+                ? "font-semibold text-blue-600"
+                : "text-gray-600 hover:text-gray-900"
+            }
+          >
+            Documents
+          </NavLink>
         </nav>
       </header>
 
