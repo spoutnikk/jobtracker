@@ -6,6 +6,7 @@ import { HealthModule } from './health/health.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ApplicationsModule } from './applications/applications.module';
 import { JobOffersModule } from './job-offers/job-offers.module';
+import { CompaniesModule } from './companies/companies.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { JobOffersModule } from './job-offers/job-offers.module';
     PrismaModule,
     ApplicationsModule,
     JobOffersModule,
+    CompaniesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
