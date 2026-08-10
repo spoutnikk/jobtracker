@@ -73,3 +73,19 @@ export async function createApplication(
 
   return response.data;
 }
+
+export type UpdateApplicationInput = Partial<
+  Omit<CreateApplicationInput, "userId" | "jobOfferId">
+>;
+
+export async function updateApplication(
+  id: number,
+  input: UpdateApplicationInput,
+): Promise<Application> {
+  const response = await apiClient.patch<Application>(
+    `/applications/${id}`,
+    input,
+  );
+
+  return response.data;
+}

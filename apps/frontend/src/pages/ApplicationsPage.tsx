@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createApplication,
   getApplications,
+  updateApplication,
   type ApplicationStatus,
 } from "../api/applications";
 import { getJobOffers } from "../api/job-offers";
@@ -18,8 +19,13 @@ function ApplicationsPage() {
   const [contactEmail, setContactEmail] = useState("");
   const [followUpAt, setFollowUpAt] = useState("");
   const [interviewAt, setInterviewAt] = useState("");
-
   const [jobOfferId, setJobOfferId] = useState<number | null>(null);
+  const [editingApplicationId, setEditingApplicationId] = useState<
+    number | null
+  >(null);
+  const [editStatus, setEditStatus] = useState<ApplicationStatus>("DRAFT");
+  const [editSource, setEditSource] = useState("");
+  const [editContactName, setEditContactName] = useState("");
 
   const jobOffersQuery = useQuery({
     queryKey: ["job-offers"],
@@ -37,6 +43,27 @@ function ApplicationsPage() {
       setContactEmail("");
       setFollowUpAt("");
       setInterviewAt("");
+
+      await queryClient.invalidateQueries({
+        queryKey: ["applications"],
+      });
+    },
+  });
+
+  const updateApplicationMutation = useMutation({
+    mutationFn: ({
+      id,
+      input,
+    }: {
+      id: number;
+      input: {
+        status?: ApplicationStatus;
+        source?: string;
+        contactName?: string;
+      };
+    }) => updateApplication(id, input),
+    onSuccess: async () => {
+      setEditingApplicationId(null);
 
       await queryClient.invalidateQueries({
         queryKey: ["applications"],
@@ -268,7 +295,6 @@ function ApplicationsPage() {
                     {application.status}
                   </span>
                 </div>
-
                 <div className="mt-4 space-y-1 text-sm text-gray-600">
                   {application.jobOffer.location && (
                     <p>Localisation : {application.jobOffer.location}</p>
@@ -284,6 +310,99 @@ function ApplicationsPage() {
                     <p>Contact : {application.contactName}</p>
                   )}
                 </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingApplicationId(application.id);
+                    setEditStatus(application.status);
+                    setEditSource(application.source ?? "");
+                    setEditContactName(application.contactName ?? "");
+                  }}
+                  className="mt-4 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Modifier
+                </button>
+                {editingApplicationId === application.id && (
+                  <form
+                    className="mt-4 space-y-3 rounded-md border border-gray-200 bg-gray-50 p-4"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+
+                      updateApplicationMutation.mutate({
+                        id: application.id,
+                        input: {
+                          status: editStatus,
+                          source: editSource || undefined,
+                          contactName: editContactName || undefined,
+                        },
+                      });
+                    }}
+                  >
+                    <label className="flex flex-col gap-1">
+                      <span className="text-sm font-medium text-gray-700">
+                        Statut
+                      </span>
+                      <select
+                        value={editStatus}
+                        onChange={(event) =>
+                          setEditStatus(event.target.value as ApplicationStatus)
+                        }
+                        className="rounded-md border border-gray-300 px-3 py-2"
+                      >
+                        <option value="DRAFT">À préparer</option>
+                        <option value="APPLIED">Envoyée</option>
+                        <option value="FOLLOW_UP">Relance</option>
+                        <option value="INTERVIEW">Entretien</option>
+                        <option value="ACCEPTED">Acceptée</option>
+                        <option value="REJECTED">Refusée</option>
+                      </select>
+                    </label>
+
+                    <label className="flex flex-col gap-1">
+                      <span className="text-sm font-medium text-gray-700">
+                        Source
+                      </span>
+                      <input
+                        type="text"
+                        value={editSource}
+                        onChange={(event) => setEditSource(event.target.value)}
+                        className="rounded-md border border-gray-300 px-3 py-2"
+                      />
+                    </label>
+
+                    <label className="flex flex-col gap-1">
+                      <span className="text-sm font-medium text-gray-700">
+                        Nom du contact
+                      </span>
+                      <input
+                        type="text"
+                        value={editContactName}
+                        onChange={(event) =>
+                          setEditContactName(event.target.value)
+                        }
+                        className="rounded-md border border-gray-300 px-3 py-2"
+                      />
+                    </label>
+
+                    <div className="flex gap-2">
+                      <button
+                        type="submit"
+                        disabled={updateApplicationMutation.isPending}
+                        className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+                      >
+                        Enregistrer
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setEditingApplicationId(null)}
+                        className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+                      >
+                        Annuler
+                      </button>
+                    </div>
+                  </form>
+                )}
               </article>
             ))}
           </div>
