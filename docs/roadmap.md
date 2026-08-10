@@ -1,7 +1,7 @@
-📋 Sprint 0 : cahier des charges et maquettes.
-🏗️ Sprint 1 : création de la solution et architecture.
-🗄️ Sprint 2 : base de données et modèle de données.
-💼 Sprint 3 : gestion des candidatures.
+✅ Sprint 0 : cahier des charges et maquettes.
+✅ Sprint 1 : création de la solution et architecture.
+✅ Sprint 2 : base de données et modèle de données.
+✅ Sprint 3 : gestion des candidatures.
 🏢 Sprint 4 : gestion des entreprises.
 📅 Sprint 5 : relances et calendrier.
 📊 Sprint 6 : tableau de bord et statistiques.
