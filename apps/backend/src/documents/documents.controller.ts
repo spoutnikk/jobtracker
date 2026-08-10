@@ -6,17 +6,38 @@ import {
   Post,
   UploadedFile,
   UseInterceptors,
+  Delete,
+  Param,
+  ParseIntPipe,
+  Res,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { DocumentsService } from './documents.service';
+import type { Response } from 'express';
 
 @Controller('documents')
 export class DocumentsController {
   constructor(private readonly documentsService: DocumentsService) {}
+  @Get(':id/download')
+  async download(
+    @Param('id', ParseIntPipe) id: number,
+    @Res() response: Response,
+  ) {
+    const document = await this.documentsService.findOne(id);
 
+    return response.download(document.path, document.originalName);
+  }
+  @Get(':id')
+  findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.documentsService.findOne(id);
+  }
+  @Delete(':id')
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.documentsService.remove(id);
+  }
   @Post()
   @UseInterceptors(
     FileInterceptor('file', {

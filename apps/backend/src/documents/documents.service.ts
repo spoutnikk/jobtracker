@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateDocumentDto } from './dto/create-document.dto';
+import { unlink } from 'fs/promises';
 
 @Injectable()
 export class DocumentsService {
@@ -43,6 +44,50 @@ export class DocumentsService {
       },
       orderBy: {
         createdAt: 'desc',
+      },
+    });
+  }
+  async findOne(id: number) {
+    const document = await this.prisma.document.findUnique({
+      where: {
+        id,
+      },
+      include: {
+        application: {
+          include: {
+            jobOffer: {
+              include: {
+                company: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!document) {
+      throw new NotFoundException(`Document with id ${id} not found`);
+    }
+
+    return document;
+  }
+
+  async remove(id: number) {
+    const document = await this.findOne(id);
+
+    try {
+      await unlink(document.path);
+    } catch (error: unknown) {
+      const fileSystemError = error as NodeJS.ErrnoException;
+
+      if (fileSystemError.code !== 'ENOENT') {
+        throw error;
+      }
+    }
+
+    return this.prisma.document.delete({
+      where: {
+        id,
       },
     });
   }

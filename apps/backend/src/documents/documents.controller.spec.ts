@@ -9,6 +9,8 @@ describe('DocumentsController', () => {
   const documentsServiceMock = {
     create: jest.fn(),
     findAll: jest.fn(),
+    findOne: jest.fn(),
+    remove: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -89,5 +91,59 @@ describe('DocumentsController', () => {
     await expect(controller.findAll()).resolves.toEqual(documents);
 
     expect(documentsServiceMock.findAll).toHaveBeenCalledTimes(1);
+  });
+
+  it('should return one document', async () => {
+    const document = {
+      id: 1,
+      name: 'Document de test',
+      path: 'uploads/test.txt',
+    };
+
+    documentsServiceMock.findOne.mockResolvedValue(document);
+
+    await expect(controller.findOne(1)).resolves.toEqual(document);
+
+    expect(documentsServiceMock.findOne).toHaveBeenCalledWith(1);
+  });
+
+  it('should remove a document', async () => {
+    const document = {
+      id: 1,
+      name: 'Document de test',
+    };
+
+    documentsServiceMock.remove.mockResolvedValue(document);
+
+    await expect(controller.remove(1)).resolves.toEqual(document);
+
+    expect(documentsServiceMock.remove).toHaveBeenCalledWith(1);
+  });
+
+  it('should download a document', async () => {
+    const document = {
+      id: 1,
+      name: 'Document de test',
+      originalName: 'document.txt',
+      path: 'uploads/document.txt',
+    };
+
+    const response = {
+      download: jest.fn(),
+    };
+
+    documentsServiceMock.findOne.mockResolvedValue(document);
+
+    await controller.download(
+      1,
+      response as unknown as import('express').Response,
+    );
+
+    expect(documentsServiceMock.findOne).toHaveBeenCalledWith(1);
+
+    expect(response.download).toHaveBeenCalledWith(
+      'uploads/document.txt',
+      'document.txt',
+    );
   });
 });

@@ -9,6 +9,8 @@ describe('DocumentsService', () => {
     document: {
       create: jest.fn(),
       findMany: jest.fn(),
+      findUnique: jest.fn(),
+      delete: jest.fn(),
     },
   };
 
@@ -99,6 +101,62 @@ describe('DocumentsService', () => {
       },
       orderBy: {
         createdAt: 'desc',
+      },
+    });
+  });
+  it('should return one document', async () => {
+    const document = {
+      id: 1,
+      name: 'Document de test',
+      path: 'uploads/test.txt',
+    };
+
+    prismaServiceMock.document.findUnique.mockResolvedValue(document);
+
+    await expect(service.findOne(1)).resolves.toEqual(document);
+
+    expect(prismaServiceMock.document.findUnique).toHaveBeenCalledWith({
+      where: {
+        id: 1,
+      },
+      include: {
+        application: {
+          include: {
+            jobOffer: {
+              include: {
+                company: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  });
+
+  it('should throw NotFoundException when document does not exist', async () => {
+    prismaServiceMock.document.findUnique.mockResolvedValue(null);
+
+    await expect(service.findOne(9999)).rejects.toThrow(
+      'Document with id 9999 not found',
+    );
+  });
+
+  it('should remove a document even when physical file is already missing', async () => {
+    const document = {
+      id: 1,
+      name: 'Document de test',
+      path: 'uploads/file-that-does-not-exist.txt',
+      application: null,
+    };
+
+    prismaServiceMock.document.findUnique.mockResolvedValue(document);
+    prismaServiceMock.document.delete.mockResolvedValue(document);
+
+    await expect(service.remove(1)).resolves.toEqual(document);
+
+    expect(prismaServiceMock.document.delete).toHaveBeenCalledWith({
+      where: {
+        id: 1,
       },
     });
   });
