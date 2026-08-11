@@ -1,5 +1,6 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createApplication,
@@ -32,6 +33,14 @@ vi.mock("../api/application-events", () => ({
   createApplicationEvent: vi.fn(),
   getApplicationEvents: vi.fn(),
 }));
+
+function renderApplicationsPage() {
+  return renderWithProviders(
+    <MemoryRouter>
+      <ApplicationsPage />
+    </MemoryRouter>,
+  );
+}
 
 const company = {
   id: 1,
@@ -122,7 +131,7 @@ describe("ApplicationsPage", () => {
   });
 
   it("renders an existing application", async () => {
-    renderWithProviders(<ApplicationsPage />);
+    renderApplicationsPage();
 
     const offerHeading = await screen.findByRole("heading", {
       name: jobOffer.title,
@@ -139,6 +148,9 @@ describe("ApplicationsPage", () => {
 
     expect(card.getByText(company.name)).toBeInTheDocument();
     expect(card.getByText(application.status)).toBeInTheDocument();
+    expect(
+      card.getByRole("link", { name: "Voir les détails" }),
+    ).toHaveAttribute("href", `/applications/${application.id}`);
     expect(
       card.getByText(`Localisation : ${jobOffer.location}`),
     ).toBeInTheDocument();
@@ -158,7 +170,7 @@ describe("ApplicationsPage", () => {
   it("renders an empty state", async () => {
     vi.mocked(getApplications).mockResolvedValue(paginatedApplications([]));
 
-    renderWithProviders(<ApplicationsPage />);
+    renderApplicationsPage();
 
     expect(
       await screen.findByText("Aucune candidature enregistrée."),
@@ -168,7 +180,7 @@ describe("ApplicationsPage", () => {
   it("renders a loading error", async () => {
     vi.mocked(getApplications).mockRejectedValue(new Error("Load failed"));
 
-    renderWithProviders(<ApplicationsPage />);
+    renderApplicationsPage();
 
     expect(
       await screen.findByText("Impossible de charger les candidatures."),
@@ -183,7 +195,7 @@ describe("ApplicationsPage", () => {
     "requests applications with the %s filter",
     async (label, value, expectedFilter) => {
       const user = userEvent.setup();
-      renderWithProviders(<ApplicationsPage />);
+      renderApplicationsPage();
 
       await screen.findByRole("heading", { name: jobOffer.title });
       await user.selectOptions(screen.getByLabelText(label), value);
@@ -205,7 +217,7 @@ describe("ApplicationsPage", () => {
       }),
     );
     const user = userEvent.setup();
-    renderWithProviders(<ApplicationsPage />);
+    renderApplicationsPage();
 
     expect(await screen.findByText("21 candidatures")).toBeInTheDocument();
     expect(screen.getByText("Page 1 sur 3")).toBeInTheDocument();
@@ -240,7 +252,7 @@ describe("ApplicationsPage", () => {
       }),
     );
 
-    renderWithProviders(<ApplicationsPage />);
+    renderApplicationsPage();
 
     await screen.findByRole("heading", { name: jobOffer.title });
     expect(screen.getByRole("button", { name: "Suivant" })).toBeDisabled();
@@ -255,7 +267,7 @@ describe("ApplicationsPage", () => {
       }),
     );
     const user = userEvent.setup();
-    renderWithProviders(<ApplicationsPage />);
+    renderApplicationsPage();
 
     await screen.findByRole("heading", { name: jobOffer.title });
     await user.click(screen.getByRole("button", { name: "Suivant" }));
@@ -303,7 +315,7 @@ describe("ApplicationsPage", () => {
       }),
     );
     const user = userEvent.setup();
-    renderWithProviders(<ApplicationsPage />);
+    renderApplicationsPage();
 
     await screen.findByRole("heading", { name: jobOffer.title });
     await user.selectOptions(screen.getByLabelText("Trier par"), "status");
@@ -323,7 +335,7 @@ describe("ApplicationsPage", () => {
 
   it("submits trimmed search text without querying on every character", async () => {
     const user = userEvent.setup();
-    renderWithProviders(<ApplicationsPage />);
+    renderApplicationsPage();
 
     await screen.findByRole("heading", { name: jobOffer.title });
     const callsBeforeTyping = vi.mocked(getApplications).mock.calls.length;
@@ -341,7 +353,7 @@ describe("ApplicationsPage", () => {
 
   it("combines filters and resets them without ever sending userId", async () => {
     const user = userEvent.setup();
-    renderWithProviders(<ApplicationsPage />);
+    renderApplicationsPage();
 
     await screen.findByRole("heading", { name: jobOffer.title });
     await user.selectOptions(
@@ -405,7 +417,7 @@ describe("ApplicationsPage", () => {
   it("distinguishes an empty filtered result", async () => {
     vi.mocked(getApplications).mockResolvedValue(paginatedApplications([]));
     const user = userEvent.setup();
-    renderWithProviders(<ApplicationsPage />);
+    renderApplicationsPage();
 
     await screen.findByText("Aucune candidature enregistrée.");
     await user.selectOptions(
@@ -421,7 +433,7 @@ describe("ApplicationsPage", () => {
   it("creates an application with the selected job offer", async () => {
     vi.mocked(getApplications).mockResolvedValue(paginatedApplications([]));
     const user = userEvent.setup();
-    const { queryClient } = renderWithProviders(<ApplicationsPage />);
+    const { queryClient } = renderApplicationsPage();
     const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
 
     const creationSection = (
@@ -484,7 +496,7 @@ describe("ApplicationsPage", () => {
 
   it("updates the application status", async () => {
     const user = userEvent.setup();
-    const { queryClient } = renderWithProviders(<ApplicationsPage />);
+    const { queryClient } = renderApplicationsPage();
     const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
 
     await user.click(await screen.findByRole("button", { name: "Modifier" }));
@@ -527,7 +539,7 @@ describe("ApplicationsPage", () => {
   it("plans a follow-up date", async () => {
     const user = userEvent.setup();
 
-    renderWithProviders(<ApplicationsPage />);
+    renderApplicationsPage();
 
     await user.click(await screen.findByRole("button", { name: "Modifier" }));
     const editForm = screen
@@ -560,7 +572,7 @@ describe("ApplicationsPage", () => {
   it("deletes an application after confirmation", async () => {
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     const user = userEvent.setup();
-    const { queryClient } = renderWithProviders(<ApplicationsPage />);
+    const { queryClient } = renderApplicationsPage();
     const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
 
     await user.click(await screen.findByRole("button", { name: "Supprimer" }));

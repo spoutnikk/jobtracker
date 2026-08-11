@@ -175,7 +175,7 @@ function DashboardPage() {
                       {formatDateTime(followUp.followUpAt)}
                     </p>
                     <Link
-                      to="/applications"
+                      to={`/applications/${followUp.applicationId}`}
                       className="mt-3 inline-block text-sm font-medium text-blue-700 hover:underline"
                     >
                       Voir la candidature « {followUp.jobTitle} »
@@ -208,7 +208,7 @@ function DashboardPage() {
                       {formatDateTime(interview.interviewAt)}
                     </p>
                     <Link
-                      to="/applications"
+                      to={`/applications/${interview.applicationId}`}
                       className="mt-3 inline-block text-sm font-medium text-blue-700 hover:underline"
                     >
                       Voir la candidature « {interview.jobTitle} »

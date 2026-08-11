@@ -1,5 +1,6 @@
 import { screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router-dom";
 import {
   getFollowUps,
   getInterviews,
@@ -67,6 +68,14 @@ const interview = createApplication({
   },
 });
 
+function renderCalendar() {
+  return renderWithProviders(
+    <MemoryRouter>
+      <CalendarPage />
+    </MemoryRouter>,
+  );
+}
+
 describe("CalendarPage", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -75,7 +84,7 @@ describe("CalendarPage", () => {
   });
 
   it("renders upcoming follow-ups and interviews", async () => {
-    renderWithProviders(<CalendarPage />);
+    renderCalendar();
 
     expect(
       await screen.findByRole("heading", { name: "Calendrier" }),
@@ -95,16 +104,26 @@ describe("CalendarPage", () => {
     ).toBeInTheDocument();
     expect(within(followUpCard!).getByText("Acme")).toBeInTheDocument();
     expect(
+      within(followUpCard!).getByRole("link", {
+        name: "Voir la candidature",
+      }),
+    ).toHaveAttribute("href", `/applications/${followUp.id}`);
+    expect(
       within(interviewCard!).getByText(/^Entretien prévu le /),
     ).toBeInTheDocument();
     expect(within(interviewCard!).getByText("Acme")).toBeInTheDocument();
+    expect(
+      within(interviewCard!).getByRole("link", {
+        name: "Voir la candidature",
+      }),
+    ).toHaveAttribute("href", `/applications/${interview.id}`);
   });
 
   it("renders the empty state for both event types", async () => {
     vi.mocked(getFollowUps).mockResolvedValue([]);
     vi.mocked(getInterviews).mockResolvedValue([]);
 
-    renderWithProviders(<CalendarPage />);
+    renderCalendar();
 
     expect(
       await screen.findByText("Aucune relance à venir."),
@@ -117,7 +136,7 @@ describe("CalendarPage", () => {
       () => new Promise<Application[]>(() => undefined),
     );
 
-    renderWithProviders(<CalendarPage />);
+    renderCalendar();
 
     expect(screen.getByText("Chargement du calendrier...")).toBeInTheDocument();
   });
@@ -125,7 +144,7 @@ describe("CalendarPage", () => {
   it("renders the error state", async () => {
     vi.mocked(getInterviews).mockRejectedValue(new Error("Request failed"));
 
-    renderWithProviders(<CalendarPage />);
+    renderCalendar();
 
     expect(
       await screen.findByText(

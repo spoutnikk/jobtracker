@@ -6,6 +6,7 @@ import {
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { apiClient } from "./client";
 import {
+  getApplication,
   getAllApplications,
   type Application,
   type PaginatedApplications,
@@ -24,6 +25,20 @@ const thirdApplication = { id: 101 } as Application;
 function response(
   data: PaginatedApplications,
 ): AxiosResponse<PaginatedApplications> {
+  const config: InternalAxiosRequestConfig = {
+    headers: new AxiosHeaders(),
+  };
+
+  return {
+    data,
+    status: 200,
+    statusText: "OK",
+    headers: {},
+    config,
+  };
+}
+
+function applicationResponse(data: Application): AxiosResponse<Application> {
   const config: InternalAxiosRequestConfig = {
     headers: new AxiosHeaders(),
   };
@@ -104,5 +119,20 @@ describe("getAllApplications", () => {
     expect(apiClient.get).toHaveBeenNthCalledWith(3, "/applications", {
       params: { page: 3, pageSize: 50 },
     });
+  });
+});
+
+describe("getApplication", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("loads one application by id", async () => {
+    vi.mocked(apiClient.get).mockResolvedValue(
+      applicationResponse(application),
+    );
+
+    await expect(getApplication(42)).resolves.toBe(application);
+    expect(apiClient.get).toHaveBeenCalledWith("/applications/42");
   });
 });

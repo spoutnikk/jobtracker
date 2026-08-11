@@ -36,6 +36,10 @@ function renderAuthRoutes(
         children: [
           { path: "/private", element: <p>Private content</p> },
           { path: "/dashboard", element: <p>Dashboard content</p> },
+          {
+            path: "/applications/:id",
+            element: <p>Application detail content</p>,
+          },
         ],
       },
       {
@@ -72,6 +76,24 @@ describe("Auth routes", () => {
     renderAuthRoutes("authenticated", "/private");
 
     expect(await screen.findByText("Private content")).toBeInTheDocument();
+  });
+
+  it("protects the application detail route", async () => {
+    const { router } = renderAuthRoutes("anonymous", "/applications/42");
+
+    expect(await screen.findByText("Login content")).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/login");
+    expect(router.state.location.state).toMatchObject({
+      from: { pathname: "/applications/42" },
+    });
+  });
+
+  it("renders an application detail route for an authenticated user", async () => {
+    renderAuthRoutes("authenticated", "/applications/42");
+
+    expect(
+      await screen.findByText("Application detail content"),
+    ).toBeInTheDocument();
   });
 
   it("redirects an authenticated login request to the dashboard", async () => {

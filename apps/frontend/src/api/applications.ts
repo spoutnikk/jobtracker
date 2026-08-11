@@ -86,6 +86,12 @@ export async function getApplications(
   return response.data;
 }
 
+export async function getApplication(id: number): Promise<Application> {
+  const response = await apiClient.get<Application>(`/applications/${id}`);
+
+  return response.data;
+}
+
 export async function getAllApplications(): Promise<Application[]> {
   const firstPage = await getApplications({ page: 1, pageSize: 50 });
 

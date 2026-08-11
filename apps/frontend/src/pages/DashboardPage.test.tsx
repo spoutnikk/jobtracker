@@ -168,7 +168,7 @@ describe("DashboardPage", () => {
       within(followUpsSection!).getByRole("link", {
         name: "Voir la candidature « Développeur backend »",
       }),
-    ).toHaveAttribute("href", "/applications");
+    ).toHaveAttribute("href", "/applications/1");
     expect(
       within(interviewsSection!)
         .getAllByRole("heading", { level: 3 })
@@ -178,6 +178,11 @@ describe("DashboardPage", () => {
     expect(
       within(interviewsSection!).getByText("vendredi 14 août 2026 à 11:00"),
     ).toBeInTheDocument();
+    expect(
+      within(interviewsSection!).getByRole("link", {
+        name: "Voir la candidature « Ingénieur DevOps »",
+      }),
+    ).toHaveAttribute("href", "/applications/3");
   });
 
   it("renders empty states for the next seven days", async () => {

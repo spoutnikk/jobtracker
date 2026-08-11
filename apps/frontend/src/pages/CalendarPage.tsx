@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import { getFollowUps, getInterviews } from "../api/applications";
 
 function formatDateTime(value: string) {
@@ -91,6 +92,12 @@ function CalendarPage() {
                       Relance prévue le {formatDateTime(application.followUpAt)}
                     </p>
                   )}
+                  <Link
+                    to={`/applications/${application.id}`}
+                    className="mt-3 inline-block text-sm font-medium text-blue-700 hover:underline"
+                  >
+                    Voir la candidature
+                  </Link>
                 </article>
               ))}
             </div>
@@ -139,6 +146,12 @@ function CalendarPage() {
                       {formatDateTime(application.interviewAt)}
                     </p>
                   )}
+                  <Link
+                    to={`/applications/${application.id}`}
+                    className="mt-3 inline-block text-sm font-medium text-blue-700 hover:underline"
+                  >
+                    Voir la candidature
+                  </Link>
                 </article>
               ))}
             </div>
