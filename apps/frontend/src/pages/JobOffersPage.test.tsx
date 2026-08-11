@@ -1,8 +1,14 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { AxiosError, AxiosHeaders } from "axios";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getCompanies } from "../api/companies";
-import { createJobOffer, getJobOffers, type JobOffer } from "../api/job-offers";
+import {
+  createJobOffer,
+  getJobOffers,
+  type JobOffer,
+  updateJobOffer,
+} from "../api/job-offers";
 import { renderWithProviders } from "../test/renderWithProviders";
 import JobOffersPage from "./JobOffersPage";
 
@@ -27,6 +33,16 @@ const company = {
   jobOffers: [],
 };
 
+const secondCompany = {
+  id: 2,
+  name: "Globex",
+  website: null,
+  city: "Lyon",
+  createdAt: "2026-08-11T08:00:00.000Z",
+  updatedAt: "2026-08-11T08:00:00.000Z",
+  jobOffers: [],
+};
+
 const jobOffer: JobOffer = {
   id: 1,
   title: "Développeur React",
@@ -42,11 +58,49 @@ const jobOffer: JobOffer = {
   company,
 };
 
+const updatedJobOffer: JobOffer = {
+  ...jobOffer,
+  title: "Développeur React Senior",
+  companyId: secondCompany.id,
+  company: secondCompany,
+  location: "Lyon",
+  contractType: "CDD",
+  salary: "60 000 €",
+};
+
+function expectedDatetimeLocal(value: string) {
+  const date = new Date(value);
+  const pad = (part: number) => String(part).padStart(2, "0");
+
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
+    date.getDate(),
+  )}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function createNotFoundAxiosError() {
+  return new AxiosError(
+    "Request failed with status code 404",
+    "ERR_BAD_REQUEST",
+    undefined,
+    undefined,
+    {
+      data: {},
+      status: 404,
+      statusText: "Not Found",
+      headers: {},
+      config: {
+        headers: new AxiosHeaders(),
+      },
+    },
+  );
+}
+
 describe("JobOffersPage", () => {
   beforeEach(() => {
     vi.mocked(getJobOffers).mockResolvedValue([]);
-    vi.mocked(getCompanies).mockResolvedValue([company]);
+    vi.mocked(getCompanies).mockResolvedValue([company, secondCompany]);
     vi.mocked(createJobOffer).mockResolvedValue(jobOffer);
+    vi.mocked(updateJobOffer).mockResolvedValue(updatedJobOffer);
   });
 
   it("renders the empty job offers page", async () => {
@@ -146,6 +200,177 @@ describe("JobOffersPage", () => {
     });
     expect(invalidateQueriesSpy).not.toHaveBeenCalledWith({
       queryKey: ["applications"],
+    });
+  });
+
+  it("prefills the edit form with the existing job offer", async () => {
+    vi.mocked(getJobOffers).mockResolvedValue([jobOffer]);
+    const user = userEvent.setup();
+
+    renderWithProviders(<JobOffersPage />);
+
+    await user.click(await screen.findByRole("button", { name: "Modifier" }));
+    const cancelButton = screen.getByRole("button", { name: "Annuler" });
+    const editForm = cancelButton.closest("form");
+
+    expect(editForm).not.toBeNull();
+
+    if (!editForm) {
+      throw new Error("Edit form not found");
+    }
+
+    const edit = within(editForm);
+
+    expect(edit.getByLabelText("Titre")).toHaveValue(jobOffer.title);
+    expect(edit.getByLabelText("Société")).toHaveValue(
+      String(jobOffer.companyId),
+    );
+    expect(edit.getByLabelText("URL")).toHaveValue(jobOffer.url);
+    expect(edit.getByLabelText("Description")).toHaveValue(
+      jobOffer.description,
+    );
+    expect(edit.getByLabelText("Localisation")).toHaveValue(jobOffer.location);
+    expect(edit.getByLabelText("Type de contrat")).toHaveValue(
+      jobOffer.contractType,
+    );
+    expect(edit.getByLabelText("Salaire")).toHaveValue(jobOffer.salary);
+    expect(edit.getByLabelText("Date de publication")).toHaveValue(
+      expectedDatetimeLocal(jobOffer.publishedAt!),
+    );
+  });
+
+  it("cancels editing without updating the job offer", async () => {
+    vi.mocked(getJobOffers).mockResolvedValue([jobOffer]);
+    const user = userEvent.setup();
+
+    renderWithProviders(<JobOffersPage />);
+
+    await user.click(await screen.findByRole("button", { name: "Modifier" }));
+    const cancelButton = screen.getByRole("button", { name: "Annuler" });
+    const editForm = cancelButton.closest("form");
+
+    if (!editForm) {
+      throw new Error("Edit form not found");
+    }
+
+    const edit = within(editForm);
+    await user.clear(edit.getByLabelText("Titre"));
+    await user.type(edit.getByLabelText("Titre"), "Titre temporaire");
+    await user.clear(edit.getByLabelText("Localisation"));
+    await user.type(edit.getByLabelText("Localisation"), "Marseille");
+    await user.click(cancelButton);
+
+    expect(
+      screen.queryByRole("button", { name: "Annuler" }),
+    ).not.toBeInTheDocument();
+    expect(updateJobOffer).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("heading", { name: jobOffer.title }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(`Localisation : ${jobOffer.location}`),
+    ).toBeInTheDocument();
+  });
+
+  it("updates a job offer and closes the edit form", async () => {
+    vi.mocked(getJobOffers).mockResolvedValue([jobOffer]);
+    const user = userEvent.setup();
+    const { queryClient } = renderWithProviders(<JobOffersPage />);
+    const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
+
+    await user.click(await screen.findByRole("button", { name: "Modifier" }));
+    const editForm = screen
+      .getByRole("button", { name: "Annuler" })
+      .closest("form");
+
+    if (!editForm) {
+      throw new Error("Edit form not found");
+    }
+
+    const edit = within(editForm);
+    await user.clear(edit.getByLabelText("Titre"));
+    await user.type(
+      edit.getByLabelText("Titre"),
+      "  Développeur React Senior  ",
+    );
+    await user.selectOptions(edit.getByLabelText("Société"), "2");
+    await user.clear(edit.getByLabelText("Localisation"));
+    await user.type(edit.getByLabelText("Localisation"), "Lyon");
+    await user.selectOptions(edit.getByLabelText("Type de contrat"), "CDD");
+    await user.clear(edit.getByLabelText("Salaire"));
+    await user.type(edit.getByLabelText("Salaire"), "60 000 €");
+    await user.click(edit.getByRole("button", { name: "Enregistrer" }));
+
+    await waitFor(() => {
+      expect(updateJobOffer).toHaveBeenCalledTimes(1);
+    });
+    const [updatedId, updateInput] = vi.mocked(updateJobOffer).mock.calls[0];
+
+    expect(updatedId).toBe(jobOffer.id);
+    expect(updateInput).toEqual({
+      title: "Développeur React Senior",
+      companyId: secondCompany.id,
+      url: jobOffer.url,
+      description: jobOffer.description,
+      location: "Lyon",
+      contractType: "CDD",
+      salary: "60 000 €",
+      publishedAt: jobOffer.publishedAt,
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("button", { name: "Annuler" }),
+      ).not.toBeInTheDocument();
+    });
+    expect(
+      screen.queryByText("Impossible de modifier l'offre."),
+    ).not.toBeInTheDocument();
+    expect(invalidateQueriesSpy).toHaveBeenCalledWith({
+      queryKey: ["job-offers"],
+    });
+    expect(invalidateQueriesSpy).toHaveBeenCalledWith({
+      queryKey: ["companies"],
+    });
+    expect(invalidateQueriesSpy).toHaveBeenCalledWith({
+      queryKey: ["applications"],
+    });
+    expect(invalidateQueriesSpy).not.toHaveBeenCalledWith({
+      queryKey: ["dashboard-stats"],
+    });
+  });
+
+  it("keeps editing open and refreshes data after a 404", async () => {
+    vi.mocked(getJobOffers).mockResolvedValue([jobOffer]);
+    vi.mocked(updateJobOffer).mockRejectedValue(createNotFoundAxiosError());
+    const user = userEvent.setup();
+    const { queryClient } = renderWithProviders(<JobOffersPage />);
+    const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
+
+    await user.click(await screen.findByRole("button", { name: "Modifier" }));
+    const editForm = screen
+      .getByRole("button", { name: "Annuler" })
+      .closest("form");
+
+    if (!editForm) {
+      throw new Error("Edit form not found");
+    }
+
+    await user.click(
+      within(editForm).getByRole("button", { name: "Enregistrer" }),
+    );
+
+    expect(
+      await screen.findByText(
+        "Impossible de modifier cette offre car elle ou la société sélectionnée n'existe plus.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Annuler" })).toBeInTheDocument();
+    expect(invalidateQueriesSpy).toHaveBeenCalledWith({
+      queryKey: ["job-offers"],
+    });
+    expect(invalidateQueriesSpy).toHaveBeenCalledWith({
+      queryKey: ["companies"],
     });
   });
 });
