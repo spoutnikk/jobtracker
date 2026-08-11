@@ -7,38 +7,55 @@ import CalendarPage from "../pages/CalendarPage";
 import DashboardPage from "../pages/DashboardPage";
 import DocumentsPage from "../pages/DocumentsPage";
 import JobOffersPage from "../pages/JobOffersPage";
+import LoginPage from "../pages/LoginPage";
+import AnonymousOnlyRoute from "./AnonymousOnlyRoute";
+import ProtectedRoute from "./ProtectedRoute";
 
 export const router = createBrowserRouter([
   {
-    element: <AppLayout />,
+    element: <AnonymousOnlyRoute />,
     children: [
       {
-        path: "/",
-        element: <HomePage />,
+        path: "/login",
+        element: <LoginPage />,
       },
+    ],
+  },
+  {
+    element: <ProtectedRoute />,
+    children: [
       {
-        path: "/applications",
-        element: <ApplicationsPage />,
-      },
-      {
-        path: "/companies",
-        element: <CompaniesPage />,
-      },
-      {
-        path: "/job-offers",
-        element: <JobOffersPage />,
-      },
-      {
-        path: "/calendar",
-        element: <CalendarPage />,
-      },
-      {
-        path: "/dashboard",
-        element: <DashboardPage />,
-      },
-      {
-        path: "/documents",
-        element: <DocumentsPage />,
+        element: <AppLayout />,
+        children: [
+          {
+            path: "/",
+            element: <HomePage />,
+          },
+          {
+            path: "/applications",
+            element: <ApplicationsPage />,
+          },
+          {
+            path: "/companies",
+            element: <CompaniesPage />,
+          },
+          {
+            path: "/job-offers",
+            element: <JobOffersPage />,
+          },
+          {
+            path: "/calendar",
+            element: <CalendarPage />,
+          },
+          {
+            path: "/dashboard",
+            element: <DashboardPage />,
+          },
+          {
+            path: "/documents",
+            element: <DocumentsPage />,
+          },
+        ],
       },
     ],
   },
