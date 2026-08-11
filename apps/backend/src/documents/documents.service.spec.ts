@@ -95,6 +95,57 @@ describe('DocumentsService', () => {
     });
   });
 
+  it('should propagate the application event error when creating a document', async () => {
+    const transactionError = new Error('Document event creation failed');
+    const dto = {
+      name: 'CV principal',
+      type: 'CV' as const,
+      applicationId: 1,
+    };
+    const file = {
+      originalname: 'cv.pdf',
+      mimetype: 'application/pdf',
+      size: 1234,
+      path: 'uploads/cv.pdf',
+    };
+    const document = {
+      id: 1,
+      ...dto,
+      originalName: file.originalname,
+      mimeType: file.mimetype,
+      size: file.size,
+      path: file.path,
+    };
+
+    prismaServiceMock.document.create.mockResolvedValue(document);
+    prismaServiceMock.applicationEvent.create.mockRejectedValueOnce(
+      transactionError,
+    );
+
+    await expect(service.create(dto, file)).rejects.toBe(transactionError);
+
+    expect(prismaServiceMock.$transaction).toHaveBeenCalledTimes(1);
+    expect(prismaServiceMock.document.create).toHaveBeenCalledWith({
+      data: {
+        name: 'CV principal',
+        originalName: 'cv.pdf',
+        mimeType: 'application/pdf',
+        size: 1234,
+        path: 'uploads/cv.pdf',
+        type: 'CV',
+        applicationId: 1,
+      },
+    });
+    expect(prismaServiceMock.applicationEvent.create).toHaveBeenCalledWith({
+      data: {
+        applicationId: 1,
+        type: 'DOCUMENT_ADDED',
+        title: 'Document ajouté',
+        description: 'CV principal',
+      },
+    });
+  });
+
   it('should create a document without an application event when applicationId is missing', async () => {
     const dto = {
       name: 'CV générique',

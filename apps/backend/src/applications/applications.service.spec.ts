@@ -154,6 +154,58 @@ describe('ApplicationsService', () => {
     });
   });
 
+  it('should propagate the application event error when creating an application', async () => {
+    const createdApplication = {
+      id: 1,
+      status: 'APPLIED',
+    };
+    const transactionError = new Error('Application event creation failed');
+    const dto = {
+      userId: 1,
+      jobOfferId: 1,
+      status: 'APPLIED' as const,
+      source: 'France Travail',
+      appliedAt: '2026-08-09T10:00:00.000Z',
+    };
+
+    prismaServiceMock.application.create.mockResolvedValue(createdApplication);
+    prismaServiceMock.applicationEvent.create.mockRejectedValueOnce(
+      transactionError,
+    );
+
+    await expect(service.create(dto)).rejects.toBe(transactionError);
+
+    expect(prismaServiceMock.$transaction).toHaveBeenCalledTimes(1);
+    expect(prismaServiceMock.application.create).toHaveBeenCalledWith({
+      data: {
+        userId: 1,
+        jobOfferId: 1,
+        status: 'APPLIED',
+        appliedAt: new Date('2026-08-09T10:00:00.000Z'),
+        source: 'France Travail',
+        notes: undefined,
+        contactName: undefined,
+        contactEmail: undefined,
+        followUpAt: undefined,
+        interviewAt: undefined,
+      },
+      include: {
+        jobOffer: {
+          include: {
+            company: true,
+          },
+        },
+      },
+    });
+    expect(prismaServiceMock.applicationEvent.create).toHaveBeenCalledWith({
+      data: {
+        applicationId: 1,
+        type: 'CREATED',
+        title: 'Candidature créée',
+      },
+    });
+  });
+
   it('should update an application', async () => {
     const existingApplication = {
       id: 1,
@@ -255,6 +307,73 @@ describe('ApplicationsService', () => {
     expect(prismaServiceMock.$transaction).toHaveBeenCalledTimes(1);
     expect(prismaServiceMock.application.update).not.toHaveBeenCalled();
     expect(prismaServiceMock.applicationEvent.create).not.toHaveBeenCalled();
+  });
+
+  it('should propagate the application event error when updating an application', async () => {
+    const transactionError = new Error('Application event creation failed');
+    const updatedApplication = {
+      id: 1,
+      status: 'INTERVIEW',
+    };
+    const dto = {
+      status: 'INTERVIEW' as const,
+    };
+
+    prismaServiceMock.application.findUnique.mockResolvedValue({
+      status: 'APPLIED',
+      followUpAt: null,
+      interviewAt: null,
+    });
+    prismaServiceMock.application.update.mockResolvedValue(updatedApplication);
+    prismaServiceMock.applicationEvent.create.mockRejectedValueOnce(
+      transactionError,
+    );
+
+    await expect(service.update(1, dto)).rejects.toBe(transactionError);
+
+    expect(prismaServiceMock.$transaction).toHaveBeenCalledTimes(1);
+    expect(prismaServiceMock.application.findUnique).toHaveBeenCalledWith({
+      where: {
+        id: 1,
+      },
+      select: {
+        status: true,
+        followUpAt: true,
+        interviewAt: true,
+      },
+    });
+    expect(prismaServiceMock.application.update).toHaveBeenCalledWith({
+      where: {
+        id: 1,
+      },
+      data: {
+        userId: undefined,
+        jobOfferId: undefined,
+        status: 'INTERVIEW',
+        appliedAt: undefined,
+        source: undefined,
+        notes: undefined,
+        contactName: undefined,
+        contactEmail: undefined,
+        followUpAt: undefined,
+        interviewAt: undefined,
+      },
+      include: {
+        jobOffer: {
+          include: {
+            company: true,
+          },
+        },
+      },
+    });
+    expect(prismaServiceMock.applicationEvent.create).toHaveBeenCalledWith({
+      data: {
+        applicationId: 1,
+        type: 'STATUS_CHANGED',
+        title: 'Statut modifié',
+        description: 'APPLIED → INTERVIEW',
+      },
+    });
   });
 
   it('should create a follow-up event when followUpAt changes', async () => {
