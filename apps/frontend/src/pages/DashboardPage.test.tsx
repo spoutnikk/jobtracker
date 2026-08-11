@@ -14,7 +14,7 @@ const dashboardStats: DashboardStats = {
   totalJobOffers: 8,
   upcomingFollowUps: 3,
   upcomingInterviews: 2,
-  recentApplications: 6,
+  recentApplications: 99,
   applicationsLast7Days: 2,
   applicationsLast30Days: 6,
   upcomingFollowUps7Days: 1,
@@ -55,7 +55,6 @@ describe("DashboardPage", () => {
       ["Offres", "8"],
       ["Relances à venir", "3"],
       ["Entretiens à venir", "2"],
-      ["Candidatures sur 30 jours", "6"],
       ["Taux d'entretien", "33,3 %"],
       ["Candidatures — 7 jours", "2"],
       ["Candidatures — 30 jours", "6"],
@@ -69,6 +68,12 @@ describe("DashboardPage", () => {
       expect(card).not.toBeNull();
       expect(within(card!).getByText(value)).toBeInTheDocument();
     }
+
+    expect(screen.getAllByText("Candidatures — 30 jours")).toHaveLength(1);
+    expect(
+      screen.queryByText("Candidatures sur 30 jours"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("99")).not.toBeInTheDocument();
 
     expect(screen.getByText("APPLIED")).toBeInTheDocument();
     expect(screen.getByText("INTERVIEW")).toBeInTheDocument();

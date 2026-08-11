@@ -72,13 +72,6 @@ function DashboardPage() {
             </p>
           </article>
           <article className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-            <p className="text-sm text-gray-600">Candidatures sur 30 jours</p>
-            <p className="mt-2 text-3xl font-bold">
-              {stats.recentApplications}
-            </p>
-          </article>
-
-          <article className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
             <p className="text-sm text-gray-600">Taux d'entretien</p>
             <p className="mt-2 text-3xl font-bold">
               {percentageFormatter.format(stats.interviewRate)} %
