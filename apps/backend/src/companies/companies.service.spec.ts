@@ -111,10 +111,13 @@ describe('CompaniesService', () => {
       city: 'Lyon',
     };
 
-    await expect(service.create(dto)).resolves.toEqual(company);
+    await expect(service.create(7, dto)).resolves.toEqual(company);
 
     expect(prismaServiceMock.company.create).toHaveBeenCalledWith({
-      data: dto,
+      data: {
+        ...dto,
+        userId: 7,
+      },
       include: {
         jobOffers: true,
       },

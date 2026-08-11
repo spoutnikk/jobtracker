@@ -9,14 +9,32 @@ datasource db {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  firstName String
-  lastName  String
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  firstName    String
+  lastName     String
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  applications Application[]
+  sessions     Session[]
+  companies    Company[]
+  documents    Document[]
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  tokenHash String   @unique
+  expiresAt DateTime
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  applications Application[]
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model Company {
@@ -27,7 +45,12 @@ model Company {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
   jobOffers JobOffer[]
+
+  @@index([userId])
 }
 
 model JobOffer {
@@ -83,6 +106,11 @@ model Document {
 
   applicationId Int?
   application   Application? @relation(fields: [applicationId], references: [id])
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
 }
 
 model ApplicationEvent {

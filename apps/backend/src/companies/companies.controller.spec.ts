@@ -66,6 +66,12 @@ describe('CompaniesController', () => {
   });
 
   it('should create a company', async () => {
+    const user = {
+      id: 7,
+      email: 'user@example.com',
+      firstName: 'Ada',
+      lastName: 'Lovelace',
+    };
     const dto = {
       name: 'TechNova',
       website: 'https://technova.example',
@@ -80,9 +86,9 @@ describe('CompaniesController', () => {
 
     companiesServiceMock.create.mockResolvedValue(company);
 
-    await expect(controller.create(dto)).resolves.toEqual(company);
+    await expect(controller.create(user, dto)).resolves.toEqual(company);
 
-    expect(companiesServiceMock.create).toHaveBeenCalledWith(dto);
+    expect(companiesServiceMock.create).toHaveBeenCalledWith(user.id, dto);
   });
 
   it('should update a company', async () => {

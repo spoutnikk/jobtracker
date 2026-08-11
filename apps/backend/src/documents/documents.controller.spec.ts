@@ -6,6 +6,13 @@ import { DocumentsService } from './documents.service';
 describe('DocumentsController', () => {
   let controller: DocumentsController;
 
+  const user = {
+    id: 7,
+    email: 'user@example.com',
+    firstName: 'Ada',
+    lastName: 'Lovelace',
+  };
+
   const documentsServiceMock = {
     create: jest.fn(),
     findAll: jest.fn(),
@@ -60,14 +67,19 @@ describe('DocumentsController', () => {
 
     documentsServiceMock.create.mockResolvedValue(document);
 
-    await expect(controller.create(dto, file)).resolves.toEqual(document);
+    await expect(controller.create(user, dto, file)).resolves.toEqual(document);
 
-    expect(documentsServiceMock.create).toHaveBeenCalledWith(dto, file);
+    expect(documentsServiceMock.create).toHaveBeenCalledWith(
+      user.id,
+      dto,
+      file,
+    );
   });
 
   it('should throw BadRequestException when file is missing', () => {
     expect(() =>
       controller.create(
+        user,
         {
           name: 'Sans fichier',
           type: 'OTHER',

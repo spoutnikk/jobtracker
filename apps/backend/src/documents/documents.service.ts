@@ -9,6 +9,7 @@ export class DocumentsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(
+    userId: number,
     createDocumentDto: CreateDocumentDto,
     file: {
       originalname: string;
@@ -19,6 +20,24 @@ export class DocumentsService {
   ) {
     try {
       return await this.prisma.$transaction(async (tx) => {
+        if (createDocumentDto.applicationId !== undefined) {
+          const application = await tx.application.findFirst({
+            where: {
+              id: createDocumentDto.applicationId,
+              userId,
+            },
+            select: {
+              id: true,
+            },
+          });
+
+          if (!application) {
+            throw new NotFoundException(
+              `Application with id ${createDocumentDto.applicationId} not found`,
+            );
+          }
+        }
+
         const document = await tx.document.create({
           data: {
             name: createDocumentDto.name,
@@ -28,6 +47,7 @@ export class DocumentsService {
             path: file.path,
             type: createDocumentDto.type,
             applicationId: createDocumentDto.applicationId,
+            userId,
           },
         });
 
@@ -55,9 +75,10 @@ export class DocumentsService {
         throw error;
       }
 
-      const application = await this.prisma.application.findUnique({
+      const application = await this.prisma.application.findFirst({
         where: {
           id: applicationId,
+          userId,
         },
         select: {
           id: true,

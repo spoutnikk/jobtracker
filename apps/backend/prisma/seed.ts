@@ -1,6 +1,10 @@
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../generated/prisma/client';
+import {
+  readSeedUserEmail,
+  seedDevelopmentData,
+} from '../src/seed/seed-development-data';
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -15,51 +19,41 @@ const adapter = new PrismaPg({
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  const user = await prisma.user.upsert({
-    where: {
-      email: 'dev@jobtracker.local',
+  const email = readSeedUserEmail(process.env);
+  const result = await seedDevelopmentData(
+    {
+      findUserByEmail: (normalizedEmail) =>
+        prisma.user.findUnique({
+          where: { email: normalizedEmail },
+          select: { id: true, email: true },
+        }),
+      findCompany: ({ name, userId }) =>
+        prisma.company.findFirst({
+          where: { name, userId },
+          select: { id: true, name: true },
+        }),
+      createCompany: (input) =>
+        prisma.company.create({
+          data: input,
+          select: { id: true, name: true },
+        }),
+      findJobOffer: ({ title, companyId }) =>
+        prisma.jobOffer.findFirst({
+          where: { title, companyId },
+          select: { id: true, title: true },
+        }),
+      createJobOffer: (input) =>
+        prisma.jobOffer.create({
+          data: input,
+          select: { id: true, title: true },
+        }),
     },
-    update: {},
-    create: {
-      email: 'dev@jobtracker.local',
-      firstName: 'Dev',
-      lastName: 'JobTracker',
-    },
-  });
+    email,
+  );
 
-  const company =
-    (await prisma.company.findFirst({
-      where: {
-        name: 'Acme Corp',
-      },
-    })) ??
-    (await prisma.company.create({
-      data: {
-        name: 'Acme Corp',
-        website: 'https://example.com',
-        city: 'Paris',
-      },
-    }));
-
-  const jobOffer =
-    (await prisma.jobOffer.findFirst({
-      where: {
-        title: 'Développeur TypeScript',
-        companyId: company.id,
-      },
-    })) ??
-    (await prisma.jobOffer.create({
-      data: {
-        title: 'Développeur TypeScript',
-        location: 'Paris',
-        contractType: 'CDI',
-        companyId: company.id,
-      },
-    }));
-
-  console.log('Seeded user:', user);
-  console.log('Seeded company:', company);
-  console.log('Seeded job offer:', jobOffer);
+  console.log(`Seeded user id: ${result.user.id}`);
+  console.log(`Seeded company id: ${result.company.id}`);
+  console.log(`Seeded job offer id: ${result.jobOffer.id}`);
 }
 
 main()

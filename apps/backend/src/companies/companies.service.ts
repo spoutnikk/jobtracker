@@ -38,9 +38,12 @@ export class CompaniesService {
     });
   }
 
-  create(createCompanyDto: CreateCompanyDto) {
+  create(userId: number, createCompanyDto: CreateCompanyDto) {
     return this.prisma.company.create({
-      data: createCompanyDto,
+      data: {
+        ...createCompanyDto,
+        userId,
+      },
       include: {
         jobOffers: true,
       },

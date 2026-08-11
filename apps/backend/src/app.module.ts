@@ -10,6 +10,7 @@ import { CompaniesModule } from './companies/companies.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { DocumentsModule } from './documents/documents.module';
 import { ApplicationEventsModule } from './application-events/application-events.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { ApplicationEventsModule } from './application-events/application-events
     DashboardModule,
     DocumentsModule,
     ApplicationEventsModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],

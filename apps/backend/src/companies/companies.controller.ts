@@ -11,6 +11,8 @@ import {
 import { CompaniesService } from './companies.service';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
+import { CurrentUser } from '../auth/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/authenticated-user';
 
 @Controller('companies')
 export class CompaniesController {
@@ -27,8 +29,11 @@ export class CompaniesController {
   }
 
   @Post()
-  create(@Body() createCompanyDto: CreateCompanyDto) {
-    return this.companiesService.create(createCompanyDto);
+  create(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() createCompanyDto: CreateCompanyDto,
+  ) {
+    return this.companiesService.create(user.id, createCompanyDto);
   }
 
   @Patch(':id')

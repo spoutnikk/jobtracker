@@ -9,7 +9,7 @@ describe('DocumentsService', () => {
 
   const transactionClientMock = {
     application: {
-      findUnique: jest.fn(),
+      findFirst: jest.fn(),
     },
     document: {
       create: jest.fn(),
@@ -33,6 +33,7 @@ describe('DocumentsService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    transactionClientMock.application.findFirst.mockResolvedValue({ id: 1 });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -76,7 +77,17 @@ describe('DocumentsService', () => {
 
     prismaServiceMock.document.create.mockResolvedValue(document);
 
-    await expect(service.create(dto, file)).resolves.toEqual(document);
+    await expect(service.create(7, dto, file)).resolves.toEqual(document);
+
+    expect(prismaServiceMock.application.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: 1,
+        userId: 7,
+      },
+      select: {
+        id: true,
+      },
+    });
 
     expect(prismaServiceMock.document.create).toHaveBeenCalledWith({
       data: {
@@ -87,6 +98,7 @@ describe('DocumentsService', () => {
         path: 'uploads/cv.pdf',
         type: 'CV',
         applicationId: 1,
+        userId: 7,
       },
     });
 
@@ -98,17 +110,9 @@ describe('DocumentsService', () => {
         description: 'CV principal',
       },
     });
-    expect(prismaServiceMock.application.findUnique).not.toHaveBeenCalled();
   });
 
-  it('should throw NotFoundException when creating for an unknown application', async () => {
-    const prismaError = new Prisma.PrismaClientKnownRequestError(
-      'Foreign key constraint failed',
-      {
-        code: 'P2003',
-        clientVersion: '7.9.1',
-      },
-    );
+  it('should throw NotFoundException when creating for an application owned by another user', async () => {
     const dto = {
       name: 'CV principal',
       type: 'CV' as const,
@@ -121,11 +125,10 @@ describe('DocumentsService', () => {
       path: 'uploads/cv.pdf',
     };
 
-    prismaServiceMock.document.create.mockRejectedValueOnce(prismaError);
-    prismaServiceMock.application.findUnique.mockResolvedValueOnce(null);
+    prismaServiceMock.application.findFirst.mockResolvedValueOnce(null);
 
     const error: unknown = await service
-      .create(dto, file)
+      .create(7, dto, file)
       .catch((caughtError: unknown) => caughtError);
 
     expect(error).toBeInstanceOf(NotFoundException);
@@ -137,9 +140,10 @@ describe('DocumentsService', () => {
     expect(error.getStatus()).toBe(HttpStatus.NOT_FOUND);
     expect(error.message).toBe('Application with id 9999 not found');
 
-    expect(prismaServiceMock.application.findUnique).toHaveBeenCalledWith({
+    expect(prismaServiceMock.application.findFirst).toHaveBeenCalledWith({
       where: {
         id: 9999,
+        userId: 7,
       },
       select: {
         id: true,
@@ -168,13 +172,14 @@ describe('DocumentsService', () => {
     };
 
     prismaServiceMock.document.create.mockRejectedValueOnce(prismaError);
-    prismaServiceMock.application.findUnique.mockResolvedValueOnce({ id: 1 });
+    prismaServiceMock.application.findFirst.mockResolvedValue({ id: 1 });
 
-    await expect(service.create(dto, file)).rejects.toBe(prismaError);
+    await expect(service.create(7, dto, file)).rejects.toBe(prismaError);
 
-    expect(prismaServiceMock.application.findUnique).toHaveBeenCalledWith({
+    expect(prismaServiceMock.application.findFirst).toHaveBeenCalledWith({
       where: {
         id: 1,
+        userId: 7,
       },
       select: {
         id: true,
@@ -203,9 +208,9 @@ describe('DocumentsService', () => {
 
     prismaServiceMock.document.create.mockRejectedValueOnce(prismaError);
 
-    await expect(service.create(dto, file)).rejects.toBe(prismaError);
+    await expect(service.create(7, dto, file)).rejects.toBe(prismaError);
 
-    expect(prismaServiceMock.application.findUnique).not.toHaveBeenCalled();
+    expect(prismaServiceMock.application.findFirst).not.toHaveBeenCalled();
   });
 
   it('should propagate the application event error when creating a document', async () => {
@@ -235,7 +240,7 @@ describe('DocumentsService', () => {
       transactionError,
     );
 
-    await expect(service.create(dto, file)).rejects.toBe(transactionError);
+    await expect(service.create(7, dto, file)).rejects.toBe(transactionError);
 
     expect(prismaServiceMock.$transaction).toHaveBeenCalledTimes(1);
     expect(prismaServiceMock.document.create).toHaveBeenCalledWith({
@@ -247,6 +252,7 @@ describe('DocumentsService', () => {
         path: 'uploads/cv.pdf',
         type: 'CV',
         applicationId: 1,
+        userId: 7,
       },
     });
     expect(prismaServiceMock.applicationEvent.create).toHaveBeenCalledWith({
@@ -257,7 +263,7 @@ describe('DocumentsService', () => {
         description: 'CV principal',
       },
     });
-    expect(prismaServiceMock.application.findUnique).not.toHaveBeenCalled();
+    expect(prismaServiceMock.application.findFirst).toHaveBeenCalledTimes(1);
   });
 
   it('should create a document without an application event when applicationId is missing', async () => {
@@ -285,7 +291,7 @@ describe('DocumentsService', () => {
 
     prismaServiceMock.document.create.mockResolvedValue(document);
 
-    await expect(service.create(dto, file)).resolves.toEqual(document);
+    await expect(service.create(7, dto, file)).resolves.toEqual(document);
 
     expect(prismaServiceMock.document.create).toHaveBeenCalledWith({
       data: {
@@ -296,6 +302,7 @@ describe('DocumentsService', () => {
         path: 'uploads/cv.pdf',
         type: 'CV',
         applicationId: undefined,
+        userId: 7,
       },
     });
     expect(prismaServiceMock.applicationEvent.create).not.toHaveBeenCalled();

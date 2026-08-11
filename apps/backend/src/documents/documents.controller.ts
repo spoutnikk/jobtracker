@@ -17,6 +17,8 @@ import { extname } from 'path';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { DocumentsService } from './documents.service';
 import type { Response } from 'express';
+import { CurrentUser } from '../auth/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/authenticated-user';
 
 @Controller('documents')
 export class DocumentsController {
@@ -76,13 +78,14 @@ export class DocumentsController {
     }),
   )
   create(
+    @CurrentUser() user: AuthenticatedUser,
     @Body() createDocumentDto: CreateDocumentDto,
     @UploadedFile() file?: Express.Multer.File,
   ) {
     if (!file) {
       throw new BadRequestException('A file is required');
     }
-    return this.documentsService.create(createDocumentDto, file);
+    return this.documentsService.create(user.id, createDocumentDto, file);
   }
 
   @Get()
