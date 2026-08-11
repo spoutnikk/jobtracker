@@ -1,10 +1,11 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AxiosError, AxiosHeaders } from "axios";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getCompanies } from "../api/companies";
 import {
   createJobOffer,
+  deleteJobOffer,
   getJobOffers,
   type JobOffer,
   updateJobOffer,
@@ -68,6 +69,12 @@ const updatedJobOffer: JobOffer = {
   salary: "60 000 €",
 };
 
+const secondJobOffer: JobOffer = {
+  ...jobOffer,
+  id: 2,
+  title: "Développeur TypeScript",
+};
+
 function expectedDatetimeLocal(value: string) {
   const date = new Date(value);
   const pad = (part: number) => String(part).padStart(2, "0");
@@ -77,16 +84,16 @@ function expectedDatetimeLocal(value: string) {
   )}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-function createNotFoundAxiosError() {
+function createAxiosError(status: number) {
   return new AxiosError(
-    "Request failed with status code 404",
+    "Request failed",
     "ERR_BAD_REQUEST",
     undefined,
     undefined,
     {
       data: {},
-      status: 404,
-      statusText: "Not Found",
+      status,
+      statusText: "Request Error",
       headers: {},
       config: {
         headers: new AxiosHeaders(),
@@ -97,10 +104,12 @@ function createNotFoundAxiosError() {
 
 describe("JobOffersPage", () => {
   beforeEach(() => {
+    vi.restoreAllMocks();
     vi.mocked(getJobOffers).mockResolvedValue([]);
     vi.mocked(getCompanies).mockResolvedValue([company, secondCompany]);
     vi.mocked(createJobOffer).mockResolvedValue(jobOffer);
     vi.mocked(updateJobOffer).mockResolvedValue(updatedJobOffer);
+    vi.mocked(deleteJobOffer).mockResolvedValue(jobOffer);
   });
 
   it("renders the empty job offers page", async () => {
@@ -342,7 +351,7 @@ describe("JobOffersPage", () => {
 
   it("keeps editing open and refreshes data after a 404", async () => {
     vi.mocked(getJobOffers).mockResolvedValue([jobOffer]);
-    vi.mocked(updateJobOffer).mockRejectedValue(createNotFoundAxiosError());
+    vi.mocked(updateJobOffer).mockRejectedValue(createAxiosError(404));
     const user = userEvent.setup();
     const { queryClient } = renderWithProviders(<JobOffersPage />);
     const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
@@ -371,6 +380,170 @@ describe("JobOffersPage", () => {
     });
     expect(invalidateQueriesSpy).toHaveBeenCalledWith({
       queryKey: ["companies"],
+    });
+  });
+
+  it("deletes a job offer after confirmation", async () => {
+    vi.mocked(getJobOffers).mockResolvedValue([jobOffer]);
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const user = userEvent.setup();
+    const { queryClient } = renderWithProviders(<JobOffersPage />);
+    const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
+
+    await user.click(await screen.findByRole("button", { name: "Supprimer" }));
+
+    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    expect(confirmSpy).toHaveBeenCalledWith(
+      `Supprimer l'offre "${jobOffer.title}" ?`,
+    );
+    await waitFor(() => {
+      expect(deleteJobOffer).toHaveBeenCalledTimes(1);
+    });
+    const [deletedId] = vi.mocked(deleteJobOffer).mock.calls[0];
+
+    expect(deletedId).toBe(jobOffer.id);
+    expect(invalidateQueriesSpy).toHaveBeenCalledWith({
+      queryKey: ["job-offers"],
+    });
+    expect(invalidateQueriesSpy).toHaveBeenCalledWith({
+      queryKey: ["companies"],
+    });
+    expect(invalidateQueriesSpy).toHaveBeenCalledWith({
+      queryKey: ["dashboard-stats"],
+    });
+    expect(invalidateQueriesSpy).not.toHaveBeenCalledWith({
+      queryKey: ["applications"],
+    });
+    expect(
+      screen.queryByText("Impossible de supprimer l'offre."),
+    ).not.toBeInTheDocument();
+  });
+
+  it("does not delete a job offer when confirmation is cancelled", async () => {
+    vi.mocked(getJobOffers).mockResolvedValue([jobOffer]);
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const user = userEvent.setup();
+    const { queryClient } = renderWithProviders(<JobOffersPage />);
+    const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
+
+    await user.click(await screen.findByRole("button", { name: "Supprimer" }));
+
+    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    expect(deleteJobOffer).not.toHaveBeenCalled();
+    expect(invalidateQueriesSpy).not.toHaveBeenCalled();
+    expect(
+      screen.queryByText("Impossible de supprimer l'offre."),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows a conflict when a job offer has applications", async () => {
+    vi.mocked(getJobOffers).mockResolvedValue([jobOffer]);
+    vi.mocked(deleteJobOffer).mockRejectedValue(createAxiosError(409));
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const user = userEvent.setup();
+    const { queryClient } = renderWithProviders(<JobOffersPage />);
+    const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
+
+    await user.click(await screen.findByRole("button", { name: "Supprimer" }));
+
+    expect(
+      await screen.findByText(
+        "Cette offre ne peut pas être supprimée car elle est liée à une ou plusieurs candidatures.",
+      ),
+    ).toBeInTheDocument();
+    expect(deleteJobOffer).toHaveBeenCalledTimes(1);
+    expect(
+      screen.getByRole("heading", { name: jobOffer.title }),
+    ).toBeInTheDocument();
+    expect(invalidateQueriesSpy).not.toHaveBeenCalledWith({
+      queryKey: ["job-offers"],
+    });
+  });
+
+  it("refreshes job offers after a delete returns 404", async () => {
+    vi.mocked(getJobOffers).mockResolvedValue([jobOffer]);
+    vi.mocked(deleteJobOffer).mockRejectedValue(createAxiosError(404));
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const user = userEvent.setup();
+    const { queryClient } = renderWithProviders(<JobOffersPage />);
+    const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
+
+    await user.click(await screen.findByRole("button", { name: "Supprimer" }));
+
+    expect(
+      await screen.findByText("Cette offre n'existe plus."),
+    ).toBeInTheDocument();
+    expect(invalidateQueriesSpy).toHaveBeenCalledWith({
+      queryKey: ["job-offers"],
+    });
+    expect(
+      screen.queryByText(
+        "Cette offre ne peut pas être supprimée car elle est liée à une ou plusieurs candidatures.",
+      ),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows a generic message when deleting fails unexpectedly", async () => {
+    vi.mocked(getJobOffers).mockResolvedValue([jobOffer]);
+    vi.mocked(deleteJobOffer).mockRejectedValue(new Error("Unexpected error"));
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const user = userEvent.setup();
+
+    renderWithProviders(<JobOffersPage />);
+
+    await user.click(await screen.findByRole("button", { name: "Supprimer" }));
+
+    expect(
+      await screen.findByText("Impossible de supprimer l'offre."),
+    ).toBeInTheDocument();
+  });
+
+  it("disables all job offer actions while deletion is pending", async () => {
+    vi.mocked(getJobOffers).mockResolvedValue([jobOffer, secondJobOffer]);
+    let resolveDelete: ((value: JobOffer) => void) | undefined;
+    const pendingDelete = new Promise<JobOffer>((resolve) => {
+      resolveDelete = resolve;
+    });
+    vi.mocked(deleteJobOffer).mockReturnValue(pendingDelete);
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const user = userEvent.setup();
+
+    renderWithProviders(<JobOffersPage />);
+
+    const deleteButtons = await screen.findAllByRole("button", {
+      name: "Supprimer",
+    });
+    await user.click(deleteButtons[0]);
+
+    await waitFor(() => {
+      expect(deleteJobOffer).toHaveBeenCalledTimes(1);
+      expect(
+        screen.getByRole("button", { name: "Suppression..." }),
+      ).toBeDisabled();
+    });
+
+    for (const button of screen.getAllByRole("button", {
+      name: /Supprimer|Suppression\.\.\./,
+    })) {
+      expect(button).toBeDisabled();
+    }
+
+    for (const button of screen.getAllByRole("button", { name: "Modifier" })) {
+      expect(button).toBeDisabled();
+    }
+
+    await user.click(screen.getByRole("button", { name: "Supprimer" }));
+    expect(deleteJobOffer).toHaveBeenCalledTimes(1);
+
+    if (!resolveDelete) {
+      throw new Error("Delete resolver not initialized");
+    }
+
+    const resolvePendingDelete = resolveDelete;
+
+    await act(async () => {
+      resolvePendingDelete(jobOffer);
+      await pendingDelete;
     });
   });
 });
