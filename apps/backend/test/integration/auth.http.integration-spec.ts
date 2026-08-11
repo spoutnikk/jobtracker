@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
 import argon2 from 'argon2';
@@ -154,5 +154,31 @@ describe('Authentication HTTP integration', () => {
       .get('/auth/me')
       .set('Cookie', sessionCookie)
       .expect(401);
+  });
+
+  it('rejects and removes an expired session', async () => {
+    if (!app || !prisma || userId === undefined) {
+      throw new Error('Authentication integration fixtures are unavailable');
+    }
+
+    const rawToken = randomBytes(32).toString('base64url');
+    const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+
+    await prisma.session.create({
+      data: {
+        tokenHash,
+        expiresAt: new Date(Date.now() - 60_000),
+        userId,
+      },
+    });
+
+    await request(app.getHttpServer())
+      .get('/companies')
+      .set('Cookie', `jobtracker_session=${rawToken}`)
+      .expect(401);
+
+    await expect(prisma.session.count({ where: { tokenHash } })).resolves.toBe(
+      0,
+    );
   });
 });

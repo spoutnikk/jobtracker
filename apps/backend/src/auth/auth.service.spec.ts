@@ -174,6 +174,7 @@ describe('AuthService', () => {
         },
       },
     });
+    expect(prismaServiceMock.session.deleteMany).not.toHaveBeenCalled();
   });
 
   it('returns null for an unknown session', async () => {
@@ -182,13 +183,52 @@ describe('AuthService', () => {
     await expect(
       service.authenticateSessionToken('unknown'),
     ).resolves.toBeNull();
+    expect(prismaServiceMock.session.deleteMany).not.toHaveBeenCalled();
   });
 
-  it('returns null for an expired session', async () => {
+  it('deletes an expired session idempotently and returns null', async () => {
+    const now = new Date('2026-08-11T12:00:00.000Z');
+    jest.useFakeTimers().setSystemTime(now);
+    prismaServiceMock.session.findUnique.mockResolvedValue({
+      expiresAt: new Date('2026-08-11T11:59:59.999Z'),
+      user: publicUser,
+    });
+    prismaServiceMock.session.deleteMany.mockResolvedValue({ count: 1 });
+
+    await expect(
+      service.authenticateSessionToken('expired'),
+    ).resolves.toBeNull();
+    expect(prismaServiceMock.session.deleteMany).toHaveBeenCalledTimes(1);
+    expect(prismaServiceMock.session.deleteMany).toHaveBeenCalledWith({
+      where: {
+        tokenHash: createHash('sha256').update('expired').digest('hex'),
+        expiresAt: {
+          lte: now,
+        },
+      },
+    });
+  });
+
+  it('returns null when an expired session was deleted concurrently', async () => {
     prismaServiceMock.session.findUnique.mockResolvedValue({
       expiresAt: new Date(Date.now() - 1),
       user: publicUser,
     });
+    prismaServiceMock.session.deleteMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      service.authenticateSessionToken('expired'),
+    ).resolves.toBeNull();
+  });
+
+  it('returns null when cleanup of an expired session fails', async () => {
+    prismaServiceMock.session.findUnique.mockResolvedValue({
+      expiresAt: new Date(Date.now() - 1),
+      user: publicUser,
+    });
+    prismaServiceMock.session.deleteMany.mockRejectedValue(
+      new Error('Database unavailable'),
+    );
 
     await expect(
       service.authenticateSessionToken('expired'),

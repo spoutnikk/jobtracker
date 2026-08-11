@@ -99,7 +99,26 @@ export class AuthService {
       },
     });
 
-    if (!session || session.expiresAt.getTime() <= Date.now()) {
+    if (!session) {
+      return null;
+    }
+
+    const now = new Date();
+
+    if (session.expiresAt.getTime() <= now.getTime()) {
+      try {
+        await this.prisma.session.deleteMany({
+          where: {
+            tokenHash,
+            expiresAt: {
+              lte: now,
+            },
+          },
+        });
+      } catch {
+        return null;
+      }
+
       return null;
     }
 
