@@ -4,6 +4,7 @@ import { useState } from "react";
 import { getCompanies } from "../api/companies";
 import {
   createJobOffer,
+  deleteJobOffer,
   getJobOffers,
   updateJobOffer,
   type ContractType,
@@ -59,6 +60,10 @@ function JobOffersPage() {
   const [editSalary, setEditSalary] = useState("");
   const [editPublishedAt, setEditPublishedAt] = useState("");
   const [editError, setEditError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<{
+    jobOfferId: number;
+    message: string;
+  } | null>(null);
 
   const jobOffersQuery = useQuery({
     queryKey: ["job-offers"],
@@ -139,6 +144,50 @@ function JobOffersPage() {
     },
   });
 
+  const deleteJobOfferMutation = useMutation({
+    mutationFn: deleteJobOffer,
+    onMutate: () => {
+      setDeleteError(null);
+    },
+    onSuccess: async (_deletedJobOffer, jobOfferId) => {
+      setDeleteError(null);
+      setEditingJobOfferId((currentId) =>
+        currentId === jobOfferId ? null : currentId,
+      );
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["job-offers"] }),
+        queryClient.invalidateQueries({ queryKey: ["companies"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] }),
+      ]);
+    },
+    onError: async (error, jobOfferId) => {
+      if (axios.isAxiosError(error) && error.response?.status === 409) {
+        setDeleteError({
+          jobOfferId,
+          message:
+            "Cette offre ne peut pas être supprimée car elle est liée à une ou plusieurs candidatures.",
+        });
+        return;
+      }
+
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        setDeleteError({
+          jobOfferId,
+          message: "Cette offre n'existe plus.",
+        });
+
+        await queryClient.invalidateQueries({ queryKey: ["job-offers"] });
+        return;
+      }
+
+      setDeleteError({
+        jobOfferId,
+        message: "Impossible de supprimer l'offre.",
+      });
+    },
+  });
+
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -203,6 +252,16 @@ function JobOffersPage() {
     };
 
     updateJobOfferMutation.mutate({ id: jobOfferId, input });
+  }
+
+  function handleDelete(jobOffer: JobOffer) {
+    const confirmed = window.confirm(`Supprimer l'offre "${jobOffer.title}" ?`);
+
+    if (!confirmed) {
+      return;
+    }
+
+    deleteJobOfferMutation.mutate(jobOffer.id);
   }
 
   if (jobOffersQuery.isPending) {
@@ -440,14 +499,34 @@ function JobOffersPage() {
                 )}
 
                 {editingJobOfferId !== jobOffer.id && (
-                  <button
-                    type="button"
-                    onClick={() => startEditing(jobOffer)}
-                    disabled={updateJobOfferMutation.isPending}
-                    className="mt-4 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                  >
-                    Modifier
-                  </button>
+                  <div className="mt-4 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => startEditing(jobOffer)}
+                      disabled={
+                        updateJobOfferMutation.isPending ||
+                        deleteJobOfferMutation.isPending
+                      }
+                      className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      Modifier
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(jobOffer)}
+                      disabled={
+                        updateJobOfferMutation.isPending ||
+                        deleteJobOfferMutation.isPending
+                      }
+                      className="rounded-md border border-red-300 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+                    >
+                      {deleteJobOfferMutation.isPending &&
+                      deleteJobOfferMutation.variables === jobOffer.id
+                        ? "Suppression..."
+                        : "Supprimer"}
+                    </button>
+                  </div>
                 )}
 
                 {editingJobOfferId === jobOffer.id && (
@@ -613,6 +692,12 @@ function JobOffersPage() {
                       </button>
                     </div>
                   </form>
+                )}
+
+                {deleteError?.jobOfferId === jobOffer.id && (
+                  <p className="mt-3 text-sm text-red-600">
+                    {deleteError.message}
+                  </p>
                 )}
               </article>
             ))}
