@@ -13,6 +13,10 @@ export interface DashboardStats {
   upcomingFollowUps: number;
   upcomingInterviews: number;
   recentApplications: number;
+  applicationsLast7Days: number;
+  applicationsLast30Days: number;
+  upcomingFollowUps7Days: number;
+  upcomingInterviews7Days: number;
   interviewRate: number;
   applicationsByStatus: ApplicationsByStatus[];
 }

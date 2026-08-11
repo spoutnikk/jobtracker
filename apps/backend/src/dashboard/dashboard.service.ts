@@ -8,9 +8,10 @@ export class DashboardService {
 
   async getStats(userId: number) {
     const now = new Date();
-
-    const thirtyDaysAgo = new Date(now);
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const dayInMilliseconds = 24 * 60 * 60 * 1000;
+    const sevenDaysAgo = new Date(now.getTime() - 7 * dayInMilliseconds);
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * dayInMilliseconds);
+    const sevenDaysFromNow = new Date(now.getTime() + 7 * dayInMilliseconds);
 
     const [
       totalApplications,
@@ -18,7 +19,10 @@ export class DashboardService {
       totalJobOffers,
       upcomingFollowUps,
       upcomingInterviews,
-      recentApplications,
+      applicationsLast7Days,
+      applicationsLast30Days,
+      upcomingFollowUps7Days,
+      upcomingInterviews7Days,
       applicationsWithInterview,
       applicationsByStatus,
     ] = await Promise.all([
@@ -64,7 +68,38 @@ export class DashboardService {
         where: {
           userId,
           createdAt: {
+            gte: sevenDaysAgo,
+            lte: now,
+          },
+        },
+      }),
+
+      this.prisma.application.count({
+        where: {
+          userId,
+          createdAt: {
             gte: thirtyDaysAgo,
+            lte: now,
+          },
+        },
+      }),
+
+      this.prisma.application.count({
+        where: {
+          userId,
+          followUpAt: {
+            gte: now,
+            lte: sevenDaysFromNow,
+          },
+        },
+      }),
+
+      this.prisma.application.count({
+        where: {
+          userId,
+          interviewAt: {
+            gte: now,
+            lte: sevenDaysFromNow,
           },
         },
       }),
@@ -105,7 +140,7 @@ export class DashboardService {
     const interviewRate =
       totalApplications === 0
         ? 0
-        : Math.round((applicationsWithInterview / totalApplications) * 100);
+        : (applicationsWithInterview / totalApplications) * 100;
 
     return {
       totalApplications,
@@ -113,7 +148,11 @@ export class DashboardService {
       totalJobOffers,
       upcomingFollowUps,
       upcomingInterviews,
-      recentApplications,
+      recentApplications: applicationsLast30Days,
+      applicationsLast7Days,
+      applicationsLast30Days,
+      upcomingFollowUps7Days,
+      upcomingInterviews7Days,
       interviewRate,
       applicationsByStatus: completeApplicationsByStatus,
     };

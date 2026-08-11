@@ -43,6 +43,7 @@ interface FixtureOptions {
     status: 'DRAFT' | 'APPLIED' | 'INTERVIEW' | 'REJECTED';
     followUp: boolean;
     interview: boolean;
+    createdDaysAgo: number;
   }>;
 }
 
@@ -128,6 +129,8 @@ describe('Dashboard and calendar HTTP ownership integration', () => {
     }
 
     const applicationIds: number[] = [];
+    const fixtureNow = Date.now();
+    const dayInMilliseconds = 24 * 60 * 60 * 1000;
 
     for (const [index, applicationFixture] of options.applications.entries()) {
       const jobOfferId = jobOfferIds[index % jobOfferIds.length];
@@ -142,11 +145,14 @@ describe('Dashboard and calendar HTTP ownership integration', () => {
           jobOfferId,
           status: applicationFixture.status,
           source: `dashboard-calendar:${label}:${index}:${marker}`,
+          createdAt: new Date(
+            fixtureNow - applicationFixture.createdDaysAgo * dayInMilliseconds,
+          ),
           followUpAt: applicationFixture.followUp
-            ? new Date(`2099-08-${15 + index}T10:00:00.000Z`)
+            ? new Date(fixtureNow + (index + 2) * dayInMilliseconds)
             : null,
           interviewAt: applicationFixture.interview
-            ? new Date(`2099-09-${15 + index}T14:00:00.000Z`)
+            ? new Date(fixtureNow + (index + 2) * dayInMilliseconds)
             : null,
         },
         select: { id: true },
@@ -190,17 +196,42 @@ describe('Dashboard and calendar HTTP ownership integration', () => {
       companyCount: 1,
       jobOfferCount: 1,
       applications: [
-        { status: 'DRAFT', followUp: true, interview: false },
-        { status: 'APPLIED', followUp: false, interview: true },
+        {
+          status: 'DRAFT',
+          followUp: true,
+          interview: false,
+          createdDaysAgo: 1,
+        },
+        {
+          status: 'APPLIED',
+          followUp: false,
+          interview: true,
+          createdDaysAgo: 10,
+        },
       ],
     });
     userB = await createFixtures('user-b', {
       companyCount: 2,
       jobOfferCount: 3,
       applications: [
-        { status: 'INTERVIEW', followUp: true, interview: true },
-        { status: 'INTERVIEW', followUp: false, interview: true },
-        { status: 'REJECTED', followUp: true, interview: true },
+        {
+          status: 'INTERVIEW',
+          followUp: true,
+          interview: true,
+          createdDaysAgo: 2,
+        },
+        {
+          status: 'INTERVIEW',
+          followUp: false,
+          interview: true,
+          createdDaysAgo: 20,
+        },
+        {
+          status: 'REJECTED',
+          followUp: true,
+          interview: true,
+          createdDaysAgo: 40,
+        },
       ],
     });
   });
@@ -255,6 +286,10 @@ describe('Dashboard and calendar HTTP ownership integration', () => {
       upcomingFollowUps: 1,
       upcomingInterviews: 1,
       recentApplications: 2,
+      applicationsLast7Days: 1,
+      applicationsLast30Days: 2,
+      upcomingFollowUps7Days: 1,
+      upcomingInterviews7Days: 1,
       interviewRate: 50,
     });
     expect(statsA.applicationsByStatus).toEqual([
@@ -272,7 +307,11 @@ describe('Dashboard and calendar HTTP ownership integration', () => {
       totalJobOffers: 3,
       upcomingFollowUps: 2,
       upcomingInterviews: 3,
-      recentApplications: 3,
+      recentApplications: 2,
+      applicationsLast7Days: 1,
+      applicationsLast30Days: 2,
+      upcomingFollowUps7Days: 2,
+      upcomingInterviews7Days: 3,
       interviewRate: 100,
     });
     expect(statsB.applicationsByStatus).toEqual([

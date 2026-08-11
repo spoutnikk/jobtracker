@@ -15,7 +15,11 @@ const dashboardStats: DashboardStats = {
   upcomingFollowUps: 3,
   upcomingInterviews: 2,
   recentApplications: 6,
-  interviewRate: 25,
+  applicationsLast7Days: 2,
+  applicationsLast30Days: 6,
+  upcomingFollowUps7Days: 1,
+  upcomingInterviews7Days: 1,
+  interviewRate: 33.33333333333333,
   applicationsByStatus: [
     { status: "APPLIED", count: 7 },
     { status: "INTERVIEW", count: 2 },
@@ -42,7 +46,11 @@ describe("DashboardPage", () => {
       ["Relances à venir", "3"],
       ["Entretiens à venir", "2"],
       ["Candidatures sur 30 jours", "6"],
-      ["Taux d'entretien", "25%"],
+      ["Taux d'entretien", "33,3 %"],
+      ["Candidatures — 7 jours", "2"],
+      ["Candidatures — 30 jours", "6"],
+      ["Entretiens à venir — 7 jours", "1"],
+      ["Relances à venir — 7 jours", "1"],
     ] as const;
 
     for (const [label, value] of expectedCounters) {
@@ -54,6 +62,23 @@ describe("DashboardPage", () => {
 
     expect(screen.getByText("APPLIED")).toBeInTheDocument();
     expect(screen.getByText("INTERVIEW")).toBeInTheDocument();
+  });
+
+  it("formats a zero interview rate", async () => {
+    vi.mocked(getDashboardStats).mockResolvedValue({
+      ...dashboardStats,
+      totalApplications: 0,
+      interviewRate: 0,
+    });
+
+    renderWithProviders(<DashboardPage />);
+
+    const rateCard = (await screen.findByText("Taux d'entretien")).closest(
+      "article",
+    );
+
+    expect(rateCard).not.toBeNull();
+    expect(within(rateCard!).getByText("0 %")).toBeInTheDocument();
   });
 
   it("renders the loading state", () => {

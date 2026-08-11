@@ -46,7 +46,10 @@ describe('DashboardService', () => {
       .mockResolvedValueOnce(2) // totalApplications
       .mockResolvedValueOnce(1) // upcomingFollowUps
       .mockResolvedValueOnce(1) // upcomingInterviews
-      .mockResolvedValueOnce(2) // recentApplications
+      .mockResolvedValueOnce(1) // applicationsLast7Days
+      .mockResolvedValueOnce(2) // applicationsLast30Days
+      .mockResolvedValueOnce(1) // upcomingFollowUps7Days
+      .mockResolvedValueOnce(1) // upcomingInterviews7Days
       .mockResolvedValueOnce(1); // applicationsWithInterview
 
     prismaServiceMock.company.count.mockResolvedValue(3);
@@ -74,6 +77,10 @@ describe('DashboardService', () => {
       upcomingFollowUps: 1,
       upcomingInterviews: 1,
       recentApplications: 2,
+      applicationsLast7Days: 1,
+      applicationsLast30Days: 2,
+      upcomingFollowUps7Days: 1,
+      upcomingInterviews7Days: 1,
       interviewRate: 50,
       applicationsByStatus: [
         { status: 'DRAFT', count: 1 },
@@ -85,7 +92,7 @@ describe('DashboardService', () => {
       ],
     });
 
-    expect(prismaServiceMock.application.count).toHaveBeenCalledTimes(5);
+    expect(prismaServiceMock.application.count).toHaveBeenCalledTimes(8);
     expect(prismaServiceMock.application.count).toHaveBeenNthCalledWith(1, {
       where: {
         userId: 7,
@@ -111,11 +118,39 @@ describe('DashboardService', () => {
       where: {
         userId: 7,
         createdAt: {
-          gte: new Date('2026-07-12T10:00:00.000Z'),
+          gte: new Date('2026-08-04T10:00:00.000Z'),
+          lte: new Date('2026-08-11T10:00:00.000Z'),
         },
       },
     });
     expect(prismaServiceMock.application.count).toHaveBeenNthCalledWith(5, {
+      where: {
+        userId: 7,
+        createdAt: {
+          gte: new Date('2026-07-12T10:00:00.000Z'),
+          lte: new Date('2026-08-11T10:00:00.000Z'),
+        },
+      },
+    });
+    expect(prismaServiceMock.application.count).toHaveBeenNthCalledWith(6, {
+      where: {
+        userId: 7,
+        followUpAt: {
+          gte: new Date('2026-08-11T10:00:00.000Z'),
+          lte: new Date('2026-08-18T10:00:00.000Z'),
+        },
+      },
+    });
+    expect(prismaServiceMock.application.count).toHaveBeenNthCalledWith(7, {
+      where: {
+        userId: 7,
+        interviewAt: {
+          gte: new Date('2026-08-11T10:00:00.000Z'),
+          lte: new Date('2026-08-18T10:00:00.000Z'),
+        },
+      },
+    });
+    expect(prismaServiceMock.application.count).toHaveBeenNthCalledWith(8, {
       where: {
         userId: 7,
         interviewAt: {
@@ -145,5 +180,21 @@ describe('DashboardService', () => {
         status: true,
       },
     });
+  });
+
+  it('returns a zero interview rate when there are no applications', async () => {
+    prismaServiceMock.application.count.mockResolvedValue(0);
+    prismaServiceMock.company.count.mockResolvedValue(0);
+    prismaServiceMock.jobOffer.count.mockResolvedValue(0);
+    prismaServiceMock.application.groupBy.mockResolvedValue([]);
+
+    await expect(service.getStats(7)).resolves.toMatchObject({
+      totalApplications: 0,
+      interviewRate: 0,
+    });
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 });
