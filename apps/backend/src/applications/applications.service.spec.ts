@@ -94,6 +94,54 @@ describe('ApplicationsService', () => {
     });
   });
 
+  it('should combine application filters without weakening ownership', async () => {
+    prismaServiceMock.application.findMany.mockResolvedValue([]);
+
+    await service.findAll(7, {
+      status: 'INTERVIEW',
+      companyId: 2,
+      jobOfferId: 3,
+      search: '  ignored by DTO boundary  ',
+    });
+
+    expect(prismaServiceMock.application.findMany).toHaveBeenCalledWith({
+      where: {
+        userId: 7,
+        status: 'INTERVIEW',
+        jobOfferId: 3,
+        jobOffer: {
+          companyId: 2,
+          OR: [
+            {
+              title: {
+                contains: '  ignored by DTO boundary  ',
+                mode: 'insensitive',
+              },
+            },
+            {
+              company: {
+                name: {
+                  contains: '  ignored by DTO boundary  ',
+                  mode: 'insensitive',
+                },
+              },
+            },
+          ],
+        },
+      },
+      include: {
+        jobOffer: {
+          include: {
+            company: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+  });
+
   it('should return one application', async () => {
     const application = {
       id: 1,

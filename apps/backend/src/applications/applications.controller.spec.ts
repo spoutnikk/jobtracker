@@ -61,12 +61,23 @@ describe('ApplicationsController', () => {
 
   it('should return all applications', async () => {
     const applications = [{ id: 1 }];
+    const filters = {
+      status: 'APPLIED' as const,
+      companyId: 2,
+      jobOfferId: 3,
+      search: 'React',
+    };
 
     applicationsServiceMock.findAll.mockResolvedValue(applications);
 
-    await expect(controller.findAll(user)).resolves.toEqual(applications);
+    await expect(controller.findAll(user, filters)).resolves.toEqual(
+      applications,
+    );
 
-    expect(applicationsServiceMock.findAll).toHaveBeenCalledWith(user.id);
+    expect(applicationsServiceMock.findAll).toHaveBeenCalledWith(
+      user.id,
+      filters,
+    );
   });
 
   it('should return one application', async () => {

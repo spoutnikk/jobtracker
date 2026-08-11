@@ -7,12 +7,14 @@ import {
   Patch,
   Delete,
   Post,
+  Query,
 } from '@nestjs/common';
 import { ApplicationsService } from './applications.service';
 import { CreateApplicationDto } from './dto/create-application.dto';
 import { UpdateApplicationDto } from './dto/update-application.dto';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/authenticated-user';
+import { FindApplicationsQueryDto } from './dto/find-applications-query.dto';
 
 @Controller('applications')
 export class ApplicationsController {
@@ -27,8 +29,11 @@ export class ApplicationsController {
   }
 
   @Get()
-  findAll(@CurrentUser() user: AuthenticatedUser) {
-    return this.applicationsService.findAll(user.id);
+  findAll(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() filters: FindApplicationsQueryDto,
+  ) {
+    return this.applicationsService.findAll(user.id, filters);
   }
 
   @Get('follow-ups')

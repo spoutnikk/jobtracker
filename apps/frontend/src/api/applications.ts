@@ -47,8 +47,19 @@ export interface Application {
   jobOffer: JobOffer;
 }
 
-export async function getApplications(): Promise<Application[]> {
-  const response = await apiClient.get<Application[]>("/applications");
+export interface ApplicationFilters {
+  status?: ApplicationStatus;
+  companyId?: number;
+  jobOfferId?: number;
+  search?: string;
+}
+
+export async function getApplications(
+  filters?: ApplicationFilters,
+): Promise<Application[]> {
+  const response = await apiClient.get<Application[]>("/applications", {
+    params: filters,
+  });
 
   return response.data;
 }

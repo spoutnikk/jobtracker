@@ -145,6 +145,101 @@ describe("ApplicationsPage", () => {
     ).toBeInTheDocument();
   });
 
+  it.each([
+    ["Filtrer par statut", "APPLIED", { status: "APPLIED" }],
+    ["Filtrer par société", String(company.id), { companyId: company.id }],
+    ["Filtrer par offre", String(jobOffer.id), { jobOfferId: jobOffer.id }],
+  ] as const)(
+    "requests applications with the %s filter",
+    async (label, value, expectedFilter) => {
+      const user = userEvent.setup();
+      renderWithProviders(<ApplicationsPage />);
+
+      await screen.findByRole("heading", { name: jobOffer.title });
+      await user.selectOptions(screen.getByLabelText(label), value);
+
+      await waitFor(() => {
+        expect(getApplications).toHaveBeenLastCalledWith(
+          expect.objectContaining(expectedFilter),
+        );
+      });
+    },
+  );
+
+  it("submits trimmed search text without querying on every character", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<ApplicationsPage />);
+
+    await screen.findByRole("heading", { name: jobOffer.title });
+    const callsBeforeTyping = vi.mocked(getApplications).mock.calls.length;
+    await user.type(screen.getByLabelText("Recherche"), "  React  ");
+    expect(getApplications).toHaveBeenCalledTimes(callsBeforeTyping);
+    await user.click(screen.getByRole("button", { name: "Rechercher" }));
+
+    await waitFor(() => {
+      expect(getApplications).toHaveBeenLastCalledWith({
+        status: undefined,
+        companyId: undefined,
+        jobOfferId: undefined,
+        search: "React",
+      });
+    });
+  });
+
+  it("combines filters and resets them without ever sending userId", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<ApplicationsPage />);
+
+    await screen.findByRole("heading", { name: jobOffer.title });
+    await user.selectOptions(
+      screen.getByLabelText("Filtrer par statut"),
+      "APPLIED",
+    );
+    await user.selectOptions(
+      screen.getByLabelText("Filtrer par société"),
+      String(company.id),
+    );
+    await user.selectOptions(
+      screen.getByLabelText("Filtrer par offre"),
+      String(jobOffer.id),
+    );
+    await user.type(screen.getByLabelText("Recherche"), "React");
+    await user.click(screen.getByRole("button", { name: "Rechercher" }));
+
+    await waitFor(() => {
+      expect(getApplications).toHaveBeenLastCalledWith({
+        status: "APPLIED",
+        companyId: company.id,
+        jobOfferId: jobOffer.id,
+        search: "React",
+      });
+    });
+    const [filters] = vi.mocked(getApplications).mock.calls.at(-1) ?? [];
+    expect(filters).not.toHaveProperty("userId");
+
+    await user.click(screen.getByRole("button", { name: "Réinitialiser" }));
+
+    await waitFor(() => {
+      expect(getApplications).toHaveBeenLastCalledWith(undefined);
+    });
+  });
+
+  it("distinguishes an empty filtered result", async () => {
+    vi.mocked(getApplications).mockResolvedValue([]);
+    const user = userEvent.setup();
+    renderWithProviders(<ApplicationsPage />);
+
+    await screen.findByText("Aucune candidature enregistrée.");
+    await user.selectOptions(
+      screen.getByLabelText("Filtrer par statut"),
+      "REJECTED",
+    );
+
+    expect(
+      await screen.findByText("Aucun résultat pour ces filtres."),
+    ).toBeInTheDocument();
+  });
+
   it("creates an application with the selected job offer", async () => {
     vi.mocked(getApplications).mockResolvedValue([]);
     const user = userEvent.setup();

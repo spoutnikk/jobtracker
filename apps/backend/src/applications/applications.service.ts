@@ -3,6 +3,7 @@ import { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateApplicationDto } from './dto/create-application.dto';
 import { UpdateApplicationDto } from './dto/update-application.dto';
+import { FindApplicationsQueryDto } from './dto/find-applications-query.dto';
 
 @Injectable()
 export class ApplicationsService {
@@ -91,10 +92,40 @@ export class ApplicationsService {
     }
   }
 
-  findAll(userId: number) {
+  findAll(userId: number, filters: FindApplicationsQueryDto = {}) {
+    const jobOfferFilter: Prisma.JobOfferWhereInput = {
+      ...(filters.companyId !== undefined && {
+        companyId: filters.companyId,
+      }),
+      ...(filters.search !== undefined && {
+        OR: [
+          {
+            title: {
+              contains: filters.search,
+              mode: 'insensitive',
+            },
+          },
+          {
+            company: {
+              name: {
+                contains: filters.search,
+                mode: 'insensitive',
+              },
+            },
+          },
+        ],
+      }),
+    };
+    const hasJobOfferFilter = Object.keys(jobOfferFilter).length > 0;
+
     return this.prisma.application.findMany({
       where: {
         userId,
+        ...(filters.status !== undefined && { status: filters.status }),
+        ...(filters.jobOfferId !== undefined && {
+          jobOfferId: filters.jobOfferId,
+        }),
+        ...(hasJobOfferFilter && { jobOffer: jobOfferFilter }),
       },
       include: {
         jobOffer: {

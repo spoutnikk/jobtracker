@@ -4,6 +4,7 @@ import {
   getApplications,
   updateApplication,
   deleteApplication,
+  type ApplicationFilters,
   type ApplicationStatus,
 } from "../api/applications";
 import { getJobOffers } from "../api/job-offers";
@@ -26,6 +27,11 @@ function ApplicationsPage() {
   const [followUpAt, setFollowUpAt] = useState("");
   const [interviewAt, setInterviewAt] = useState("");
   const [jobOfferId, setJobOfferId] = useState<number | null>(null);
+  const [filterSearchInput, setFilterSearchInput] = useState("");
+  const [filterSearch, setFilterSearch] = useState("");
+  const [filterStatus, setFilterStatus] = useState<ApplicationStatus | "">("");
+  const [filterCompanyId, setFilterCompanyId] = useState<number | null>(null);
+  const [filterJobOfferId, setFilterJobOfferId] = useState<number | null>(null);
   const [editingApplicationId, setEditingApplicationId] = useState<
     number | null
   >(null);
@@ -148,9 +154,30 @@ function ApplicationsPage() {
     });
   }
 
+  const applicationFilters: ApplicationFilters = {
+    status: filterStatus || undefined,
+    companyId: filterCompanyId ?? undefined,
+    jobOfferId: filterJobOfferId ?? undefined,
+    search: filterSearch || undefined,
+  };
+  const hasActiveFilters =
+    applicationFilters.status !== undefined ||
+    applicationFilters.companyId !== undefined ||
+    applicationFilters.jobOfferId !== undefined ||
+    applicationFilters.search !== undefined;
+  const companies = Array.from(
+    new Map(
+      (jobOffersQuery.data ?? []).map((offer) => [
+        offer.company.id,
+        offer.company,
+      ]),
+    ).values(),
+  );
+
   const applicationsQuery = useQuery({
-    queryKey: ["applications"],
-    queryFn: getApplications,
+    queryKey: ["applications", applicationFilters],
+    queryFn: () =>
+      getApplications(hasActiveFilters ? applicationFilters : undefined),
   });
 
   if (applicationsQuery.isPending) {
@@ -173,6 +200,111 @@ function ApplicationsPage() {
     <main className="min-h-screen p-8">
       <div className="mx-auto max-w-5xl">
         <h1 className="text-3xl font-bold">Candidatures</h1>
+        <form
+          className="mt-6 rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
+          onSubmit={(event) => {
+            event.preventDefault();
+            setFilterSearch(filterSearchInput.trim());
+          }}
+        >
+          <h2 className="text-lg font-semibold">Filtrer les candidatures</h2>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-medium text-gray-700">
+                Recherche
+              </span>
+              <input
+                type="search"
+                value={filterSearchInput}
+                onChange={(event) => setFilterSearchInput(event.target.value)}
+                className="rounded-md border border-gray-300 px-3 py-2"
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-medium text-gray-700">
+                Filtrer par statut
+              </span>
+              <select
+                value={filterStatus}
+                onChange={(event) =>
+                  setFilterStatus(event.target.value as ApplicationStatus | "")
+                }
+                className="rounded-md border border-gray-300 px-3 py-2"
+              >
+                <option value="">Tous les statuts</option>
+                <option value="DRAFT">À préparer</option>
+                <option value="APPLIED">Envoyée</option>
+                <option value="FOLLOW_UP">Relance</option>
+                <option value="INTERVIEW">Entretien</option>
+                <option value="ACCEPTED">Acceptée</option>
+                <option value="REJECTED">Refusée</option>
+              </select>
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-medium text-gray-700">
+                Filtrer par société
+              </span>
+              <select
+                value={filterCompanyId ?? ""}
+                onChange={(event) =>
+                  setFilterCompanyId(
+                    event.target.value ? Number(event.target.value) : null,
+                  )
+                }
+                className="rounded-md border border-gray-300 px-3 py-2"
+              >
+                <option value="">Toutes les sociétés</option>
+                {companies.map((company) => (
+                  <option key={company.id} value={company.id}>
+                    {company.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-medium text-gray-700">
+                Filtrer par offre
+              </span>
+              <select
+                value={filterJobOfferId ?? ""}
+                onChange={(event) =>
+                  setFilterJobOfferId(
+                    event.target.value ? Number(event.target.value) : null,
+                  )
+                }
+                className="rounded-md border border-gray-300 px-3 py-2"
+              >
+                <option value="">Toutes les offres</option>
+                {jobOffersQuery.data?.map((offer) => (
+                  <option key={offer.id} value={offer.id}>
+                    {offer.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="mt-4 flex gap-2">
+            <button
+              type="submit"
+              className="rounded-md bg-blue-600 px-4 py-2 font-medium text-white"
+            >
+              Rechercher
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setFilterSearchInput("");
+                setFilterSearch("");
+                setFilterStatus("");
+                setFilterCompanyId(null);
+                setFilterJobOfferId(null);
+              }}
+              className="rounded-md border border-gray-300 px-4 py-2 font-medium"
+            >
+              Réinitialiser
+            </button>
+          </div>
+        </form>
         <form
           onSubmit={handleSubmit}
           className="mt-6 rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
@@ -326,7 +458,11 @@ function ApplicationsPage() {
           )}
         </form>
         {applicationsQuery.data.length === 0 ? (
-          <p className="mt-6 text-gray-600">Aucune candidature enregistrée.</p>
+          <p className="mt-6 text-gray-600">
+            {hasActiveFilters
+              ? "Aucun résultat pour ces filtres."
+              : "Aucune candidature enregistrée."}
+          </p>
         ) : (
           <div className="mt-6 space-y-4">
             {applicationsQuery.data.map((application) => (

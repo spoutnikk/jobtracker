@@ -20,7 +20,7 @@ function DocumentsPage() {
 
   const applicationsQuery = useQuery({
     queryKey: ["applications"],
-    queryFn: getApplications,
+    queryFn: () => getApplications(),
   });
 
   const documentsQuery = useQuery({
