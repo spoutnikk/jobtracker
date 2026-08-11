@@ -1,5 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import { getDashboardStats } from "../api/dashboard";
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat("fr-FR", {
+    dateStyle: "full",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
 
 function DashboardPage() {
   const dashboardQuery = useQuery({
@@ -143,6 +151,74 @@ function DashboardPage() {
             })}
           </div>
         </section>
+
+        <div className="mt-10 grid gap-6 lg:grid-cols-2">
+          <section>
+            <h2 className="text-2xl font-semibold">Prochaines relances</h2>
+
+            {stats.nextFollowUps.length === 0 ? (
+              <p className="mt-4 text-gray-600">
+                Pas de relance prévue dans les 7 prochains jours.
+              </p>
+            ) : (
+              <div className="mt-4 space-y-3">
+                {stats.nextFollowUps.map((followUp) => (
+                  <article
+                    key={followUp.applicationId}
+                    className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
+                  >
+                    <h3 className="font-semibold">{followUp.jobTitle}</h3>
+                    <p className="text-sm text-gray-600">
+                      {followUp.companyName}
+                    </p>
+                    <p className="mt-2 text-sm">
+                      {formatDateTime(followUp.followUpAt)}
+                    </p>
+                    <Link
+                      to="/applications"
+                      className="mt-3 inline-block text-sm font-medium text-blue-700 hover:underline"
+                    >
+                      Voir la candidature « {followUp.jobTitle} »
+                    </Link>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-semibold">Prochains entretiens</h2>
+
+            {stats.nextInterviews.length === 0 ? (
+              <p className="mt-4 text-gray-600">
+                Pas d'entretien prévu dans les 7 prochains jours.
+              </p>
+            ) : (
+              <div className="mt-4 space-y-3">
+                {stats.nextInterviews.map((interview) => (
+                  <article
+                    key={interview.applicationId}
+                    className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
+                  >
+                    <h3 className="font-semibold">{interview.jobTitle}</h3>
+                    <p className="text-sm text-gray-600">
+                      {interview.companyName}
+                    </p>
+                    <p className="mt-2 text-sm">
+                      {formatDateTime(interview.interviewAt)}
+                    </p>
+                    <Link
+                      to="/applications"
+                      className="mt-3 inline-block text-sm font-medium text-blue-700 hover:underline"
+                    >
+                      Voir la candidature « {interview.jobTitle} »
+                    </Link>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
 
         <section className="mt-10">
           <h2 className="text-2xl font-semibold">Candidatures par statut</h2>

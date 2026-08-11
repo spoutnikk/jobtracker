@@ -1,4 +1,5 @@
 import { screen, within } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getDashboardStats, type DashboardStats } from "../api/dashboard";
 import { renderWithProviders } from "../test/renderWithProviders";
@@ -34,7 +35,43 @@ const dashboardStats: DashboardStats = {
     { weekStart: "2026-08-03T00:00:00.000Z", count: 4 },
     { weekStart: "2026-08-10T00:00:00.000Z", count: 1 },
   ],
+  nextFollowUps: [
+    {
+      applicationId: 1,
+      companyName: "Acme",
+      jobTitle: "Développeur backend",
+      followUpAt: "2026-08-12T08:30:00.000Z",
+    },
+    {
+      applicationId: 2,
+      companyName: "Beta",
+      jobTitle: "Développeur frontend",
+      followUpAt: "2026-08-13T13:00:00.000Z",
+    },
+  ],
+  nextInterviews: [
+    {
+      applicationId: 3,
+      companyName: "Gamma",
+      jobTitle: "Ingénieur DevOps",
+      interviewAt: "2026-08-14T09:00:00.000Z",
+    },
+    {
+      applicationId: 4,
+      companyName: "Delta",
+      jobTitle: "Tech lead",
+      interviewAt: "2026-08-15T14:30:00.000Z",
+    },
+  ],
 };
+
+function renderDashboard() {
+  return renderWithProviders(
+    <MemoryRouter>
+      <DashboardPage />
+    </MemoryRouter>,
+  );
+}
 
 describe("DashboardPage", () => {
   beforeEach(() => {
@@ -43,7 +80,7 @@ describe("DashboardPage", () => {
   });
 
   it("renders the dashboard statistics", async () => {
-    renderWithProviders(<DashboardPage />);
+    renderDashboard();
 
     expect(
       await screen.findByRole("heading", { name: "Tableau de bord" }),
@@ -108,6 +145,58 @@ describe("DashboardPage", () => {
       "Semaine du 3 août : 4 candidatures",
       "Semaine du 10 août : 1 candidature",
     ]);
+
+    const followUpsSection = screen
+      .getByRole("heading", { name: "Prochaines relances" })
+      .closest("section");
+    const interviewsSection = screen
+      .getByRole("heading", { name: "Prochains entretiens" })
+      .closest("section");
+
+    expect(followUpsSection).not.toBeNull();
+    expect(interviewsSection).not.toBeNull();
+    expect(
+      within(followUpsSection!)
+        .getAllByRole("heading", { level: 3 })
+        .map(({ textContent }) => textContent),
+    ).toEqual(["Développeur backend", "Développeur frontend"]);
+    expect(within(followUpsSection!).getByText("Acme")).toBeInTheDocument();
+    expect(
+      within(followUpsSection!).getByText("mercredi 12 août 2026 à 10:30"),
+    ).toBeInTheDocument();
+    expect(
+      within(followUpsSection!).getByRole("link", {
+        name: "Voir la candidature « Développeur backend »",
+      }),
+    ).toHaveAttribute("href", "/applications");
+    expect(
+      within(interviewsSection!)
+        .getAllByRole("heading", { level: 3 })
+        .map(({ textContent }) => textContent),
+    ).toEqual(["Ingénieur DevOps", "Tech lead"]);
+    expect(within(interviewsSection!).getByText("Gamma")).toBeInTheDocument();
+    expect(
+      within(interviewsSection!).getByText("vendredi 14 août 2026 à 11:00"),
+    ).toBeInTheDocument();
+  });
+
+  it("renders empty states for the next seven days", async () => {
+    vi.mocked(getDashboardStats).mockResolvedValue({
+      ...dashboardStats,
+      nextFollowUps: [],
+      nextInterviews: [],
+    });
+
+    renderDashboard();
+
+    expect(
+      await screen.findByText(
+        "Pas de relance prévue dans les 7 prochains jours.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Pas d'entretien prévu dans les 7 prochains jours."),
+    ).toBeInTheDocument();
   });
 
   it("formats a zero interview rate", async () => {
@@ -117,7 +206,7 @@ describe("DashboardPage", () => {
       interviewRate: 0,
     });
 
-    renderWithProviders(<DashboardPage />);
+    renderDashboard();
 
     const rateCard = (await screen.findByText("Taux d'entretien")).closest(
       "article",
@@ -132,7 +221,7 @@ describe("DashboardPage", () => {
       () => new Promise<DashboardStats>(() => undefined),
     );
 
-    renderWithProviders(<DashboardPage />);
+    renderDashboard();
 
     expect(
       screen.getByText("Chargement du tableau de bord..."),
@@ -142,7 +231,7 @@ describe("DashboardPage", () => {
   it("renders the error state", async () => {
     vi.mocked(getDashboardStats).mockRejectedValue(new Error("Request failed"));
 
-    renderWithProviders(<DashboardPage />);
+    renderDashboard();
 
     expect(
       await screen.findByText("Impossible de charger le tableau de bord."),

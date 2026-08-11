@@ -156,10 +156,10 @@ describe('Dashboard and calendar HTTP ownership integration', () => {
               12 * 60 * 60 * 1000,
           ),
           followUpAt: applicationFixture.followUp
-            ? new Date(fixtureNow + (index + 2) * dayInMilliseconds)
+            ? new Date(fixtureNow + (index + 1) * 6 * 60 * 60 * 1000)
             : null,
           interviewAt: applicationFixture.interview
-            ? new Date(fixtureNow + (index + 2) * dayInMilliseconds)
+            ? new Date(fixtureNow + (index + 1) * 6 * 60 * 60 * 1000)
             : null,
         },
         select: { id: true },
@@ -206,14 +206,38 @@ describe('Dashboard and calendar HTTP ownership integration', () => {
         {
           status: 'DRAFT',
           followUp: true,
-          interview: false,
+          interview: true,
           createdWeeksAgo: 0,
         },
         {
           status: 'APPLIED',
-          followUp: false,
+          followUp: true,
           interview: true,
           createdWeeksAgo: 1,
+        },
+        {
+          status: 'DRAFT',
+          followUp: true,
+          interview: true,
+          createdWeeksAgo: 2,
+        },
+        {
+          status: 'DRAFT',
+          followUp: true,
+          interview: true,
+          createdWeeksAgo: 3,
+        },
+        {
+          status: 'DRAFT',
+          followUp: true,
+          interview: true,
+          createdWeeksAgo: 4,
+        },
+        {
+          status: 'DRAFT',
+          followUp: true,
+          interview: true,
+          createdWeeksAgo: 5,
         },
       ],
     });
@@ -287,20 +311,20 @@ describe('Dashboard and calendar HTTP ownership integration', () => {
     const statsB = readRecord(responseB.body);
 
     expect(statsA).toMatchObject({
-      totalApplications: 2,
+      totalApplications: 6,
       totalCompanies: 1,
       totalJobOffers: 1,
-      upcomingFollowUps: 1,
-      upcomingInterviews: 1,
-      recentApplications: 2,
+      upcomingFollowUps: 6,
+      upcomingInterviews: 6,
+      recentApplications: 5,
       applicationsLast7Days: 1,
-      applicationsLast30Days: 2,
-      upcomingFollowUps7Days: 1,
-      upcomingInterviews7Days: 1,
-      interviewRate: 50,
+      applicationsLast30Days: 5,
+      upcomingFollowUps7Days: 6,
+      upcomingInterviews7Days: 6,
+      interviewRate: 100,
     });
     expect(statsA.applicationsByStatus).toEqual([
-      { status: 'DRAFT', count: 1 },
+      { status: 'DRAFT', count: 5 },
       { status: 'APPLIED', count: 1 },
       { status: 'FOLLOW_UP', count: 0 },
       { status: 'INTERVIEW', count: 0 },
@@ -314,7 +338,27 @@ describe('Dashboard and calendar HTTP ownership integration', () => {
       (weeklyApplicationsA as Array<Record<string, unknown>>).map(
         ({ count }) => count,
       ),
-    ).toEqual([0, 0, 0, 0, 0, 0, 1, 1]);
+    ).toEqual([0, 0, 1, 1, 1, 1, 1, 1]);
+    const nextFollowUpsA = statsA.nextFollowUps as Array<
+      Record<string, unknown>
+    >;
+    const nextInterviewsA = statsA.nextInterviews as Array<
+      Record<string, unknown>
+    >;
+    expect(nextFollowUpsA).toHaveLength(5);
+    expect(nextInterviewsA).toHaveLength(5);
+    expect(nextFollowUpsA.map(({ applicationId }) => applicationId)).toEqual(
+      userA.applicationIds.slice(0, 5),
+    );
+    expect(nextInterviewsA.map(({ applicationId }) => applicationId)).toEqual(
+      userA.applicationIds.slice(0, 5),
+    );
+    const firstFollowUpA = nextFollowUpsA[0];
+    if (!firstFollowUpA) {
+      throw new Error('Expected at least one follow-up for user A');
+    }
+    expect(firstFollowUpA.companyName).toContain('user-a Company');
+    expect(firstFollowUpA.jobTitle).toContain('user-a Offer');
 
     expect(statsB).toMatchObject({
       totalApplications: 3,
@@ -346,6 +390,16 @@ describe('Dashboard and calendar HTTP ownership integration', () => {
     ]);
     const weekStarts = weeklyPointsB.map(({ weekStart }) => weekStart);
     expect(weekStarts).toEqual([...weekStarts].sort());
+    expect(
+      (statsB.nextFollowUps as Array<Record<string, unknown>>).map(
+        ({ applicationId }) => applicationId,
+      ),
+    ).toEqual([userB.applicationIds[0], userB.applicationIds[2]]);
+    expect(
+      (statsB.nextInterviews as Array<Record<string, unknown>>).map(
+        ({ applicationId }) => applicationId,
+      ),
+    ).toEqual(userB.applicationIds);
   });
 
   it('isolates follow-up and interview calendar endpoints for both users', async () => {
@@ -370,8 +424,8 @@ describe('Dashboard and calendar HTTP ownership integration', () => {
       .set('Cookie', userB.cookie)
       .expect(200);
 
-    expect(readIds(followUpsA.body)).toEqual([userA.applicationIds[0]]);
-    expect(readIds(interviewsA.body)).toEqual([userA.applicationIds[1]]);
+    expect(readIds(followUpsA.body)).toEqual(userA.applicationIds);
+    expect(readIds(interviewsA.body)).toEqual(userA.applicationIds);
     expect(readIds(followUpsB.body)).toEqual([
       userB.applicationIds[0],
       userB.applicationIds[2],

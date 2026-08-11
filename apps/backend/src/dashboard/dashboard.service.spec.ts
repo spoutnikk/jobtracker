@@ -70,11 +70,31 @@ describe('DashboardService', () => {
         },
       },
     ]);
-    prismaServiceMock.application.findMany.mockResolvedValue([
-      { createdAt: new Date('2026-06-22T00:00:00.000Z') },
-      { createdAt: new Date('2026-08-10T12:00:00.000Z') },
-      { createdAt: new Date('2026-08-11T10:00:00.000Z') },
-    ]);
+    prismaServiceMock.application.findMany
+      .mockResolvedValueOnce([
+        { createdAt: new Date('2026-06-22T00:00:00.000Z') },
+        { createdAt: new Date('2026-08-10T12:00:00.000Z') },
+        { createdAt: new Date('2026-08-11T10:00:00.000Z') },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: 11,
+          followUpAt: new Date('2026-08-11T10:00:00.000Z'),
+          jobOffer: { title: 'Backend', company: { name: 'Acme' } },
+        },
+        {
+          id: 12,
+          followUpAt: new Date('2026-08-18T09:59:59.999Z'),
+          jobOffer: { title: 'Frontend', company: { name: 'Beta' } },
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: 13,
+          interviewAt: new Date('2026-08-12T14:00:00.000Z'),
+          jobOffer: { title: 'DevOps', company: { name: 'Gamma' } },
+        },
+      ]);
 
     await expect(service.getStats(7)).resolves.toEqual({
       totalApplications: 2,
@@ -105,6 +125,28 @@ describe('DashboardService', () => {
         { weekStart: '2026-07-27T00:00:00.000Z', count: 0 },
         { weekStart: '2026-08-03T00:00:00.000Z', count: 0 },
         { weekStart: '2026-08-10T00:00:00.000Z', count: 2 },
+      ],
+      nextFollowUps: [
+        {
+          applicationId: 11,
+          companyName: 'Acme',
+          jobTitle: 'Backend',
+          followUpAt: '2026-08-11T10:00:00.000Z',
+        },
+        {
+          applicationId: 12,
+          companyName: 'Beta',
+          jobTitle: 'Frontend',
+          followUpAt: '2026-08-18T09:59:59.999Z',
+        },
+      ],
+      nextInterviews: [
+        {
+          applicationId: 13,
+          companyName: 'Gamma',
+          jobTitle: 'DevOps',
+          interviewAt: '2026-08-12T14:00:00.000Z',
+        },
       ],
     });
 
@@ -153,7 +195,7 @@ describe('DashboardService', () => {
         userId: 7,
         followUpAt: {
           gte: new Date('2026-08-11T10:00:00.000Z'),
-          lte: new Date('2026-08-18T10:00:00.000Z'),
+          lt: new Date('2026-08-18T10:00:00.000Z'),
         },
       },
     });
@@ -162,7 +204,7 @@ describe('DashboardService', () => {
         userId: 7,
         interviewAt: {
           gte: new Date('2026-08-11T10:00:00.000Z'),
-          lte: new Date('2026-08-18T10:00:00.000Z'),
+          lt: new Date('2026-08-18T10:00:00.000Z'),
         },
       },
     });
@@ -196,7 +238,7 @@ describe('DashboardService', () => {
         status: true,
       },
     });
-    expect(prismaServiceMock.application.findMany).toHaveBeenCalledWith({
+    expect(prismaServiceMock.application.findMany).toHaveBeenNthCalledWith(1, {
       where: {
         userId: 7,
         createdAt: {
@@ -206,6 +248,48 @@ describe('DashboardService', () => {
       },
       select: {
         createdAt: true,
+      },
+    });
+    expect(prismaServiceMock.application.findMany).toHaveBeenNthCalledWith(2, {
+      where: {
+        userId: 7,
+        followUpAt: {
+          gte: new Date('2026-08-11T10:00:00.000Z'),
+          lt: new Date('2026-08-18T10:00:00.000Z'),
+        },
+      },
+      orderBy: [{ followUpAt: 'asc' }, { id: 'asc' }],
+      take: 5,
+      select: {
+        id: true,
+        followUpAt: true,
+        jobOffer: {
+          select: {
+            title: true,
+            company: { select: { name: true } },
+          },
+        },
+      },
+    });
+    expect(prismaServiceMock.application.findMany).toHaveBeenNthCalledWith(3, {
+      where: {
+        userId: 7,
+        interviewAt: {
+          gte: new Date('2026-08-11T10:00:00.000Z'),
+          lt: new Date('2026-08-18T10:00:00.000Z'),
+        },
+      },
+      orderBy: [{ interviewAt: 'asc' }, { id: 'asc' }],
+      take: 5,
+      select: {
+        id: true,
+        interviewAt: true,
+        jobOffer: {
+          select: {
+            title: true,
+            company: { select: { name: true } },
+          },
+        },
       },
     });
   });
@@ -218,12 +302,15 @@ describe('DashboardService', () => {
     prismaServiceMock.company.count.mockResolvedValue(0);
     prismaServiceMock.jobOffer.count.mockResolvedValue(0);
     prismaServiceMock.application.groupBy.mockResolvedValue([]);
-    prismaServiceMock.application.findMany.mockResolvedValue([
-      { createdAt: new Date('2025-11-10T00:00:00.000Z') },
-      { createdAt: new Date('2025-12-24T12:00:00.000Z') },
-      { createdAt: new Date('2025-12-29T00:00:00.000Z') },
-      { createdAt: new Date('2026-01-02T18:00:00.000Z') },
-    ]);
+    prismaServiceMock.application.findMany
+      .mockResolvedValueOnce([
+        { createdAt: new Date('2025-11-10T00:00:00.000Z') },
+        { createdAt: new Date('2025-12-24T12:00:00.000Z') },
+        { createdAt: new Date('2025-12-29T00:00:00.000Z') },
+        { createdAt: new Date('2026-01-02T18:00:00.000Z') },
+      ])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
 
     const result = await service.getStats(19);
 
@@ -237,7 +324,7 @@ describe('DashboardService', () => {
       { weekStart: '2025-12-22T00:00:00.000Z', count: 1 },
       { weekStart: '2025-12-29T00:00:00.000Z', count: 2 },
     ]);
-    expect(prismaServiceMock.application.findMany).toHaveBeenCalledWith({
+    expect(prismaServiceMock.application.findMany).toHaveBeenNthCalledWith(1, {
       where: {
         userId: 19,
         createdAt: {

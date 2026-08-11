@@ -11,6 +11,20 @@ export interface WeeklyApplications {
   count: number;
 }
 
+export interface UpcomingFollowUp {
+  applicationId: number;
+  companyName: string;
+  jobTitle: string;
+  followUpAt: string;
+}
+
+export interface UpcomingInterview {
+  applicationId: number;
+  companyName: string;
+  jobTitle: string;
+  interviewAt: string;
+}
+
 export interface DashboardStats {
   totalApplications: number;
   totalCompanies: number;
@@ -25,6 +39,8 @@ export interface DashboardStats {
   interviewRate: number;
   applicationsByStatus: ApplicationsByStatus[];
   weeklyApplications: WeeklyApplications[];
+  nextFollowUps: UpcomingFollowUp[];
+  nextInterviews: UpcomingInterview[];
 }
 
 export async function getDashboardStats(): Promise<DashboardStats> {

@@ -46,6 +46,8 @@ export class DashboardService {
       applicationsWithInterview,
       applicationsByStatus,
       weeklyApplicationDates,
+      upcomingFollowUpItems,
+      upcomingInterviewItems,
     ] = await Promise.all([
       this.prisma.application.count({
         where: {
@@ -110,7 +112,7 @@ export class DashboardService {
           userId,
           followUpAt: {
             gte: now,
-            lte: sevenDaysFromNow,
+            lt: sevenDaysFromNow,
           },
         },
       }),
@@ -120,7 +122,7 @@ export class DashboardService {
           userId,
           interviewAt: {
             gte: now,
-            lte: sevenDaysFromNow,
+            lt: sevenDaysFromNow,
           },
         },
       }),
@@ -154,6 +156,58 @@ export class DashboardService {
         },
         select: {
           createdAt: true,
+        },
+      }),
+
+      this.prisma.application.findMany({
+        where: {
+          userId,
+          followUpAt: {
+            gte: now,
+            lt: sevenDaysFromNow,
+          },
+        },
+        orderBy: [{ followUpAt: 'asc' }, { id: 'asc' }],
+        take: 5,
+        select: {
+          id: true,
+          followUpAt: true,
+          jobOffer: {
+            select: {
+              title: true,
+              company: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+
+      this.prisma.application.findMany({
+        where: {
+          userId,
+          interviewAt: {
+            gte: now,
+            lt: sevenDaysFromNow,
+          },
+        },
+        orderBy: [{ interviewAt: 'asc' }, { id: 'asc' }],
+        take: 5,
+        select: {
+          id: true,
+          interviewAt: true,
+          jobOffer: {
+            select: {
+              title: true,
+              company: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
         },
       }),
     ]);
@@ -193,6 +247,19 @@ export class DashboardService {
       }
     }
 
+    const nextFollowUps = upcomingFollowUpItems.map((application) => ({
+      applicationId: application.id,
+      companyName: application.jobOffer.company.name,
+      jobTitle: application.jobOffer.title,
+      followUpAt: application.followUpAt!.toISOString(),
+    }));
+    const nextInterviews = upcomingInterviewItems.map((application) => ({
+      applicationId: application.id,
+      companyName: application.jobOffer.company.name,
+      jobTitle: application.jobOffer.title,
+      interviewAt: application.interviewAt!.toISOString(),
+    }));
+
     return {
       totalApplications,
       totalCompanies,
@@ -207,6 +274,8 @@ export class DashboardService {
       interviewRate,
       applicationsByStatus: completeApplicationsByStatus,
       weeklyApplications,
+      nextFollowUps,
+      nextInterviews,
     };
   }
 }
