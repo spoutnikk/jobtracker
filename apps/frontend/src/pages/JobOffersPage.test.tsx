@@ -8,6 +8,7 @@ import {
   deleteJobOffer,
   getJobOffers,
   type JobOffer,
+  type PaginatedJobOffers,
   updateJobOffer,
 } from "../api/job-offers";
 import { renderWithProviders } from "../test/renderWithProviders";
@@ -75,6 +76,30 @@ const secondJobOffer: JobOffer = {
   title: "Développeur TypeScript",
 };
 
+const defaultJobOfferParams = {
+  search: undefined,
+  companyId: undefined,
+  contractType: undefined,
+  page: 1,
+  pageSize: 10,
+  sortBy: "createdAt",
+  sortOrder: "desc",
+};
+
+function paginatedJobOffers(
+  items: JobOffer[],
+  overrides: Partial<PaginatedJobOffers> = {},
+): PaginatedJobOffers {
+  return {
+    items,
+    page: 1,
+    pageSize: 10,
+    total: items.length,
+    totalPages: items.length === 0 ? 0 : 1,
+    ...overrides,
+  };
+}
+
 function expectedDatetimeLocal(value: string) {
   const date = new Date(value);
   const pad = (part: number) => String(part).padStart(2, "0");
@@ -105,7 +130,7 @@ function createAxiosError(status: number) {
 describe("JobOffersPage", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    vi.mocked(getJobOffers).mockResolvedValue([]);
+    vi.mocked(getJobOffers).mockResolvedValue(paginatedJobOffers([]));
     vi.mocked(getAllCompanies).mockResolvedValue([company, secondCompany]);
     vi.mocked(createJobOffer).mockResolvedValue(jobOffer);
     vi.mocked(updateJobOffer).mockResolvedValue(updatedJobOffer);
@@ -124,8 +149,95 @@ describe("JobOffersPage", () => {
     expect(screen.getByText("Aucune offre enregistrée.")).toBeInTheDocument();
   });
 
+  it("navigates through pages and sends all filters", async () => {
+    vi.mocked(getJobOffers).mockImplementation(async (filters) =>
+      paginatedJobOffers([jobOffer], {
+        page: filters?.page ?? 1,
+        total: 21,
+        totalPages: 3,
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<JobOffersPage />);
+
+    expect(await screen.findByText("21 offres")).toBeInTheDocument();
+    expect(screen.getByText("Page 1 sur 3")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Précédent" })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Suivant" }));
+    await waitFor(() => {
+      expect(getJobOffers).toHaveBeenLastCalledWith({
+        ...defaultJobOfferParams,
+        page: 2,
+      });
+    });
+
+    await user.type(screen.getByLabelText("Recherche"), "  React  ");
+    await user.click(screen.getByRole("button", { name: "Rechercher" }));
+    await user.selectOptions(
+      screen.getByLabelText("Filtrer par société"),
+      String(company.id),
+    );
+    await user.selectOptions(
+      screen.getByLabelText("Filtrer par contrat"),
+      "CDI",
+    );
+    await user.selectOptions(screen.getByLabelText("Trier par"), "title");
+    await user.selectOptions(screen.getByLabelText("Ordre"), "asc");
+
+    await waitFor(() => {
+      expect(getJobOffers).toHaveBeenLastCalledWith({
+        ...defaultJobOfferParams,
+        search: "React",
+        companyId: company.id,
+        contractType: "CDI",
+        sortBy: "title",
+        sortOrder: "asc",
+      });
+    });
+    const [filters] = vi.mocked(getJobOffers).mock.calls.at(-1) ?? [];
+    expect(filters).not.toHaveProperty("userId");
+  });
+
+  it("resets all list controls to their defaults", async () => {
+    vi.mocked(getJobOffers).mockImplementation(async (filters) =>
+      paginatedJobOffers([jobOffer], {
+        page: filters?.page ?? 1,
+        total: 21,
+        totalPages: 3,
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<JobOffersPage />);
+
+    await screen.findByRole("heading", { name: jobOffer.title });
+    await user.type(screen.getByLabelText("Recherche"), "React");
+    await user.click(screen.getByRole("button", { name: "Rechercher" }));
+    await user.selectOptions(
+      screen.getByLabelText("Filtrer par société"),
+      String(company.id),
+    );
+    await user.selectOptions(
+      screen.getByLabelText("Filtrer par contrat"),
+      "CDI",
+    );
+    await user.selectOptions(screen.getByLabelText("Trier par"), "title");
+    await user.selectOptions(screen.getByLabelText("Ordre"), "asc");
+    await user.selectOptions(screen.getByLabelText("Par page"), "20");
+    await user.click(screen.getByRole("button", { name: "Réinitialiser" }));
+
+    await waitFor(() => {
+      expect(getJobOffers).toHaveBeenLastCalledWith(defaultJobOfferParams);
+      expect(screen.getByLabelText("Recherche")).toHaveValue("");
+      expect(screen.getByLabelText("Filtrer par société")).toHaveValue("");
+      expect(screen.getByLabelText("Filtrer par contrat")).toHaveValue("");
+      expect(screen.getByLabelText("Trier par")).toHaveValue("createdAt");
+      expect(screen.getByLabelText("Ordre")).toHaveValue("desc");
+      expect(screen.getByLabelText("Par page")).toHaveValue("10");
+    });
+  });
+
   it("renders an existing job offer", async () => {
-    vi.mocked(getJobOffers).mockResolvedValue([jobOffer]);
+    vi.mocked(getJobOffers).mockResolvedValue(paginatedJobOffers([jobOffer]));
 
     renderWithProviders(<JobOffersPage />);
 
@@ -213,7 +325,7 @@ describe("JobOffersPage", () => {
   });
 
   it("prefills the edit form with the existing job offer", async () => {
-    vi.mocked(getJobOffers).mockResolvedValue([jobOffer]);
+    vi.mocked(getJobOffers).mockResolvedValue(paginatedJobOffers([jobOffer]));
     const user = userEvent.setup();
 
     renderWithProviders(<JobOffersPage />);
@@ -249,7 +361,7 @@ describe("JobOffersPage", () => {
   });
 
   it("cancels editing without updating the job offer", async () => {
-    vi.mocked(getJobOffers).mockResolvedValue([jobOffer]);
+    vi.mocked(getJobOffers).mockResolvedValue(paginatedJobOffers([jobOffer]));
     const user = userEvent.setup();
 
     renderWithProviders(<JobOffersPage />);
@@ -282,7 +394,7 @@ describe("JobOffersPage", () => {
   });
 
   it("updates a job offer and closes the edit form", async () => {
-    vi.mocked(getJobOffers).mockResolvedValue([jobOffer]);
+    vi.mocked(getJobOffers).mockResolvedValue(paginatedJobOffers([jobOffer]));
     const user = userEvent.setup();
     const { queryClient } = renderWithProviders(<JobOffersPage />);
     const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
@@ -350,7 +462,7 @@ describe("JobOffersPage", () => {
   });
 
   it("keeps editing open and refreshes data after a 404", async () => {
-    vi.mocked(getJobOffers).mockResolvedValue([jobOffer]);
+    vi.mocked(getJobOffers).mockResolvedValue(paginatedJobOffers([jobOffer]));
     vi.mocked(updateJobOffer).mockRejectedValue(createAxiosError(404));
     const user = userEvent.setup();
     const { queryClient } = renderWithProviders(<JobOffersPage />);
@@ -384,7 +496,7 @@ describe("JobOffersPage", () => {
   });
 
   it("deletes a job offer after confirmation", async () => {
-    vi.mocked(getJobOffers).mockResolvedValue([jobOffer]);
+    vi.mocked(getJobOffers).mockResolvedValue(paginatedJobOffers([jobOffer]));
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     const user = userEvent.setup();
     const { queryClient } = renderWithProviders(<JobOffersPage />);
@@ -420,7 +532,7 @@ describe("JobOffersPage", () => {
   });
 
   it("does not delete a job offer when confirmation is cancelled", async () => {
-    vi.mocked(getJobOffers).mockResolvedValue([jobOffer]);
+    vi.mocked(getJobOffers).mockResolvedValue(paginatedJobOffers([jobOffer]));
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
     const user = userEvent.setup();
     const { queryClient } = renderWithProviders(<JobOffersPage />);
@@ -437,7 +549,7 @@ describe("JobOffersPage", () => {
   });
 
   it("shows a conflict when a job offer has applications", async () => {
-    vi.mocked(getJobOffers).mockResolvedValue([jobOffer]);
+    vi.mocked(getJobOffers).mockResolvedValue(paginatedJobOffers([jobOffer]));
     vi.mocked(deleteJobOffer).mockRejectedValue(createAxiosError(409));
     vi.spyOn(window, "confirm").mockReturnValue(true);
     const user = userEvent.setup();
@@ -461,7 +573,7 @@ describe("JobOffersPage", () => {
   });
 
   it("refreshes job offers after a delete returns 404", async () => {
-    vi.mocked(getJobOffers).mockResolvedValue([jobOffer]);
+    vi.mocked(getJobOffers).mockResolvedValue(paginatedJobOffers([jobOffer]));
     vi.mocked(deleteJobOffer).mockRejectedValue(createAxiosError(404));
     vi.spyOn(window, "confirm").mockReturnValue(true);
     const user = userEvent.setup();
@@ -484,7 +596,7 @@ describe("JobOffersPage", () => {
   });
 
   it("shows a generic message when deleting fails unexpectedly", async () => {
-    vi.mocked(getJobOffers).mockResolvedValue([jobOffer]);
+    vi.mocked(getJobOffers).mockResolvedValue(paginatedJobOffers([jobOffer]));
     vi.mocked(deleteJobOffer).mockRejectedValue(new Error("Unexpected error"));
     vi.spyOn(window, "confirm").mockReturnValue(true);
     const user = userEvent.setup();
@@ -499,7 +611,9 @@ describe("JobOffersPage", () => {
   });
 
   it("disables all job offer actions while deletion is pending", async () => {
-    vi.mocked(getJobOffers).mockResolvedValue([jobOffer, secondJobOffer]);
+    vi.mocked(getJobOffers).mockResolvedValue(
+      paginatedJobOffers([jobOffer, secondJobOffer]),
+    );
     let resolveDelete: ((value: JobOffer) => void) | undefined;
     const pendingDelete = new Promise<JobOffer>((resolve) => {
       resolveDelete = resolve;

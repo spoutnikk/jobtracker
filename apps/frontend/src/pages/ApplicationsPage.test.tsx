@@ -13,7 +13,7 @@ import {
   createApplicationEvent,
   getApplicationEvents,
 } from "../api/application-events";
-import { getJobOffers, type JobOffer } from "../api/job-offers";
+import { getAllJobOffers, type JobOffer } from "../api/job-offers";
 import { renderWithProviders } from "../test/renderWithProviders";
 import ApplicationsPage from "./ApplicationsPage";
 
@@ -25,7 +25,7 @@ vi.mock("../api/applications", () => ({
 }));
 
 vi.mock("../api/job-offers", () => ({
-  getJobOffers: vi.fn(),
+  getAllJobOffers: vi.fn(),
 }));
 
 vi.mock("../api/application-events", () => ({
@@ -105,7 +105,7 @@ describe("ApplicationsPage", () => {
     vi.mocked(getApplications).mockResolvedValue(
       paginatedApplications([application]),
     );
-    vi.mocked(getJobOffers).mockResolvedValue([jobOffer]);
+    vi.mocked(getAllJobOffers).mockResolvedValue([jobOffer]);
     vi.mocked(getApplicationEvents).mockResolvedValue([]);
     vi.mocked(createApplication).mockResolvedValue(application);
     vi.mocked(updateApplication).mockResolvedValue(application);

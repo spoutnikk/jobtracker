@@ -321,7 +321,9 @@ describe('Companies and JobOffers HTTP ownership integration', () => {
       .get('/job-offers')
       .set('Cookie', userA.cookie)
       .expect(200);
-    expect(readIds(jobOffers.body)).toEqual([userA.jobOfferId]);
+    expect(readIds(readPaginatedItems(jobOffers.body))).toEqual([
+      userA.jobOfferId,
+    ]);
 
     await request(app.getHttpServer())
       .get(`/job-offers/${userB.jobOfferId}`)
@@ -344,6 +346,81 @@ describe('Companies and JobOffers HTTP ownership integration', () => {
       .set('Origin', DEFAULT_FRONTEND_ORIGIN)
       .set('Cookie', userA.cookie)
       .expect(404);
+  });
+
+  it('paginates and filters job offers without exposing another user', async () => {
+    if (!app || !prisma || !userA || !userB) {
+      throw new Error('Integration fixtures are unavailable');
+    }
+
+    const additionalOffers = await Promise.all(
+      ['Frontend', 'Backend', 'Fullstack'].map((title) =>
+        prisma.jobOffer.create({
+          data: {
+            title: `${title} ${marker}`,
+            companyId: userA.companyId,
+            contractType: 'CDI',
+          },
+          select: { id: true },
+        }),
+      ),
+    );
+    const ownedIds = new Set([
+      userA.jobOfferId,
+      ...additionalOffers.map(({ id }) => id),
+    ]);
+    const firstPage = await request(app.getHttpServer())
+      .get('/job-offers')
+      .query({ search: marker, page: 1, pageSize: 2, sortBy: 'title' })
+      .set('Cookie', userA.cookie)
+      .expect(200);
+    const secondPage = await request(app.getHttpServer())
+      .get('/job-offers')
+      .query({ search: marker, page: 2, pageSize: 2, sortBy: 'title' })
+      .set('Cookie', userA.cookie)
+      .expect(200);
+    const returnedIds = [
+      ...readIds(readPaginatedItems(firstPage.body)),
+      ...readIds(readPaginatedItems(secondPage.body)),
+    ];
+
+    expect(readNumber(firstPage.body, 'total')).toBe(4);
+    expect(readNumber(firstPage.body, 'totalPages')).toBe(2);
+    expect(returnedIds).toHaveLength(4);
+    expect(returnedIds.every((id) => ownedIds.has(id))).toBe(true);
+    expect(returnedIds).not.toContain(userB.jobOfferId);
+
+    const foreignCompanyFilter = await request(app.getHttpServer())
+      .get('/job-offers')
+      .query({ companyId: userB.companyId })
+      .set('Cookie', userA.cookie)
+      .expect(200);
+    expect(readIds(readPaginatedItems(foreignCompanyFilter.body))).toEqual([]);
+    expect(readNumber(foreignCompanyFilter.body, 'total')).toBe(0);
+
+    const contractFilter = await request(app.getHttpServer())
+      .get('/job-offers')
+      .query({ contractType: 'CDI' })
+      .set('Cookie', userA.cookie)
+      .expect(200);
+    expect(readNumber(contractFilter.body, 'total')).toBe(3);
+
+    await request(app.getHttpServer())
+      .get('/job-offers?page=0')
+      .set('Cookie', userA.cookie)
+      .expect(400);
+    await request(app.getHttpServer())
+      .get('/job-offers?pageSize=51')
+      .set('Cookie', userA.cookie)
+      .expect(400);
+    await request(app.getHttpServer())
+      .get('/job-offers?sortBy=company')
+      .set('Cookie', userA.cookie)
+      .expect(400);
+    await request(app.getHttpServer())
+      .get(`/job-offers?userId=${userB.userId}`)
+      .set('Cookie', userA.cookie)
+      .expect(400);
   });
 
   it('preserves owned company and job offer deletion conflicts', async () => {

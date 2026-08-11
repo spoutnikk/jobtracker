@@ -40,10 +40,52 @@ export interface CreateJobOfferInput {
 
 export type UpdateJobOfferInput = Partial<CreateJobOfferInput>;
 
-export async function getJobOffers(): Promise<JobOffer[]> {
-  const response = await apiClient.get<JobOffer[]>("/job-offers");
+export type JobOfferSortBy =
+  "createdAt" | "updatedAt" | "publishedAt" | "title";
+export type JobOfferSortOrder = "asc" | "desc";
+
+export interface FindJobOffersParams {
+  search?: string;
+  companyId?: number;
+  contractType?: ContractType;
+  page?: number;
+  pageSize?: number;
+  sortBy?: JobOfferSortBy;
+  sortOrder?: JobOfferSortOrder;
+}
+
+export interface PaginatedJobOffers {
+  items: JobOffer[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
+export async function getJobOffers(
+  params?: FindJobOffersParams,
+): Promise<PaginatedJobOffers> {
+  const response = await apiClient.get<PaginatedJobOffers>("/job-offers", {
+    params,
+  });
 
   return response.data;
+}
+
+export async function getAllJobOffers(): Promise<JobOffer[]> {
+  const firstPage = await getJobOffers({ page: 1, pageSize: 50 });
+
+  if (firstPage.totalPages <= 1) {
+    return firstPage.items;
+  }
+
+  const remainingPages = await Promise.all(
+    Array.from({ length: firstPage.totalPages - 1 }, (_, index) =>
+      getJobOffers({ page: index + 2, pageSize: 50 }),
+    ),
+  );
+
+  return [...firstPage.items, ...remainingPages.flatMap((page) => page.items)];
 }
 
 export async function getJobOffer(id: number): Promise<JobOffer> {

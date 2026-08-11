@@ -7,20 +7,25 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { CreateJobOfferDto } from './dto/create-job-offer.dto';
 import { UpdateJobOfferDto } from './dto/update-job-offer.dto';
 import { JobOffersService } from './job-offers.service';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/authenticated-user';
+import { FindJobOffersQueryDto } from './dto/find-job-offers-query.dto';
 
 @Controller('job-offers')
 export class JobOffersController {
   constructor(private readonly jobOffersService: JobOffersService) {}
 
   @Get()
-  findAll(@CurrentUser() user: AuthenticatedUser) {
-    return this.jobOffersService.findAll(user.id);
+  findAll(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() filters: FindJobOffersQueryDto,
+  ) {
+    return this.jobOffersService.findAll(user.id, filters);
   }
 
   @Get(':id')

@@ -49,9 +49,17 @@ describe('JobOffersController', () => {
 
     jobOffersServiceMock.findAll.mockResolvedValue(jobOffers);
 
-    await expect(controller.findAll(user)).resolves.toEqual(jobOffers);
+    const filters = {
+      search: 'React',
+      page: 2,
+      pageSize: 5,
+      sortBy: 'title' as const,
+      sortOrder: 'asc' as const,
+    };
 
-    expect(jobOffersServiceMock.findAll).toHaveBeenCalledWith(user.id);
+    await expect(controller.findAll(user, filters)).resolves.toEqual(jobOffers);
+
+    expect(jobOffersServiceMock.findAll).toHaveBeenCalledWith(user.id, filters);
   });
 
   it('should return one job offer', async () => {

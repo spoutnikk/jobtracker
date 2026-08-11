@@ -9,7 +9,7 @@ import {
   type ApplicationStatus,
   type SortOrder,
 } from "../api/applications";
-import { getJobOffers } from "../api/job-offers";
+import { getAllJobOffers } from "../api/job-offers";
 import {
   createApplicationEvent,
   getApplicationEvents,
@@ -57,8 +57,8 @@ function ApplicationsPage() {
   const [eventDescription, setEventDescription] = useState("");
 
   const jobOffersQuery = useQuery({
-    queryKey: ["job-offers"],
-    queryFn: getJobOffers,
+    queryKey: ["job-offers", "all"],
+    queryFn: getAllJobOffers,
   });
 
   const applicationEventsQuery = useQuery({

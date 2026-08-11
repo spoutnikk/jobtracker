@@ -19,12 +19,16 @@ describe('JobOffersService', () => {
       findFirst: jest.fn(),
     },
     jobOffer: {
+      count: jest.fn(),
       findMany: jest.fn(),
       findFirst: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
     },
+    $transaction: jest.fn(<T>(operations: Promise<T>[]): Promise<T[]> =>
+      Promise.all(operations),
+    ),
   };
 
   beforeEach(async () => {
@@ -56,8 +60,15 @@ describe('JobOffersService', () => {
     ];
 
     prismaServiceMock.jobOffer.findMany.mockResolvedValue(jobOffers);
+    prismaServiceMock.jobOffer.count.mockResolvedValue(1);
 
-    await expect(service.findAll(7)).resolves.toEqual(jobOffers);
+    await expect(service.findAll(7)).resolves.toEqual({
+      items: jobOffers,
+      page: 1,
+      pageSize: 10,
+      total: 1,
+      totalPages: 1,
+    });
 
     expect(prismaServiceMock.jobOffer.findMany).toHaveBeenCalledWith({
       where: {
@@ -68,9 +79,70 @@ describe('JobOffersService', () => {
       include: {
         company: true,
       },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      skip: 0,
+      take: 10,
+    });
+    expect(prismaServiceMock.jobOffer.count).toHaveBeenCalledWith({
+      where: { company: { userId: 7 } },
+    });
+  });
+
+  it('combines search and filters without weakening ownership', async () => {
+    prismaServiceMock.jobOffer.findMany.mockResolvedValue([]);
+    prismaServiceMock.jobOffer.count.mockResolvedValue(11);
+
+    await expect(
+      service.findAll(7, {
+        search: 'React',
+        companyId: 2,
+        contractType: 'CDI',
+        page: 2,
+        pageSize: 5,
+        sortBy: 'title',
+        sortOrder: 'asc',
+      }),
+    ).resolves.toEqual({
+      items: [],
+      page: 2,
+      pageSize: 5,
+      total: 11,
+      totalPages: 3,
+    });
+
+    const where = {
+      company: { userId: 7 },
+      companyId: 2,
+      contractType: 'CDI',
+      OR: [
+        { title: { contains: 'React', mode: 'insensitive' } },
+        {
+          company: {
+            name: { contains: 'React', mode: 'insensitive' },
+          },
+        },
+      ],
+    };
+    expect(prismaServiceMock.jobOffer.findMany).toHaveBeenCalledWith({
+      where,
+      include: { company: true },
+      orderBy: [{ title: 'asc' }, { id: 'asc' }],
+      skip: 5,
+      take: 5,
+    });
+    expect(prismaServiceMock.jobOffer.count).toHaveBeenCalledWith({ where });
+  });
+
+  it('returns zero total pages for an empty result', async () => {
+    prismaServiceMock.jobOffer.findMany.mockResolvedValue([]);
+    prismaServiceMock.jobOffer.count.mockResolvedValue(0);
+
+    await expect(service.findAll(7)).resolves.toEqual({
+      items: [],
+      page: 1,
+      pageSize: 10,
+      total: 0,
+      totalPages: 0,
     });
   });
 

@@ -6,26 +6,77 @@ import {
 import { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateJobOfferDto } from './dto/create-job-offer.dto';
+import { FindJobOffersQueryDto } from './dto/find-job-offers-query.dto';
 import { UpdateJobOfferDto } from './dto/update-job-offer.dto';
 
 @Injectable()
 export class JobOffersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  findAll(userId: number) {
-    return this.prisma.jobOffer.findMany({
-      where: {
-        company: {
-          userId,
-        },
-      },
-      include: {
-        company: true,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+  async findAll(
+    userId: number,
+    filters: FindJobOffersQueryDto = new FindJobOffersQueryDto(),
+  ) {
+    const where: Prisma.JobOfferWhereInput = {
+      company: { userId },
+      ...(filters.companyId !== undefined && {
+        companyId: filters.companyId,
+      }),
+      ...(filters.contractType !== undefined && {
+        contractType: filters.contractType,
+      }),
+      ...(filters.search !== undefined && {
+        OR: [
+          {
+            title: { contains: filters.search, mode: 'insensitive' },
+          },
+          {
+            company: {
+              name: { contains: filters.search, mode: 'insensitive' },
+            },
+          },
+        ],
+      }),
+    };
+    const orderBy = this.buildJobOfferOrderBy(
+      filters.sortBy,
+      filters.sortOrder,
+    );
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.jobOffer.findMany({
+        where,
+        include: { company: true },
+        orderBy,
+        skip: (filters.page - 1) * filters.pageSize,
+        take: filters.pageSize,
+      }),
+      this.prisma.jobOffer.count({ where }),
+    ]);
+
+    return {
+      items,
+      page: filters.page,
+      pageSize: filters.pageSize,
+      total,
+      totalPages: Math.ceil(total / filters.pageSize),
+    };
+  }
+
+  private buildJobOfferOrderBy(
+    sortBy: FindJobOffersQueryDto['sortBy'],
+    sortOrder: FindJobOffersQueryDto['sortOrder'],
+  ): Prisma.JobOfferOrderByWithRelationInput[] {
+    switch (sortBy) {
+      case 'updatedAt':
+        return [{ updatedAt: sortOrder }, { id: sortOrder }];
+      case 'publishedAt':
+        return [{ publishedAt: sortOrder }, { id: sortOrder }];
+      case 'title':
+        return [{ title: sortOrder }, { id: sortOrder }];
+      case 'createdAt':
+        return [{ createdAt: sortOrder }, { id: sortOrder }];
+    }
   }
 
   async findOne(userId: number, id: number) {
