@@ -108,6 +108,7 @@ export class ApplicationsService {
         },
         select: {
           status: true,
+          appliedAt: true,
           followUpAt: true,
           interviewAt: true,
         },
@@ -117,6 +118,28 @@ export class ApplicationsService {
         throw new NotFoundException(`Application with id ${id} not found`);
       }
 
+      const isTransitioningToApplied =
+        updateApplicationDto.status === 'APPLIED' &&
+        previousApplication.status !== 'APPLIED';
+      const existingApplicationSentEvent = isTransitioningToApplied
+        ? await tx.applicationEvent.findFirst({
+            where: {
+              applicationId: id,
+              type: 'APPLICATION_SENT',
+            },
+            select: {
+              id: true,
+            },
+          })
+        : null;
+      const isFirstApplicationSent =
+        isTransitioningToApplied && existingApplicationSentEvent === null;
+      const requestedAppliedAt = updateApplicationDto.appliedAt
+        ? new Date(updateApplicationDto.appliedAt)
+        : undefined;
+      const appliedAt = isFirstApplicationSent
+        ? (requestedAppliedAt ?? previousApplication.appliedAt ?? new Date())
+        : requestedAppliedAt;
       const followUpAt = updateApplicationDto.followUpAt
         ? new Date(updateApplicationDto.followUpAt)
         : undefined;
@@ -132,9 +155,7 @@ export class ApplicationsService {
           userId: updateApplicationDto.userId,
           jobOfferId: updateApplicationDto.jobOfferId,
           status: updateApplicationDto.status,
-          appliedAt: updateApplicationDto.appliedAt
-            ? new Date(updateApplicationDto.appliedAt)
-            : undefined,
+          appliedAt,
           source: updateApplicationDto.source,
           notes: updateApplicationDto.notes,
           contactName: updateApplicationDto.contactName,
@@ -161,6 +182,17 @@ export class ApplicationsService {
             type: 'STATUS_CHANGED',
             title: 'Statut modifié',
             description: `${previousApplication.status} → ${updateApplicationDto.status}`,
+          },
+        });
+      }
+
+      if (isFirstApplicationSent) {
+        await tx.applicationEvent.create({
+          data: {
+            applicationId: id,
+            type: 'APPLICATION_SENT',
+            title: 'Candidature envoyée',
+            occurredAt: appliedAt,
           },
         });
       }

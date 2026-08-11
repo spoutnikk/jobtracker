@@ -5,6 +5,13 @@ import { ApplicationsService } from './applications.service';
 describe('ApplicationsService', () => {
   let service: ApplicationsService;
 
+  interface ApplicationUpdateArguments {
+    data: {
+      status?: string;
+      appliedAt?: Date;
+    };
+  }
+
   const transactionClientMock = {
     application: {
       create: jest.fn(),
@@ -15,6 +22,7 @@ describe('ApplicationsService', () => {
     },
     applicationEvent: {
       create: jest.fn(),
+      findFirst: jest.fn(),
     },
   };
 
@@ -356,6 +364,7 @@ describe('ApplicationsService', () => {
       },
       select: {
         status: true,
+        appliedAt: true,
         followUpAt: true,
         interviewAt: true,
       },
@@ -456,6 +465,7 @@ describe('ApplicationsService', () => {
       },
       select: {
         status: true,
+        appliedAt: true,
         followUpAt: true,
         interviewAt: true,
       },
@@ -492,6 +502,230 @@ describe('ApplicationsService', () => {
         description: 'APPLIED → INTERVIEW',
       },
     });
+  });
+
+  it('should create an application sent event with an explicit appliedAt on the first transition to applied', async () => {
+    const appliedAt = '2026-08-12T10:00:00.000Z';
+    const updatedApplication = { id: 1, status: 'APPLIED' };
+
+    prismaServiceMock.application.findUnique.mockResolvedValue({
+      status: 'DRAFT',
+      appliedAt: null,
+      followUpAt: null,
+      interviewAt: null,
+    });
+    prismaServiceMock.applicationEvent.findFirst.mockResolvedValueOnce(null);
+    prismaServiceMock.application.update.mockResolvedValue(updatedApplication);
+
+    await expect(
+      service.update(1, { status: 'APPLIED', appliedAt }),
+    ).resolves.toEqual(updatedApplication);
+
+    expect(prismaServiceMock.applicationEvent.findFirst).toHaveBeenCalledWith({
+      where: {
+        applicationId: 1,
+        type: 'APPLICATION_SENT',
+      },
+      select: {
+        id: true,
+      },
+    });
+    const [updateArguments] = prismaServiceMock.application.update.mock
+      .calls[0] as [ApplicationUpdateArguments];
+
+    expect(updateArguments.data.status).toBe('APPLIED');
+    expect(updateArguments.data.appliedAt).toEqual(new Date(appliedAt));
+    expect(prismaServiceMock.applicationEvent.create).toHaveBeenNthCalledWith(
+      1,
+      {
+        data: {
+          applicationId: 1,
+          type: 'STATUS_CHANGED',
+          title: 'Statut modifié',
+          description: 'DRAFT → APPLIED',
+        },
+      },
+    );
+    expect(prismaServiceMock.applicationEvent.create).toHaveBeenNthCalledWith(
+      2,
+      {
+        data: {
+          applicationId: 1,
+          type: 'APPLICATION_SENT',
+          title: 'Candidature envoyée',
+          occurredAt: new Date(appliedAt),
+        },
+      },
+    );
+  });
+
+  it('should use the current date on the first transition to applied without appliedAt', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-08-12T11:00:00.000Z'));
+
+    try {
+      const updatedApplication = { id: 1, status: 'APPLIED' };
+
+      prismaServiceMock.application.findUnique.mockResolvedValue({
+        status: 'DRAFT',
+        appliedAt: null,
+        followUpAt: null,
+        interviewAt: null,
+      });
+      prismaServiceMock.applicationEvent.findFirst.mockResolvedValueOnce(null);
+      prismaServiceMock.application.update.mockResolvedValue(
+        updatedApplication,
+      );
+
+      await expect(service.update(1, { status: 'APPLIED' })).resolves.toEqual(
+        updatedApplication,
+      );
+
+      const [updateArguments] = prismaServiceMock.application.update.mock
+        .calls[0] as [ApplicationUpdateArguments];
+
+      expect(updateArguments.data.appliedAt).toEqual(
+        new Date('2026-08-12T11:00:00.000Z'),
+      );
+      expect(prismaServiceMock.applicationEvent.create).toHaveBeenNthCalledWith(
+        2,
+        {
+          data: {
+            applicationId: 1,
+            type: 'APPLICATION_SENT',
+            title: 'Candidature envoyée',
+            occurredAt: new Date('2026-08-12T11:00:00.000Z'),
+          },
+        },
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('should preserve the previous appliedAt on the first transition to applied', async () => {
+    const previousAppliedAt = new Date('2026-08-10T09:00:00.000Z');
+    const updatedApplication = { id: 1, status: 'APPLIED' };
+
+    prismaServiceMock.application.findUnique.mockResolvedValue({
+      status: 'DRAFT',
+      appliedAt: previousAppliedAt,
+      followUpAt: null,
+      interviewAt: null,
+    });
+    prismaServiceMock.applicationEvent.findFirst.mockResolvedValueOnce(null);
+    prismaServiceMock.application.update.mockResolvedValue(updatedApplication);
+
+    await expect(service.update(1, { status: 'APPLIED' })).resolves.toEqual(
+      updatedApplication,
+    );
+
+    const [updateArguments] = prismaServiceMock.application.update.mock
+      .calls[0] as [ApplicationUpdateArguments];
+
+    expect(updateArguments.data.appliedAt).toBe(previousAppliedAt);
+    expect(prismaServiceMock.applicationEvent.create).toHaveBeenNthCalledWith(
+      2,
+      {
+        data: {
+          applicationId: 1,
+          type: 'APPLICATION_SENT',
+          title: 'Candidature envoyée',
+          occurredAt: previousAppliedAt,
+        },
+      },
+    );
+  });
+
+  it('should not create another application sent event when returning to applied', async () => {
+    const previousAppliedAt = new Date('2026-08-10T09:00:00.000Z');
+    const updatedApplication = { id: 1, status: 'APPLIED' };
+
+    prismaServiceMock.application.findUnique.mockResolvedValue({
+      status: 'REJECTED',
+      appliedAt: previousAppliedAt,
+      followUpAt: null,
+      interviewAt: null,
+    });
+    prismaServiceMock.applicationEvent.findFirst.mockResolvedValueOnce({
+      id: 42,
+    });
+    prismaServiceMock.application.update.mockResolvedValue(updatedApplication);
+
+    await expect(service.update(1, { status: 'APPLIED' })).resolves.toEqual(
+      updatedApplication,
+    );
+
+    expect(prismaServiceMock.applicationEvent.findFirst).toHaveBeenCalledTimes(
+      1,
+    );
+    const [updateArguments] = prismaServiceMock.application.update.mock
+      .calls[0] as [ApplicationUpdateArguments];
+
+    expect(updateArguments.data.appliedAt).toBeUndefined();
+    expect(prismaServiceMock.applicationEvent.create).toHaveBeenCalledTimes(1);
+    expect(prismaServiceMock.applicationEvent.create).toHaveBeenCalledWith({
+      data: {
+        applicationId: 1,
+        type: 'STATUS_CHANGED',
+        title: 'Statut modifié',
+        description: 'REJECTED → APPLIED',
+      },
+    });
+  });
+
+  it('should preserve appliedAt without looking for an application sent event when leaving applied', async () => {
+    const updatedApplication = { id: 1, status: 'INTERVIEW' };
+
+    prismaServiceMock.application.findUnique.mockResolvedValue({
+      status: 'APPLIED',
+      appliedAt: new Date('2026-08-10T09:00:00.000Z'),
+      followUpAt: null,
+      interviewAt: null,
+    });
+    prismaServiceMock.application.update.mockResolvedValue(updatedApplication);
+
+    await expect(service.update(1, { status: 'INTERVIEW' })).resolves.toEqual(
+      updatedApplication,
+    );
+
+    expect(prismaServiceMock.applicationEvent.findFirst).not.toHaveBeenCalled();
+    const [updateArguments] = prismaServiceMock.application.update.mock
+      .calls[0] as [ApplicationUpdateArguments];
+
+    expect(updateArguments.data.appliedAt).toBeUndefined();
+    expect(prismaServiceMock.applicationEvent.create).toHaveBeenCalledTimes(1);
+    expect(prismaServiceMock.applicationEvent.create).toHaveBeenCalledWith({
+      data: {
+        applicationId: 1,
+        type: 'STATUS_CHANGED',
+        title: 'Statut modifié',
+        description: 'APPLIED → INTERVIEW',
+      },
+    });
+  });
+
+  it('should not create or look for an application sent event when status remains applied', async () => {
+    const updatedApplication = { id: 1, status: 'APPLIED' };
+
+    prismaServiceMock.application.findUnique.mockResolvedValue({
+      status: 'APPLIED',
+      appliedAt: new Date('2026-08-10T09:00:00.000Z'),
+      followUpAt: null,
+      interviewAt: null,
+    });
+    prismaServiceMock.application.update.mockResolvedValue(updatedApplication);
+
+    await expect(service.update(1, { status: 'APPLIED' })).resolves.toEqual(
+      updatedApplication,
+    );
+
+    expect(prismaServiceMock.applicationEvent.findFirst).not.toHaveBeenCalled();
+    const [updateArguments] = prismaServiceMock.application.update.mock
+      .calls[0] as [ApplicationUpdateArguments];
+
+    expect(updateArguments.data.appliedAt).toBeUndefined();
+    expect(prismaServiceMock.applicationEvent.create).not.toHaveBeenCalled();
   });
 
   it('should create a follow-up event when followUpAt changes', async () => {
