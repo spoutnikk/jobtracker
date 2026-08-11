@@ -196,6 +196,28 @@ describe("JobOffersPage", () => {
     });
     const [filters] = vi.mocked(getJobOffers).mock.calls.at(-1) ?? [];
     expect(filters).not.toHaveProperty("userId");
+
+    const filtersSection = screen
+      .getByRole("heading", { name: "Filtrer les offres" })
+      .closest("section");
+    if (!filtersSection) {
+      throw new Error("Filters section not found");
+    }
+    const callsBeforeCollapse = vi.mocked(getJobOffers).mock.calls.length;
+    await user.click(
+      within(filtersSection).getByRole("button", {
+        name: "Masquer Filtrer les offres",
+      }),
+    );
+    expect(screen.getByLabelText("Filtrer par contrat")).not.toBeVisible();
+    expect(getJobOffers).toHaveBeenCalledTimes(callsBeforeCollapse);
+    await user.click(
+      within(filtersSection).getByRole("button", {
+        name: "Afficher Filtrer les offres",
+      }),
+    );
+    expect(screen.getByLabelText("Filtrer par contrat")).toHaveValue("CDI");
+    expect(screen.getByLabelText("Recherche")).toHaveValue("  React  ");
   });
 
   it("resets all list controls to their defaults", async () => {
@@ -268,7 +290,18 @@ describe("JobOffersPage", () => {
     const { queryClient } = renderWithProviders(<JobOffersPage />);
     const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
 
-    await screen.findByRole("heading", { name: "Nouvelle offre" });
+    const creationSection = (
+      await screen.findByRole("heading", { name: "Nouvelle offre" })
+    ).closest("section");
+    if (!creationSection) {
+      throw new Error("Creation section not found");
+    }
+    expect(screen.getByLabelText("Titre")).not.toBeVisible();
+    await user.click(
+      within(creationSection).getByRole("button", {
+        name: "Afficher Nouvelle offre",
+      }),
+    );
 
     await user.type(screen.getByLabelText("Titre"), "  Développeur React  ");
     await user.selectOptions(screen.getByLabelText("Société"), "1");
@@ -279,6 +312,17 @@ describe("JobOffersPage", () => {
     await user.type(screen.getByLabelText("Localisation"), "Paris");
     await user.selectOptions(screen.getByLabelText("Type de contrat"), "CDI");
     await user.type(screen.getByLabelText("Salaire"), "50 000 €");
+    await user.click(
+      within(creationSection).getByRole("button", {
+        name: "Masquer Nouvelle offre",
+      }),
+    );
+    await user.click(
+      within(creationSection).getByRole("button", {
+        name: "Afficher Nouvelle offre",
+      }),
+    );
+    expect(screen.getByLabelText("Titre")).toHaveValue("  Développeur React  ");
     await user.click(screen.getByRole("button", { name: "Créer l'offre" }));
 
     await waitFor(() => {

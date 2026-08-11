@@ -153,12 +153,23 @@ describe("DocumentsPage", () => {
       application,
       applicationFromNextPage,
     ]);
+    const user = userEvent.setup();
 
     renderWithProviders(<DocumentsPage />);
 
-    const applicationSelect = await screen.findByLabelText(
-      "Candidature associée",
+    const uploadSection = (
+      await screen.findByRole("heading", { name: "Ajouter un document" })
+    ).closest("section");
+    if (!uploadSection) {
+      throw new Error("Upload section not found");
+    }
+    await user.click(
+      within(uploadSection).getByRole("button", {
+        name: "Afficher Ajouter un document",
+      }),
     );
+
+    const applicationSelect = screen.getByLabelText("Candidature associée");
 
     expect(
       within(applicationSelect).getByRole("option", {
@@ -185,7 +196,19 @@ describe("DocumentsPage", () => {
     const formHeading = await screen.findByRole("heading", {
       name: "Ajouter un document",
     });
-    const form = formHeading.closest("form");
+    const uploadSection = formHeading.closest("section");
+    if (!uploadSection) {
+      throw new Error("Upload section not found");
+    }
+    expect(screen.getByLabelText("Nom")).not.toBeVisible();
+    await user.click(
+      within(uploadSection).getByRole("button", {
+        name: "Afficher Ajouter un document",
+      }),
+    );
+    const form = screen
+      .getByRole("button", { name: "Ajouter le document" })
+      .closest("form");
     const fileInput = screen.getByLabelText<HTMLInputElement>("Fichier");
 
     expect(form).not.toBeNull();
@@ -198,6 +221,17 @@ describe("DocumentsPage", () => {
     await user.selectOptions(screen.getByLabelText("Type"), "CV");
     await user.upload(fileInput, file);
     expect(fileInput.files).toHaveLength(1);
+    expect(fileInput.files?.[0]).toBe(file);
+    await user.click(
+      within(uploadSection).getByRole("button", {
+        name: "Masquer Ajouter un document",
+      }),
+    );
+    await user.click(
+      within(uploadSection).getByRole("button", {
+        name: "Afficher Ajouter un document",
+      }),
+    );
     expect(fileInput.files?.[0]).toBe(file);
     await user.selectOptions(
       screen.getByLabelText("Candidature associée"),
@@ -236,7 +270,18 @@ describe("DocumentsPage", () => {
 
     renderWithProviders(<DocumentsPage />);
 
-    const nameInput = await screen.findByLabelText("Nom");
+    const uploadSection = (
+      await screen.findByRole("heading", { name: "Ajouter un document" })
+    ).closest("section");
+    if (!uploadSection) {
+      throw new Error("Upload section not found");
+    }
+    await user.click(
+      within(uploadSection).getByRole("button", {
+        name: "Afficher Ajouter un document",
+      }),
+    );
+    const nameInput = screen.getByLabelText("Nom");
     const form = nameInput.closest("form");
     const fileInput = screen.getByLabelText<HTMLInputElement>("Fichier");
 

@@ -178,6 +178,28 @@ describe("CompaniesPage", () => {
         sortOrder: "asc",
       });
     });
+
+    const filtersSection = screen
+      .getByRole("heading", { name: "Filtrer les entreprises" })
+      .closest("section");
+    if (!filtersSection) {
+      throw new Error("Filters section not found");
+    }
+    const callsBeforeCollapse = vi.mocked(getCompanies).mock.calls.length;
+    await user.click(
+      within(filtersSection).getByRole("button", {
+        name: "Masquer Filtrer les entreprises",
+      }),
+    );
+    expect(screen.getByLabelText("Recherche")).not.toBeVisible();
+    expect(getCompanies).toHaveBeenCalledTimes(callsBeforeCollapse);
+    await user.click(
+      within(filtersSection).getByRole("button", {
+        name: "Afficher Filtrer les entreprises",
+      }),
+    );
+    expect(screen.getByLabelText("Recherche")).toHaveValue("  Acme  ");
+    expect(screen.getByLabelText("Trier par")).toHaveValue("name");
   });
 
   it("resets search, sorting, page size, and current page", async () => {
@@ -217,13 +239,35 @@ describe("CompaniesPage", () => {
     const { queryClient } = renderWithProviders(<CompaniesPage />);
     const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
 
-    await screen.findByRole("heading", { name: "Nouvelle entreprise" });
+    const creationSection = (
+      await screen.findByRole("heading", { name: "Nouvelle entreprise" })
+    ).closest("section");
+    if (!creationSection) {
+      throw new Error("Creation section not found");
+    }
+    expect(screen.getByLabelText("Nom")).not.toBeVisible();
+    await user.click(
+      within(creationSection).getByRole("button", {
+        name: "Afficher Nouvelle entreprise",
+      }),
+    );
     await user.type(screen.getByLabelText("Nom"), "Acme");
     await user.type(screen.getByLabelText("Ville"), "Paris");
     await user.type(
       screen.getByLabelText("Site web"),
       "https://acme.example.com",
     );
+    await user.click(
+      within(creationSection).getByRole("button", {
+        name: "Masquer Nouvelle entreprise",
+      }),
+    );
+    await user.click(
+      within(creationSection).getByRole("button", {
+        name: "Afficher Nouvelle entreprise",
+      }),
+    );
+    expect(screen.getByLabelText("Nom")).toHaveValue("Acme");
     await user.click(
       screen.getByRole("button", { name: "Créer l'entreprise" }),
     );
@@ -258,7 +302,18 @@ describe("CompaniesPage", () => {
 
     renderWithProviders(<CompaniesPage />);
 
-    await user.type(await screen.findByLabelText("Nom"), "Acme");
+    const creationSection = (
+      await screen.findByRole("heading", { name: "Nouvelle entreprise" })
+    ).closest("section");
+    if (!creationSection) {
+      throw new Error("Creation section not found");
+    }
+    await user.click(
+      within(creationSection).getByRole("button", {
+        name: "Afficher Nouvelle entreprise",
+      }),
+    );
+    await user.type(screen.getByLabelText("Nom"), "Acme");
     await user.click(
       screen.getByRole("button", { name: "Créer l'entreprise" }),
     );

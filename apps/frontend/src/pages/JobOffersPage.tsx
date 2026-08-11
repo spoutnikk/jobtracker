@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { useState } from "react";
+import CollapsibleSection from "../components/CollapsibleSection";
 import { getAllCompanies } from "../api/companies";
 import {
   createJobOffer,
@@ -313,296 +314,300 @@ function JobOffersPage() {
       <div className="mx-auto max-w-5xl">
         <h1 className="text-3xl font-bold">Offres d’emploi</h1>
 
-        <form
-          className="mt-6 rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
-          onSubmit={(event) => {
-            event.preventDefault();
-            setFilterSearch(filterSearchInput.trim());
-            setPage(1);
-          }}
-        >
-          <h2 className="text-lg font-semibold">Filtrer les offres</h2>
-          <div className="mt-4 grid gap-4 md:grid-cols-3">
-            <label className="flex flex-col gap-1">
+        <CollapsibleSection title="Filtrer les offres" defaultOpen>
+          <form
+            className="mt-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              setFilterSearch(filterSearchInput.trim());
+              setPage(1);
+            }}
+          >
+            <div className="grid gap-4 md:grid-cols-3">
+              <label className="flex flex-col gap-1">
+                <span className="text-sm font-medium text-gray-700">
+                  Recherche
+                </span>
+                <input
+                  type="search"
+                  value={filterSearchInput}
+                  onChange={(event) => setFilterSearchInput(event.target.value)}
+                  className="rounded-md border border-gray-300 px-3 py-2"
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-sm font-medium text-gray-700">
+                  Filtrer par société
+                </span>
+                <select
+                  value={filterCompanyId}
+                  onChange={(event) => {
+                    setFilterCompanyId(event.target.value);
+                    setPage(1);
+                  }}
+                  className="rounded-md border border-gray-300 px-3 py-2"
+                >
+                  <option value="">Toutes les sociétés</option>
+                  {companiesQuery.data?.map((company) => (
+                    <option key={company.id} value={company.id}>
+                      {company.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-sm font-medium text-gray-700">
+                  Filtrer par contrat
+                </span>
+                <select
+                  value={filterContractType}
+                  onChange={(event) => {
+                    setFilterContractType(
+                      event.target.value as ContractType | "",
+                    );
+                    setPage(1);
+                  }}
+                  className="rounded-md border border-gray-300 px-3 py-2"
+                >
+                  <option value="">Tous les contrats</option>
+                  {Object.entries(contractTypeLabels).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-sm font-medium text-gray-700">
+                  Trier par
+                </span>
+                <select
+                  value={sortBy}
+                  onChange={(event) => {
+                    setSortBy(event.target.value as JobOfferSortBy);
+                    setPage(1);
+                  }}
+                  className="rounded-md border border-gray-300 px-3 py-2"
+                >
+                  <option value="title">Titre</option>
+                  <option value="createdAt">Date de création</option>
+                  <option value="publishedAt">Date de publication</option>
+                  <option value="updatedAt">Date de modification</option>
+                </select>
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-sm font-medium text-gray-700">Ordre</span>
+                <select
+                  value={sortOrder}
+                  onChange={(event) => {
+                    setSortOrder(event.target.value as JobOfferSortOrder);
+                    setPage(1);
+                  }}
+                  className="rounded-md border border-gray-300 px-3 py-2"
+                >
+                  <option value="desc">Décroissant</option>
+                  <option value="asc">Croissant</option>
+                </select>
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-sm font-medium text-gray-700">
+                  Par page
+                </span>
+                <select
+                  value={pageSize}
+                  onChange={(event) => {
+                    setPageSize(Number(event.target.value));
+                    setPage(1);
+                  }}
+                  className="rounded-md border border-gray-300 px-3 py-2"
+                >
+                  <option value="10">10</option>
+                  <option value="20">20</option>
+                  <option value="50">50</option>
+                </select>
+              </label>
+            </div>
+            <div className="mt-4 flex gap-2">
+              <button
+                type="submit"
+                className="rounded-md bg-blue-600 px-4 py-2 font-medium text-white"
+              >
+                Rechercher
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setFilterSearchInput("");
+                  setFilterSearch("");
+                  setFilterCompanyId("");
+                  setFilterContractType("");
+                  setPage(1);
+                  setPageSize(10);
+                  setSortBy("createdAt");
+                  setSortOrder("desc");
+                }}
+                className="rounded-md border border-gray-300 px-4 py-2 font-medium"
+              >
+                Réinitialiser
+              </button>
+            </div>
+          </form>
+        </CollapsibleSection>
+
+        <CollapsibleSection title="Nouvelle offre" defaultOpen={false}>
+          <form onSubmit={handleSubmit} className="mt-4">
+            {companiesQuery.isPending && (
+              <p className="mt-4 text-sm text-gray-600">
+                Chargement des sociétés...
+              </p>
+            )}
+
+            {companiesQuery.isError && (
+              <p className="mt-4 text-sm text-red-600">
+                Impossible de charger les sociétés. La création d'une offre est
+                indisponible.
+              </p>
+            )}
+
+            {companiesQuery.isSuccess && companiesQuery.data.length === 0 && (
+              <p className="mt-4 text-sm text-gray-600">
+                Vous devez d'abord créer une société avant de pouvoir ajouter
+                une offre.
+              </p>
+            )}
+
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <label className="flex flex-col gap-1">
+                <span className="text-sm font-medium text-gray-700">Titre</span>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(event) => setTitle(event.target.value)}
+                  required
+                  className="rounded-md border border-gray-300 px-3 py-2"
+                />
+              </label>
+
+              <label className="flex flex-col gap-1">
+                <span className="text-sm font-medium text-gray-700">
+                  Société
+                </span>
+                <select
+                  value={companyId}
+                  onChange={(event) => setCompanyId(event.target.value)}
+                  required
+                  disabled={creationUnavailable}
+                  className="rounded-md border border-gray-300 px-3 py-2 disabled:opacity-50"
+                >
+                  <option value="">Sélectionner une société</option>
+                  {companiesQuery.data?.map((company) => (
+                    <option key={company.id} value={company.id}>
+                      {company.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="flex flex-col gap-1">
+                <span className="text-sm font-medium text-gray-700">URL</span>
+                <input
+                  type="url"
+                  value={url}
+                  onChange={(event) => setUrl(event.target.value)}
+                  placeholder="https://example.com"
+                  className="rounded-md border border-gray-300 px-3 py-2"
+                />
+              </label>
+
+              <label className="flex flex-col gap-1">
+                <span className="text-sm font-medium text-gray-700">
+                  Localisation
+                </span>
+                <input
+                  type="text"
+                  value={location}
+                  onChange={(event) => setLocation(event.target.value)}
+                  className="rounded-md border border-gray-300 px-3 py-2"
+                />
+              </label>
+
+              <label className="flex flex-col gap-1">
+                <span className="text-sm font-medium text-gray-700">
+                  Type de contrat
+                </span>
+                <select
+                  value={contractType}
+                  onChange={(event) =>
+                    setContractType(event.target.value as ContractType | "")
+                  }
+                  className="rounded-md border border-gray-300 px-3 py-2"
+                >
+                  <option value="">Non renseigné</option>
+                  {Object.entries(contractTypeLabels).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="flex flex-col gap-1">
+                <span className="text-sm font-medium text-gray-700">
+                  Salaire
+                </span>
+                <input
+                  type="text"
+                  value={salary}
+                  onChange={(event) => setSalary(event.target.value)}
+                  className="rounded-md border border-gray-300 px-3 py-2"
+                />
+              </label>
+
+              <label className="flex flex-col gap-1">
+                <span className="text-sm font-medium text-gray-700">
+                  Date de publication
+                </span>
+                <input
+                  type="datetime-local"
+                  value={publishedAt}
+                  onChange={(event) => setPublishedAt(event.target.value)}
+                  className="rounded-md border border-gray-300 px-3 py-2"
+                />
+              </label>
+            </div>
+
+            <label className="mt-4 flex flex-col gap-1">
               <span className="text-sm font-medium text-gray-700">
-                Recherche
+                Description
               </span>
-              <input
-                type="search"
-                value={filterSearchInput}
-                onChange={(event) => setFilterSearchInput(event.target.value)}
+              <textarea
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                rows={4}
                 className="rounded-md border border-gray-300 px-3 py-2"
               />
             </label>
-            <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-gray-700">
-                Filtrer par société
-              </span>
-              <select
-                value={filterCompanyId}
-                onChange={(event) => {
-                  setFilterCompanyId(event.target.value);
-                  setPage(1);
-                }}
-                className="rounded-md border border-gray-300 px-3 py-2"
-              >
-                <option value="">Toutes les sociétés</option>
-                {companiesQuery.data?.map((company) => (
-                  <option key={company.id} value={company.id}>
-                    {company.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-gray-700">
-                Filtrer par contrat
-              </span>
-              <select
-                value={filterContractType}
-                onChange={(event) => {
-                  setFilterContractType(
-                    event.target.value as ContractType | "",
-                  );
-                  setPage(1);
-                }}
-                className="rounded-md border border-gray-300 px-3 py-2"
-              >
-                <option value="">Tous les contrats</option>
-                {Object.entries(contractTypeLabels).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-gray-700">
-                Trier par
-              </span>
-              <select
-                value={sortBy}
-                onChange={(event) => {
-                  setSortBy(event.target.value as JobOfferSortBy);
-                  setPage(1);
-                }}
-                className="rounded-md border border-gray-300 px-3 py-2"
-              >
-                <option value="title">Titre</option>
-                <option value="createdAt">Date de création</option>
-                <option value="publishedAt">Date de publication</option>
-                <option value="updatedAt">Date de modification</option>
-              </select>
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-gray-700">Ordre</span>
-              <select
-                value={sortOrder}
-                onChange={(event) => {
-                  setSortOrder(event.target.value as JobOfferSortOrder);
-                  setPage(1);
-                }}
-                className="rounded-md border border-gray-300 px-3 py-2"
-              >
-                <option value="desc">Décroissant</option>
-                <option value="asc">Croissant</option>
-              </select>
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-gray-700">
-                Par page
-              </span>
-              <select
-                value={pageSize}
-                onChange={(event) => {
-                  setPageSize(Number(event.target.value));
-                  setPage(1);
-                }}
-                className="rounded-md border border-gray-300 px-3 py-2"
-              >
-                <option value="10">10</option>
-                <option value="20">20</option>
-                <option value="50">50</option>
-              </select>
-            </label>
-          </div>
-          <div className="mt-4 flex gap-2">
+
             <button
               type="submit"
-              className="rounded-md bg-blue-600 px-4 py-2 font-medium text-white"
+              disabled={
+                createJobOfferMutation.isPending ||
+                !title.trim() ||
+                !companyId ||
+                creationUnavailable
+              }
+              className="mt-4 rounded-md bg-blue-600 px-4 py-2 font-medium text-white disabled:opacity-50"
             >
-              Rechercher
+              {createJobOfferMutation.isPending
+                ? "Création..."
+                : "Créer l'offre"}
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                setFilterSearchInput("");
-                setFilterSearch("");
-                setFilterCompanyId("");
-                setFilterContractType("");
-                setPage(1);
-                setPageSize(10);
-                setSortBy("createdAt");
-                setSortOrder("desc");
-              }}
-              className="rounded-md border border-gray-300 px-4 py-2 font-medium"
-            >
-              Réinitialiser
-            </button>
-          </div>
-        </form>
 
-        <form
-          onSubmit={handleSubmit}
-          className="mt-6 rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
-        >
-          <h2 className="text-lg font-semibold">Nouvelle offre</h2>
-
-          {companiesQuery.isPending && (
-            <p className="mt-4 text-sm text-gray-600">
-              Chargement des sociétés...
-            </p>
-          )}
-
-          {companiesQuery.isError && (
-            <p className="mt-4 text-sm text-red-600">
-              Impossible de charger les sociétés. La création d'une offre est
-              indisponible.
-            </p>
-          )}
-
-          {companiesQuery.isSuccess && companiesQuery.data.length === 0 && (
-            <p className="mt-4 text-sm text-gray-600">
-              Vous devez d'abord créer une société avant de pouvoir ajouter une
-              offre.
-            </p>
-          )}
-
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
-            <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-gray-700">Titre</span>
-              <input
-                type="text"
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-                required
-                className="rounded-md border border-gray-300 px-3 py-2"
-              />
-            </label>
-
-            <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-gray-700">Société</span>
-              <select
-                value={companyId}
-                onChange={(event) => setCompanyId(event.target.value)}
-                required
-                disabled={creationUnavailable}
-                className="rounded-md border border-gray-300 px-3 py-2 disabled:opacity-50"
-              >
-                <option value="">Sélectionner une société</option>
-                {companiesQuery.data?.map((company) => (
-                  <option key={company.id} value={company.id}>
-                    {company.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-gray-700">URL</span>
-              <input
-                type="url"
-                value={url}
-                onChange={(event) => setUrl(event.target.value)}
-                placeholder="https://example.com"
-                className="rounded-md border border-gray-300 px-3 py-2"
-              />
-            </label>
-
-            <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-gray-700">
-                Localisation
-              </span>
-              <input
-                type="text"
-                value={location}
-                onChange={(event) => setLocation(event.target.value)}
-                className="rounded-md border border-gray-300 px-3 py-2"
-              />
-            </label>
-
-            <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-gray-700">
-                Type de contrat
-              </span>
-              <select
-                value={contractType}
-                onChange={(event) =>
-                  setContractType(event.target.value as ContractType | "")
-                }
-                className="rounded-md border border-gray-300 px-3 py-2"
-              >
-                <option value="">Non renseigné</option>
-                {Object.entries(contractTypeLabels).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-gray-700">Salaire</span>
-              <input
-                type="text"
-                value={salary}
-                onChange={(event) => setSalary(event.target.value)}
-                className="rounded-md border border-gray-300 px-3 py-2"
-              />
-            </label>
-
-            <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-gray-700">
-                Date de publication
-              </span>
-              <input
-                type="datetime-local"
-                value={publishedAt}
-                onChange={(event) => setPublishedAt(event.target.value)}
-                className="rounded-md border border-gray-300 px-3 py-2"
-              />
-            </label>
-          </div>
-
-          <label className="mt-4 flex flex-col gap-1">
-            <span className="text-sm font-medium text-gray-700">
-              Description
-            </span>
-            <textarea
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-              rows={4}
-              className="rounded-md border border-gray-300 px-3 py-2"
-            />
-          </label>
-
-          <button
-            type="submit"
-            disabled={
-              createJobOfferMutation.isPending ||
-              !title.trim() ||
-              !companyId ||
-              creationUnavailable
-            }
-            className="mt-4 rounded-md bg-blue-600 px-4 py-2 font-medium text-white disabled:opacity-50"
-          >
-            {createJobOfferMutation.isPending ? "Création..." : "Créer l'offre"}
-          </button>
-
-          {createError && (
-            <p className="mt-3 text-sm text-red-600">{createError}</p>
-          )}
-        </form>
+            {createError && (
+              <p className="mt-3 text-sm text-red-600">{createError}</p>
+            )}
+          </form>
+        </CollapsibleSection>
 
         {editError && <p className="mt-4 text-sm text-red-600">{editError}</p>}
 

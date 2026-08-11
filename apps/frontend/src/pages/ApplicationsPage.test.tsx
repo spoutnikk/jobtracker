@@ -371,6 +371,28 @@ describe("ApplicationsPage", () => {
     const [filters] = vi.mocked(getApplications).mock.calls.at(-1) ?? [];
     expect(filters).not.toHaveProperty("userId");
 
+    const filtersSection = screen
+      .getByRole("heading", { name: "Filtrer les candidatures" })
+      .closest("section");
+    if (!filtersSection) {
+      throw new Error("Filters section not found");
+    }
+    const callsBeforeCollapse = vi.mocked(getApplications).mock.calls.length;
+    await user.click(
+      within(filtersSection).getByRole("button", {
+        name: "Masquer Filtrer les candidatures",
+      }),
+    );
+    expect(screen.getByLabelText("Filtrer par statut")).not.toBeVisible();
+    expect(getApplications).toHaveBeenCalledTimes(callsBeforeCollapse);
+    await user.click(
+      within(filtersSection).getByRole("button", {
+        name: "Afficher Filtrer les candidatures",
+      }),
+    );
+    expect(screen.getByLabelText("Filtrer par statut")).toHaveValue("APPLIED");
+    expect(screen.getByLabelText("Recherche")).toHaveValue("React");
+
     await user.click(screen.getByRole("button", { name: "Réinitialiser" }));
 
     await waitFor(() => {
@@ -402,13 +424,36 @@ describe("ApplicationsPage", () => {
     const { queryClient } = renderWithProviders(<ApplicationsPage />);
     const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
 
-    await screen.findByRole("heading", { name: "Nouvelle candidature" });
+    const creationSection = (
+      await screen.findByRole("heading", { name: "Nouvelle candidature" })
+    ).closest("section");
+    if (!creationSection) {
+      throw new Error("Creation section not found");
+    }
+    expect(screen.getByLabelText("Offre d'emploi")).not.toBeVisible();
+    await user.click(
+      within(creationSection).getByRole("button", {
+        name: "Afficher Nouvelle candidature",
+      }),
+    );
     await user.selectOptions(
       screen.getByLabelText("Offre d'emploi"),
       String(jobOffer.id),
     );
     await user.selectOptions(screen.getByLabelText("Statut"), "APPLIED");
     await user.type(screen.getByLabelText("Source"), "LinkedIn");
+    await user.click(
+      within(creationSection).getByRole("button", {
+        name: "Masquer Nouvelle candidature",
+      }),
+    );
+    expect(screen.getByLabelText("Source")).not.toBeVisible();
+    await user.click(
+      within(creationSection).getByRole("button", {
+        name: "Afficher Nouvelle candidature",
+      }),
+    );
+    expect(screen.getByLabelText("Source")).toHaveValue("LinkedIn");
     await user.type(screen.getByLabelText("Date de candidature"), "2026-08-12");
     await user.click(
       screen.getByRole("button", { name: "Créer la candidature" }),

@@ -16,6 +16,7 @@ import {
   type ApplicationEventType,
 } from "../api/application-events";
 import { useState } from "react";
+import CollapsibleSection from "../components/CollapsibleSection";
 
 function ApplicationsPage() {
   const queryClient = useQueryClient();
@@ -209,323 +210,327 @@ function ApplicationsPage() {
     <main className="min-h-screen p-8">
       <div className="mx-auto max-w-5xl">
         <h1 className="text-3xl font-bold">Candidatures</h1>
-        <form
-          className="mt-6 rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
-          onSubmit={(event) => {
-            event.preventDefault();
-            setFilterSearch(filterSearchInput.trim());
-            setPage(1);
-          }}
-        >
-          <h2 className="text-lg font-semibold">Filtrer les candidatures</h2>
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
+        <CollapsibleSection title="Filtrer les candidatures" defaultOpen>
+          <form
+            className="mt-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              setFilterSearch(filterSearchInput.trim());
+              setPage(1);
+            }}
+          >
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="flex flex-col gap-1">
+                <span className="text-sm font-medium text-gray-700">
+                  Recherche
+                </span>
+                <input
+                  type="search"
+                  value={filterSearchInput}
+                  onChange={(event) => setFilterSearchInput(event.target.value)}
+                  className="rounded-md border border-gray-300 px-3 py-2"
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-sm font-medium text-gray-700">
+                  Filtrer par statut
+                </span>
+                <select
+                  value={filterStatus}
+                  onChange={(event) => {
+                    setFilterStatus(
+                      event.target.value as ApplicationStatus | "",
+                    );
+                    setPage(1);
+                  }}
+                  className="rounded-md border border-gray-300 px-3 py-2"
+                >
+                  <option value="">Tous les statuts</option>
+                  <option value="DRAFT">À préparer</option>
+                  <option value="APPLIED">Envoyée</option>
+                  <option value="FOLLOW_UP">Relance</option>
+                  <option value="INTERVIEW">Entretien</option>
+                  <option value="ACCEPTED">Acceptée</option>
+                  <option value="REJECTED">Refusée</option>
+                </select>
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-sm font-medium text-gray-700">
+                  Filtrer par société
+                </span>
+                <select
+                  value={filterCompanyId ?? ""}
+                  onChange={(event) => {
+                    setFilterCompanyId(
+                      event.target.value ? Number(event.target.value) : null,
+                    );
+                    setPage(1);
+                  }}
+                  className="rounded-md border border-gray-300 px-3 py-2"
+                >
+                  <option value="">Toutes les sociétés</option>
+                  {companies.map((company) => (
+                    <option key={company.id} value={company.id}>
+                      {company.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-sm font-medium text-gray-700">
+                  Filtrer par offre
+                </span>
+                <select
+                  value={filterJobOfferId ?? ""}
+                  onChange={(event) => {
+                    setFilterJobOfferId(
+                      event.target.value ? Number(event.target.value) : null,
+                    );
+                    setPage(1);
+                  }}
+                  className="rounded-md border border-gray-300 px-3 py-2"
+                >
+                  <option value="">Toutes les offres</option>
+                  {jobOffersQuery.data?.map((offer) => (
+                    <option key={offer.id} value={offer.id}>
+                      {offer.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="mt-4 flex gap-2">
+              <button
+                type="submit"
+                className="rounded-md bg-blue-600 px-4 py-2 font-medium text-white"
+              >
+                Rechercher
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setFilterSearchInput("");
+                  setFilterSearch("");
+                  setFilterStatus("");
+                  setFilterCompanyId(null);
+                  setFilterJobOfferId(null);
+                  setPage(1);
+                  setPageSize(10);
+                  setSortBy("createdAt");
+                  setSortOrder("desc");
+                }}
+                className="rounded-md border border-gray-300 px-4 py-2 font-medium"
+              >
+                Réinitialiser
+              </button>
+            </div>
+            <div className="mt-4 grid gap-4 md:grid-cols-3">
+              <label className="flex flex-col gap-1">
+                <span className="text-sm font-medium text-gray-700">
+                  Trier par
+                </span>
+                <select
+                  value={sortBy}
+                  onChange={(event) => {
+                    setSortBy(event.target.value as ApplicationSortBy);
+                    setPage(1);
+                  }}
+                  className="rounded-md border border-gray-300 px-3 py-2"
+                >
+                  <option value="createdAt">Date de création</option>
+                  <option value="appliedAt">Date de candidature</option>
+                  <option value="followUpAt">Relance</option>
+                  <option value="interviewAt">Entretien</option>
+                  <option value="status">Statut</option>
+                </select>
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-sm font-medium text-gray-700">Ordre</span>
+                <select
+                  value={sortOrder}
+                  onChange={(event) => {
+                    setSortOrder(event.target.value as SortOrder);
+                    setPage(1);
+                  }}
+                  className="rounded-md border border-gray-300 px-3 py-2"
+                >
+                  <option value="desc">Décroissant</option>
+                  <option value="asc">Croissant</option>
+                </select>
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-sm font-medium text-gray-700">
+                  Par page
+                </span>
+                <select
+                  value={pageSize}
+                  onChange={(event) => {
+                    setPageSize(Number(event.target.value));
+                    setPage(1);
+                  }}
+                  className="rounded-md border border-gray-300 px-3 py-2"
+                >
+                  <option value="10">10</option>
+                  <option value="20">20</option>
+                  <option value="50">50</option>
+                </select>
+              </label>
+            </div>
+          </form>
+        </CollapsibleSection>
+        <CollapsibleSection title="Nouvelle candidature" defaultOpen={false}>
+          <form onSubmit={handleSubmit} className="mt-4">
             <label className="flex flex-col gap-1">
               <span className="text-sm font-medium text-gray-700">
-                Recherche
+                Offre d'emploi
               </span>
-              <input
-                type="search"
-                value={filterSearchInput}
-                onChange={(event) => setFilterSearchInput(event.target.value)}
-                className="rounded-md border border-gray-300 px-3 py-2"
-              />
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-gray-700">
-                Filtrer par statut
-              </span>
-              <select
-                value={filterStatus}
-                onChange={(event) => {
-                  setFilterStatus(event.target.value as ApplicationStatus | "");
-                  setPage(1);
-                }}
-                className="rounded-md border border-gray-300 px-3 py-2"
-              >
-                <option value="">Tous les statuts</option>
-                <option value="DRAFT">À préparer</option>
-                <option value="APPLIED">Envoyée</option>
-                <option value="FOLLOW_UP">Relance</option>
-                <option value="INTERVIEW">Entretien</option>
-                <option value="ACCEPTED">Acceptée</option>
-                <option value="REJECTED">Refusée</option>
-              </select>
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-gray-700">
-                Filtrer par société
-              </span>
-              <select
-                value={filterCompanyId ?? ""}
-                onChange={(event) => {
-                  setFilterCompanyId(
-                    event.target.value ? Number(event.target.value) : null,
-                  );
-                  setPage(1);
-                }}
-                className="rounded-md border border-gray-300 px-3 py-2"
-              >
-                <option value="">Toutes les sociétés</option>
-                {companies.map((company) => (
-                  <option key={company.id} value={company.id}>
-                    {company.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-gray-700">
-                Filtrer par offre
-              </span>
-              <select
-                value={filterJobOfferId ?? ""}
-                onChange={(event) => {
-                  setFilterJobOfferId(
-                    event.target.value ? Number(event.target.value) : null,
-                  );
-                  setPage(1);
-                }}
-                className="rounded-md border border-gray-300 px-3 py-2"
-              >
-                <option value="">Toutes les offres</option>
-                {jobOffersQuery.data?.map((offer) => (
-                  <option key={offer.id} value={offer.id}>
-                    {offer.title}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <div className="mt-4 flex gap-2">
-            <button
-              type="submit"
-              className="rounded-md bg-blue-600 px-4 py-2 font-medium text-white"
-            >
-              Rechercher
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setFilterSearchInput("");
-                setFilterSearch("");
-                setFilterStatus("");
-                setFilterCompanyId(null);
-                setFilterJobOfferId(null);
-                setPage(1);
-                setPageSize(10);
-                setSortBy("createdAt");
-                setSortOrder("desc");
-              }}
-              className="rounded-md border border-gray-300 px-4 py-2 font-medium"
-            >
-              Réinitialiser
-            </button>
-          </div>
-          <div className="mt-4 grid gap-4 md:grid-cols-3">
-            <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-gray-700">
-                Trier par
-              </span>
-              <select
-                value={sortBy}
-                onChange={(event) => {
-                  setSortBy(event.target.value as ApplicationSortBy);
-                  setPage(1);
-                }}
-                className="rounded-md border border-gray-300 px-3 py-2"
-              >
-                <option value="createdAt">Date de création</option>
-                <option value="appliedAt">Date de candidature</option>
-                <option value="followUpAt">Relance</option>
-                <option value="interviewAt">Entretien</option>
-                <option value="status">Statut</option>
-              </select>
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-gray-700">Ordre</span>
-              <select
-                value={sortOrder}
-                onChange={(event) => {
-                  setSortOrder(event.target.value as SortOrder);
-                  setPage(1);
-                }}
-                className="rounded-md border border-gray-300 px-3 py-2"
-              >
-                <option value="desc">Décroissant</option>
-                <option value="asc">Croissant</option>
-              </select>
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-gray-700">
-                Par page
-              </span>
-              <select
-                value={pageSize}
-                onChange={(event) => {
-                  setPageSize(Number(event.target.value));
-                  setPage(1);
-                }}
-                className="rounded-md border border-gray-300 px-3 py-2"
-              >
-                <option value="10">10</option>
-                <option value="20">20</option>
-                <option value="50">50</option>
-              </select>
-            </label>
-          </div>
-        </form>
-        <form
-          onSubmit={handleSubmit}
-          className="mt-6 rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
-        >
-          <h2 className="text-lg font-semibold">Nouvelle candidature</h2>
-
-          <label className="flex flex-col gap-1">
-            <span className="text-sm font-medium text-gray-700">
-              Offre d'emploi
-            </span>
-
-            <select
-              value={jobOfferId ?? ""}
-              onChange={(event) =>
-                setJobOfferId(
-                  event.target.value ? Number(event.target.value) : null,
-                )
-              }
-              className="rounded-md border border-gray-300 px-3 py-2"
-              required
-            >
-              <option value="">Sélectionner une offre</option>
-
-              {jobOffersQuery.data?.map((jobOffer) => (
-                <option key={jobOffer.id} value={jobOffer.id}>
-                  {jobOffer.title} — {jobOffer.company.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
-            <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-gray-700">Statut</span>
 
               <select
-                value={status}
+                value={jobOfferId ?? ""}
                 onChange={(event) =>
-                  setStatus(event.target.value as ApplicationStatus)
+                  setJobOfferId(
+                    event.target.value ? Number(event.target.value) : null,
+                  )
                 }
                 className="rounded-md border border-gray-300 px-3 py-2"
+                required
               >
-                <option value="DRAFT">À préparer</option>
-                <option value="APPLIED">Envoyée</option>
-                <option value="FOLLOW_UP">Relance</option>
-                <option value="INTERVIEW">Entretien</option>
-                <option value="ACCEPTED">Acceptée</option>
-                <option value="REJECTED">Refusée</option>
+                <option value="">Sélectionner une offre</option>
+
+                {jobOffersQuery.data?.map((jobOffer) => (
+                  <option key={jobOffer.id} value={jobOffer.id}>
+                    {jobOffer.title} — {jobOffer.company.name}
+                  </option>
+                ))}
               </select>
             </label>
 
-            <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-gray-700">Source</span>
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <label className="flex flex-col gap-1">
+                <span className="text-sm font-medium text-gray-700">
+                  Statut
+                </span>
 
-              <input
-                type="text"
-                value={source}
-                onChange={(event) => setSource(event.target.value)}
-                placeholder="France Travail, LinkedIn..."
+                <select
+                  value={status}
+                  onChange={(event) =>
+                    setStatus(event.target.value as ApplicationStatus)
+                  }
+                  className="rounded-md border border-gray-300 px-3 py-2"
+                >
+                  <option value="DRAFT">À préparer</option>
+                  <option value="APPLIED">Envoyée</option>
+                  <option value="FOLLOW_UP">Relance</option>
+                  <option value="INTERVIEW">Entretien</option>
+                  <option value="ACCEPTED">Acceptée</option>
+                  <option value="REJECTED">Refusée</option>
+                </select>
+              </label>
+
+              <label className="flex flex-col gap-1">
+                <span className="text-sm font-medium text-gray-700">
+                  Source
+                </span>
+
+                <input
+                  type="text"
+                  value={source}
+                  onChange={(event) => setSource(event.target.value)}
+                  placeholder="France Travail, LinkedIn..."
+                  className="rounded-md border border-gray-300 px-3 py-2"
+                />
+              </label>
+            </div>
+
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <label className="flex flex-col gap-1">
+                <span className="text-sm font-medium text-gray-700">
+                  Date de candidature
+                </span>
+                <input
+                  type="date"
+                  value={appliedAt}
+                  onChange={(event) => setAppliedAt(event.target.value)}
+                  className="rounded-md border border-gray-300 px-3 py-2"
+                />
+              </label>
+
+              <label className="flex flex-col gap-1">
+                <span className="text-sm font-medium text-gray-700">
+                  Nom du contact
+                </span>
+                <input
+                  type="text"
+                  value={contactName}
+                  onChange={(event) => setContactName(event.target.value)}
+                  className="rounded-md border border-gray-300 px-3 py-2"
+                />
+              </label>
+
+              <label className="flex flex-col gap-1">
+                <span className="text-sm font-medium text-gray-700">
+                  Email du contact
+                </span>
+                <input
+                  type="email"
+                  value={contactEmail}
+                  onChange={(event) => setContactEmail(event.target.value)}
+                  className="rounded-md border border-gray-300 px-3 py-2"
+                />
+              </label>
+
+              <label className="flex flex-col gap-1">
+                <span className="text-sm font-medium text-gray-700">
+                  Date de relance
+                </span>
+                <input
+                  type="date"
+                  value={followUpAt}
+                  onChange={(event) => setFollowUpAt(event.target.value)}
+                  className="rounded-md border border-gray-300 px-3 py-2"
+                />
+              </label>
+
+              <label className="flex flex-col gap-1">
+                <span className="text-sm font-medium text-gray-700">
+                  Date d'entretien
+                </span>
+                <input
+                  type="datetime-local"
+                  value={interviewAt}
+                  onChange={(event) => setInterviewAt(event.target.value)}
+                  className="rounded-md border border-gray-300 px-3 py-2"
+                />
+              </label>
+            </div>
+
+            <label className="mt-4 flex flex-col gap-1">
+              <span className="text-sm font-medium text-gray-700">Notes</span>
+              <textarea
+                value={notes}
+                onChange={(event) => setNotes(event.target.value)}
+                rows={4}
                 className="rounded-md border border-gray-300 px-3 py-2"
               />
             </label>
-          </div>
 
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
-            <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-gray-700">
-                Date de candidature
-              </span>
-              <input
-                type="date"
-                value={appliedAt}
-                onChange={(event) => setAppliedAt(event.target.value)}
-                className="rounded-md border border-gray-300 px-3 py-2"
-              />
-            </label>
+            <button
+              type="submit"
+              disabled={createApplicationMutation.isPending}
+              className="mt-4 rounded-md bg-blue-600 px-4 py-2 font-medium text-white disabled:opacity-50"
+            >
+              {createApplicationMutation.isPending
+                ? "Création..."
+                : "Créer la candidature"}
+            </button>
 
-            <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-gray-700">
-                Nom du contact
-              </span>
-              <input
-                type="text"
-                value={contactName}
-                onChange={(event) => setContactName(event.target.value)}
-                className="rounded-md border border-gray-300 px-3 py-2"
-              />
-            </label>
-
-            <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-gray-700">
-                Email du contact
-              </span>
-              <input
-                type="email"
-                value={contactEmail}
-                onChange={(event) => setContactEmail(event.target.value)}
-                className="rounded-md border border-gray-300 px-3 py-2"
-              />
-            </label>
-
-            <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-gray-700">
-                Date de relance
-              </span>
-              <input
-                type="date"
-                value={followUpAt}
-                onChange={(event) => setFollowUpAt(event.target.value)}
-                className="rounded-md border border-gray-300 px-3 py-2"
-              />
-            </label>
-
-            <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-gray-700">
-                Date d'entretien
-              </span>
-              <input
-                type="datetime-local"
-                value={interviewAt}
-                onChange={(event) => setInterviewAt(event.target.value)}
-                className="rounded-md border border-gray-300 px-3 py-2"
-              />
-            </label>
-          </div>
-
-          <label className="mt-4 flex flex-col gap-1">
-            <span className="text-sm font-medium text-gray-700">Notes</span>
-            <textarea
-              value={notes}
-              onChange={(event) => setNotes(event.target.value)}
-              rows={4}
-              className="rounded-md border border-gray-300 px-3 py-2"
-            />
-          </label>
-
-          <button
-            type="submit"
-            disabled={createApplicationMutation.isPending}
-            className="mt-4 rounded-md bg-blue-600 px-4 py-2 font-medium text-white disabled:opacity-50"
-          >
-            {createApplicationMutation.isPending
-              ? "Création..."
-              : "Créer la candidature"}
-          </button>
-
-          {createApplicationMutation.isError && (
-            <p className="mt-3 text-sm text-red-600">
-              Impossible de créer la candidature.
-            </p>
-          )}
-        </form>
+            {createApplicationMutation.isError && (
+              <p className="mt-3 text-sm text-red-600">
+                Impossible de créer la candidature.
+              </p>
+            )}
+          </form>
+        </CollapsibleSection>
         <div className="mt-6 flex items-center justify-between text-sm text-gray-600">
           <p>{applicationsQuery.data.total} candidatures</p>
           <p>

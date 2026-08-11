@@ -9,6 +9,7 @@ import {
   type CompanySortOrder,
 } from "../api/companies";
 import { useState } from "react";
+import CollapsibleSection from "../components/CollapsibleSection";
 
 function CompaniesPage() {
   const [searchInput, setSearchInput] = useState("");
@@ -123,160 +124,158 @@ function CompaniesPage() {
     <main className="min-h-screen p-8">
       <div className="mx-auto max-w-5xl">
         <h1 className="text-3xl font-bold">Entreprises</h1>
-        <form
-          className="mt-6 rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
-          onSubmit={(event) => {
-            event.preventDefault();
-            setSearch(searchInput.trim());
-            setPage(1);
-          }}
-        >
-          <h2 className="text-lg font-semibold">Filtrer les entreprises</h2>
-          <div className="mt-4 grid gap-4 md:grid-cols-4">
-            <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-gray-700">
-                Recherche
-              </span>
-              <input
-                type="search"
-                value={searchInput}
-                onChange={(event) => setSearchInput(event.target.value)}
-                className="rounded-md border border-gray-300 px-3 py-2"
-              />
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-gray-700">
-                Trier par
-              </span>
-              <select
-                value={sortBy}
-                onChange={(event) => {
-                  setSortBy(event.target.value as CompanySortBy);
-                  setPage(1);
-                }}
-                className="rounded-md border border-gray-300 px-3 py-2"
+        <CollapsibleSection title="Filtrer les entreprises" defaultOpen>
+          <form
+            className="mt-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              setSearch(searchInput.trim());
+              setPage(1);
+            }}
+          >
+            <div className="grid gap-4 md:grid-cols-4">
+              <label className="flex flex-col gap-1">
+                <span className="text-sm font-medium text-gray-700">
+                  Recherche
+                </span>
+                <input
+                  type="search"
+                  value={searchInput}
+                  onChange={(event) => setSearchInput(event.target.value)}
+                  className="rounded-md border border-gray-300 px-3 py-2"
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-sm font-medium text-gray-700">
+                  Trier par
+                </span>
+                <select
+                  value={sortBy}
+                  onChange={(event) => {
+                    setSortBy(event.target.value as CompanySortBy);
+                    setPage(1);
+                  }}
+                  className="rounded-md border border-gray-300 px-3 py-2"
+                >
+                  <option value="name">Nom</option>
+                  <option value="createdAt">Date de création</option>
+                  <option value="updatedAt">Date de modification</option>
+                </select>
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-sm font-medium text-gray-700">Ordre</span>
+                <select
+                  value={sortOrder}
+                  onChange={(event) => {
+                    setSortOrder(event.target.value as CompanySortOrder);
+                    setPage(1);
+                  }}
+                  className="rounded-md border border-gray-300 px-3 py-2"
+                >
+                  <option value="desc">Décroissant</option>
+                  <option value="asc">Croissant</option>
+                </select>
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-sm font-medium text-gray-700">
+                  Par page
+                </span>
+                <select
+                  value={pageSize}
+                  onChange={(event) => {
+                    setPageSize(Number(event.target.value));
+                    setPage(1);
+                  }}
+                  className="rounded-md border border-gray-300 px-3 py-2"
+                >
+                  <option value="10">10</option>
+                  <option value="20">20</option>
+                  <option value="50">50</option>
+                </select>
+              </label>
+            </div>
+            <div className="mt-4 flex gap-2">
+              <button
+                type="submit"
+                className="rounded-md bg-blue-600 px-4 py-2 font-medium text-white"
               >
-                <option value="name">Nom</option>
-                <option value="createdAt">Date de création</option>
-                <option value="updatedAt">Date de modification</option>
-              </select>
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-gray-700">Ordre</span>
-              <select
-                value={sortOrder}
-                onChange={(event) => {
-                  setSortOrder(event.target.value as CompanySortOrder);
+                Rechercher
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchInput("");
+                  setSearch("");
                   setPage(1);
+                  setPageSize(10);
+                  setSortBy("createdAt");
+                  setSortOrder("desc");
                 }}
-                className="rounded-md border border-gray-300 px-3 py-2"
+                className="rounded-md border border-gray-300 px-4 py-2 font-medium"
               >
-                <option value="desc">Décroissant</option>
-                <option value="asc">Croissant</option>
-              </select>
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-gray-700">
-                Par page
-              </span>
-              <select
-                value={pageSize}
-                onChange={(event) => {
-                  setPageSize(Number(event.target.value));
-                  setPage(1);
-                }}
-                className="rounded-md border border-gray-300 px-3 py-2"
-              >
-                <option value="10">10</option>
-                <option value="20">20</option>
-                <option value="50">50</option>
-              </select>
-            </label>
-          </div>
-          <div className="mt-4 flex gap-2">
+                Réinitialiser
+              </button>
+            </div>
+          </form>
+        </CollapsibleSection>
+        <CollapsibleSection title="Nouvelle entreprise" defaultOpen={false}>
+          <form onSubmit={handleSubmit} className="mt-4">
+            <div className="mt-4 grid gap-4 md:grid-cols-3">
+              <label className="flex flex-col gap-1">
+                <span className="text-sm font-medium text-gray-700">Nom</span>
+
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  required
+                  className="rounded-md border border-gray-300 px-3 py-2"
+                />
+              </label>
+
+              <label className="flex flex-col gap-1">
+                <span className="text-sm font-medium text-gray-700">
+                  Site web
+                </span>
+
+                <input
+                  type="url"
+                  value={website}
+                  onChange={(event) => setWebsite(event.target.value)}
+                  placeholder="https://example.com"
+                  className="rounded-md border border-gray-300 px-3 py-2"
+                />
+              </label>
+
+              <label className="flex flex-col gap-1">
+                <span className="text-sm font-medium text-gray-700">Ville</span>
+
+                <input
+                  type="text"
+                  value={city}
+                  onChange={(event) => setCity(event.target.value)}
+                  className="rounded-md border border-gray-300 px-3 py-2"
+                />
+              </label>
+            </div>
+
             <button
               type="submit"
-              className="rounded-md bg-blue-600 px-4 py-2 font-medium text-white"
+              disabled={createCompanyMutation.isPending}
+              className="mt-4 rounded-md bg-blue-600 px-4 py-2 font-medium text-white disabled:opacity-50"
             >
-              Rechercher
+              {createCompanyMutation.isPending
+                ? "Création..."
+                : "Créer l'entreprise"}
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                setSearchInput("");
-                setSearch("");
-                setPage(1);
-                setPageSize(10);
-                setSortBy("createdAt");
-                setSortOrder("desc");
-              }}
-              className="rounded-md border border-gray-300 px-4 py-2 font-medium"
-            >
-              Réinitialiser
-            </button>
-          </div>
-        </form>
-        <form
-          onSubmit={handleSubmit}
-          className="mt-6 rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
-        >
-          <h2 className="text-lg font-semibold">Nouvelle entreprise</h2>
 
-          <div className="mt-4 grid gap-4 md:grid-cols-3">
-            <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-gray-700">Nom</span>
-
-              <input
-                type="text"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                required
-                className="rounded-md border border-gray-300 px-3 py-2"
-              />
-            </label>
-
-            <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-gray-700">
-                Site web
-              </span>
-
-              <input
-                type="url"
-                value={website}
-                onChange={(event) => setWebsite(event.target.value)}
-                placeholder="https://example.com"
-                className="rounded-md border border-gray-300 px-3 py-2"
-              />
-            </label>
-
-            <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-gray-700">Ville</span>
-
-              <input
-                type="text"
-                value={city}
-                onChange={(event) => setCity(event.target.value)}
-                className="rounded-md border border-gray-300 px-3 py-2"
-              />
-            </label>
-          </div>
-
-          <button
-            type="submit"
-            disabled={createCompanyMutation.isPending}
-            className="mt-4 rounded-md bg-blue-600 px-4 py-2 font-medium text-white disabled:opacity-50"
-          >
-            {createCompanyMutation.isPending
-              ? "Création..."
-              : "Créer l'entreprise"}
-          </button>
-
-          {createCompanyMutation.isError && (
-            <p className="mt-3 text-sm text-red-600">
-              Impossible de créer l'entreprise.
-            </p>
-          )}
-        </form>
+            {createCompanyMutation.isError && (
+              <p className="mt-3 text-sm text-red-600">
+                Impossible de créer l'entreprise.
+              </p>
+            )}
+          </form>
+        </CollapsibleSection>
 
         <div className="mt-6 flex items-center justify-between text-sm text-gray-600">
           <p>{companiesQuery.data.total} entreprises</p>
