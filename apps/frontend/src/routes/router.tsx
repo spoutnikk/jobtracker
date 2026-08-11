@@ -6,6 +6,7 @@ import CompaniesPage from "../pages/CompaniesPage";
 import CalendarPage from "../pages/CalendarPage";
 import DashboardPage from "../pages/DashboardPage";
 import DocumentsPage from "../pages/DocumentsPage";
+import JobOffersPage from "../pages/JobOffersPage";
 
 export const router = createBrowserRouter([
   {
@@ -22,6 +23,10 @@ export const router = createBrowserRouter([
       {
         path: "/companies",
         element: <CompaniesPage />,
+      },
+      {
+        path: "/job-offers",
+        element: <JobOffersPage />,
       },
       {
         path: "/calendar",
