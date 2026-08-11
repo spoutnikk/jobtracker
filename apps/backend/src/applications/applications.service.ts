@@ -86,9 +86,22 @@ export class ApplicationsService {
   }
 
   async update(id: number, updateApplicationDto: UpdateApplicationDto) {
-    const previousApplication = await this.findOne(id);
-
     return this.prisma.$transaction(async (tx) => {
+      const previousApplication = await tx.application.findUnique({
+        where: {
+          id,
+        },
+        select: {
+          status: true,
+          followUpAt: true,
+          interviewAt: true,
+        },
+      });
+
+      if (!previousApplication) {
+        throw new NotFoundException(`Application with id ${id} not found`);
+      }
+
       const application = await tx.application.update({
         where: {
           id,

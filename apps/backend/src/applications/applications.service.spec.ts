@@ -178,6 +178,19 @@ describe('ApplicationsService', () => {
 
     await expect(service.update(1, dto)).resolves.toEqual(updatedApplication);
 
+    expect(prismaServiceMock.$transaction).toHaveBeenCalledTimes(1);
+
+    expect(prismaServiceMock.application.findUnique).toHaveBeenCalledWith({
+      where: {
+        id: 1,
+      },
+      select: {
+        status: true,
+        followUpAt: true,
+        interviewAt: true,
+      },
+    });
+
     expect(prismaServiceMock.application.update).toHaveBeenCalledWith({
       where: {
         id: 1,
@@ -226,6 +239,22 @@ describe('ApplicationsService', () => {
         },
       },
     );
+  });
+
+  it('should throw NotFoundException when updating an unknown application', async () => {
+    prismaServiceMock.application.findUnique.mockResolvedValue(null);
+
+    const dto = {
+      status: 'INTERVIEW' as const,
+    };
+
+    await expect(service.update(9999, dto)).rejects.toThrow(
+      'Application with id 9999 not found',
+    );
+
+    expect(prismaServiceMock.$transaction).toHaveBeenCalledTimes(1);
+    expect(prismaServiceMock.application.update).not.toHaveBeenCalled();
+    expect(prismaServiceMock.applicationEvent.create).not.toHaveBeenCalled();
   });
 
   it('should remove an application', async () => {
