@@ -4,6 +4,12 @@ import { JobOffersService } from './job-offers.service';
 
 describe('JobOffersController', () => {
   let controller: JobOffersController;
+  const user = {
+    id: 7,
+    email: 'user@example.com',
+    firstName: 'Ada',
+    lastName: 'Lovelace',
+  };
 
   const jobOffersServiceMock = {
     findAll: jest.fn(),
@@ -43,9 +49,9 @@ describe('JobOffersController', () => {
 
     jobOffersServiceMock.findAll.mockResolvedValue(jobOffers);
 
-    await expect(controller.findAll()).resolves.toEqual(jobOffers);
+    await expect(controller.findAll(user)).resolves.toEqual(jobOffers);
 
-    expect(jobOffersServiceMock.findAll).toHaveBeenCalledTimes(1);
+    expect(jobOffersServiceMock.findAll).toHaveBeenCalledWith(user.id);
   });
 
   it('should return one job offer', async () => {
@@ -61,9 +67,9 @@ describe('JobOffersController', () => {
 
     jobOffersServiceMock.findOne.mockResolvedValue(jobOffer);
 
-    await expect(controller.findOne(1)).resolves.toEqual(jobOffer);
+    await expect(controller.findOne(user, 1)).resolves.toEqual(jobOffer);
 
-    expect(jobOffersServiceMock.findOne).toHaveBeenCalledWith(1);
+    expect(jobOffersServiceMock.findOne).toHaveBeenCalledWith(user.id, 1);
   });
 
   it('should create a job offer', async () => {
@@ -82,9 +88,11 @@ describe('JobOffersController', () => {
 
     jobOffersServiceMock.create.mockResolvedValue(createdJobOffer);
 
-    await expect(controller.create(dto)).resolves.toEqual(createdJobOffer);
+    await expect(controller.create(user, dto)).resolves.toEqual(
+      createdJobOffer,
+    );
 
-    expect(jobOffersServiceMock.create).toHaveBeenCalledWith(dto);
+    expect(jobOffersServiceMock.create).toHaveBeenCalledWith(user.id, dto);
   });
 
   it('should update a job offer', async () => {
@@ -103,9 +111,11 @@ describe('JobOffersController', () => {
 
     jobOffersServiceMock.update.mockResolvedValue(updatedJobOffer);
 
-    await expect(controller.update(1, dto)).resolves.toEqual(updatedJobOffer);
+    await expect(controller.update(user, 1, dto)).resolves.toEqual(
+      updatedJobOffer,
+    );
 
-    expect(jobOffersServiceMock.update).toHaveBeenCalledWith(1, dto);
+    expect(jobOffersServiceMock.update).toHaveBeenCalledWith(user.id, 1, dto);
   });
 
   it('should remove a job offer', async () => {
@@ -121,8 +131,8 @@ describe('JobOffersController', () => {
 
     jobOffersServiceMock.remove.mockResolvedValue(removedJobOffer);
 
-    await expect(controller.remove(1)).resolves.toEqual(removedJobOffer);
+    await expect(controller.remove(user, 1)).resolves.toEqual(removedJobOffer);
 
-    expect(jobOffersServiceMock.remove).toHaveBeenCalledWith(1);
+    expect(jobOffersServiceMock.remove).toHaveBeenCalledWith(user.id, 1);
   });
 });

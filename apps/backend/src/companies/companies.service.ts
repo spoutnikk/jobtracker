@@ -12,9 +12,9 @@ import { UpdateCompanyDto } from './dto/update-company.dto';
 export class CompaniesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findOne(id: number) {
-    const company = await this.prisma.company.findUnique({
-      where: { id },
+  async findOne(userId: number, id: number) {
+    const company = await this.prisma.company.findFirst({
+      where: { id, userId },
       include: {
         jobOffers: true,
       },
@@ -27,8 +27,9 @@ export class CompaniesService {
     return company;
   }
 
-  findAll() {
+  findAll(userId: number) {
     return this.prisma.company.findMany({
+      where: { userId },
       include: {
         jobOffers: true,
       },
@@ -50,22 +51,34 @@ export class CompaniesService {
     });
   }
 
-  async update(id: number, updateCompanyDto: UpdateCompanyDto) {
-    await this.findOne(id);
+  async update(userId: number, id: number, updateCompanyDto: UpdateCompanyDto) {
+    await this.findOne(userId, id);
 
-    return this.prisma.company.update({
-      where: {
-        id,
-      },
-      data: updateCompanyDto,
-      include: {
-        jobOffers: true,
-      },
-    });
+    try {
+      return await this.prisma.company.update({
+        where: {
+          id,
+          userId,
+        },
+        data: updateCompanyDto,
+        include: {
+          jobOffers: true,
+        },
+      });
+    } catch (error: unknown) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        throw new NotFoundException(`Company with id ${id} not found`);
+      }
+
+      throw error;
+    }
   }
 
-  async remove(id: number) {
-    const company = await this.findOne(id);
+  async remove(userId: number, id: number) {
+    const company = await this.findOne(userId, id);
 
     if (company.jobOffers.length > 0) {
       throw new ConflictException(
@@ -77,9 +90,17 @@ export class CompaniesService {
       return await this.prisma.company.delete({
         where: {
           id,
+          userId,
         },
       });
     } catch (error: unknown) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        throw new NotFoundException(`Company with id ${id} not found`);
+      }
+
       if (
         !(error instanceof Prisma.PrismaClientKnownRequestError) ||
         error.code !== 'P2003'
@@ -90,6 +111,9 @@ export class CompaniesService {
       const jobOffer = await this.prisma.jobOffer.findFirst({
         where: {
           companyId: id,
+          company: {
+            userId,
+          },
         },
         select: {
           id: true,

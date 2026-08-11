@@ -12,8 +12,13 @@ import { UpdateJobOfferDto } from './dto/update-job-offer.dto';
 export class JobOffersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  findAll() {
+  findAll(userId: number) {
     return this.prisma.jobOffer.findMany({
+      where: {
+        company: {
+          userId,
+        },
+      },
       include: {
         company: true,
       },
@@ -23,10 +28,13 @@ export class JobOffersService {
     });
   }
 
-  async findOne(id: number) {
-    const jobOffer = await this.prisma.jobOffer.findUnique({
+  async findOne(userId: number, id: number) {
+    const jobOffer = await this.prisma.jobOffer.findFirst({
       where: {
         id,
+        company: {
+          userId,
+        },
       },
       include: {
         company: true,
@@ -40,12 +48,28 @@ export class JobOffersService {
     return jobOffer;
   }
 
-  async create(createJobOfferDto: CreateJobOfferDto) {
+  async create(userId: number, createJobOfferDto: CreateJobOfferDto) {
     const publishedAt = createJobOfferDto.publishedAt
       ? new Date(createJobOfferDto.publishedAt)
       : undefined;
 
     try {
+      const company = await this.prisma.company.findFirst({
+        where: {
+          id: createJobOfferDto.companyId,
+          userId,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (!company) {
+        throw new NotFoundException(
+          `Company with id ${createJobOfferDto.companyId} not found`,
+        );
+      }
+
       return await this.prisma.jobOffer.create({
         data: {
           title: createJobOfferDto.title,
@@ -69,9 +93,10 @@ export class JobOffersService {
         throw error;
       }
 
-      const company = await this.prisma.company.findUnique({
+      const company = await this.prisma.company.findFirst({
         where: {
           id: createJobOfferDto.companyId,
+          userId,
         },
         select: {
           id: true,
@@ -88,17 +113,42 @@ export class JobOffersService {
     }
   }
 
-  async update(id: number, updateJobOfferDto: UpdateJobOfferDto) {
-    await this.findOne(id);
+  async update(
+    userId: number,
+    id: number,
+    updateJobOfferDto: UpdateJobOfferDto,
+  ) {
+    await this.findOne(userId, id);
 
     const publishedAt = updateJobOfferDto.publishedAt
       ? new Date(updateJobOfferDto.publishedAt)
       : undefined;
 
     try {
+      if (updateJobOfferDto.companyId !== undefined) {
+        const company = await this.prisma.company.findFirst({
+          where: {
+            id: updateJobOfferDto.companyId,
+            userId,
+          },
+          select: {
+            id: true,
+          },
+        });
+
+        if (!company) {
+          throw new NotFoundException(
+            `Company with id ${updateJobOfferDto.companyId} not found`,
+          );
+        }
+      }
+
       return await this.prisma.jobOffer.update({
         where: {
           id,
+          company: {
+            userId,
+          },
         },
         data: {
           title: updateJobOfferDto.title,
@@ -116,6 +166,13 @@ export class JobOffersService {
       });
     } catch (error: unknown) {
       if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        throw new NotFoundException(`Job offer with id ${id} not found`);
+      }
+
+      if (
         !(error instanceof Prisma.PrismaClientKnownRequestError) ||
         error.code !== 'P2003' ||
         updateJobOfferDto.companyId === undefined
@@ -123,9 +180,10 @@ export class JobOffersService {
         throw error;
       }
 
-      const company = await this.prisma.company.findUnique({
+      const company = await this.prisma.company.findFirst({
         where: {
           id: updateJobOfferDto.companyId,
+          userId,
         },
         select: {
           id: true,
@@ -142,12 +200,17 @@ export class JobOffersService {
     }
   }
 
-  async remove(id: number) {
-    await this.findOne(id);
+  async remove(userId: number, id: number) {
+    await this.findOne(userId, id);
 
     const application = await this.prisma.application.findFirst({
       where: {
         jobOfferId: id,
+        jobOffer: {
+          company: {
+            userId,
+          },
+        },
       },
       select: {
         id: true,
@@ -164,12 +227,22 @@ export class JobOffersService {
       return await this.prisma.jobOffer.delete({
         where: {
           id,
+          company: {
+            userId,
+          },
         },
         include: {
           company: true,
         },
       });
     } catch (error: unknown) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        throw new NotFoundException(`Job offer with id ${id} not found`);
+      }
+
       if (
         !(error instanceof Prisma.PrismaClientKnownRequestError) ||
         error.code !== 'P2003'
@@ -180,6 +253,11 @@ export class JobOffersService {
       const existingApplication = await this.prisma.application.findFirst({
         where: {
           jobOfferId: id,
+          jobOffer: {
+            company: {
+              userId,
+            },
+          },
         },
         select: {
           id: true,

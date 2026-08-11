@@ -19,13 +19,16 @@ export class CompaniesController {
   constructor(private readonly companiesService: CompaniesService) {}
 
   @Get()
-  findAll() {
-    return this.companiesService.findAll();
+  findAll(@CurrentUser() user: AuthenticatedUser) {
+    return this.companiesService.findAll(user.id);
   }
 
   @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.companiesService.findOne(id);
+  findOne(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.companiesService.findOne(user.id, id);
   }
 
   @Post()
@@ -38,14 +41,18 @@ export class CompaniesController {
 
   @Patch(':id')
   update(
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseIntPipe) id: number,
     @Body() updateCompanyDto: UpdateCompanyDto,
   ) {
-    return this.companiesService.update(id, updateCompanyDto);
+    return this.companiesService.update(user.id, id, updateCompanyDto);
   }
 
   @Delete(':id')
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.companiesService.remove(id);
+  remove(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.companiesService.remove(user.id, id);
   }
 }

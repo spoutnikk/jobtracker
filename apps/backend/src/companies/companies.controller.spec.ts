@@ -4,6 +4,12 @@ import { CompaniesService } from './companies.service';
 
 describe('CompaniesController', () => {
   let controller: CompaniesController;
+  const user = {
+    id: 7,
+    email: 'user@example.com',
+    firstName: 'Ada',
+    lastName: 'Lovelace',
+  };
 
   const companiesServiceMock = {
     findAll: jest.fn(),
@@ -46,9 +52,9 @@ describe('CompaniesController', () => {
 
     companiesServiceMock.findAll.mockResolvedValue(companies);
 
-    await expect(controller.findAll()).resolves.toEqual(companies);
+    await expect(controller.findAll(user)).resolves.toEqual(companies);
 
-    expect(companiesServiceMock.findAll).toHaveBeenCalledTimes(1);
+    expect(companiesServiceMock.findAll).toHaveBeenCalledWith(user.id);
   });
 
   it('should return one company', async () => {
@@ -60,18 +66,12 @@ describe('CompaniesController', () => {
 
     companiesServiceMock.findOne.mockResolvedValue(company);
 
-    await expect(controller.findOne(1)).resolves.toEqual(company);
+    await expect(controller.findOne(user, 1)).resolves.toEqual(company);
 
-    expect(companiesServiceMock.findOne).toHaveBeenCalledWith(1);
+    expect(companiesServiceMock.findOne).toHaveBeenCalledWith(user.id, 1);
   });
 
   it('should create a company', async () => {
-    const user = {
-      id: 7,
-      email: 'user@example.com',
-      firstName: 'Ada',
-      lastName: 'Lovelace',
-    };
     const dto = {
       name: 'TechNova',
       website: 'https://technova.example',
@@ -106,9 +106,9 @@ describe('CompaniesController', () => {
 
     companiesServiceMock.update.mockResolvedValue(company);
 
-    await expect(controller.update(2, dto)).resolves.toEqual(company);
+    await expect(controller.update(user, 2, dto)).resolves.toEqual(company);
 
-    expect(companiesServiceMock.update).toHaveBeenCalledWith(2, dto);
+    expect(companiesServiceMock.update).toHaveBeenCalledWith(user.id, 2, dto);
   });
 
   it('should remove a company', async () => {
@@ -121,8 +121,8 @@ describe('CompaniesController', () => {
 
     companiesServiceMock.remove.mockResolvedValue(company);
 
-    await expect(controller.remove(2)).resolves.toEqual(company);
+    await expect(controller.remove(user, 2)).resolves.toEqual(company);
 
-    expect(companiesServiceMock.remove).toHaveBeenCalledWith(2);
+    expect(companiesServiceMock.remove).toHaveBeenCalledWith(user.id, 2);
   });
 });
