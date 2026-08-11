@@ -6,7 +6,7 @@ import { PrismaService } from '../prisma/prisma.service';
 export class DashboardService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getStats() {
+  async getStats(userId: number) {
     const now = new Date();
 
     const thirtyDaysAgo = new Date(now);
@@ -22,14 +22,29 @@ export class DashboardService {
       applicationsWithInterview,
       applicationsByStatus,
     ] = await Promise.all([
-      this.prisma.application.count(),
+      this.prisma.application.count({
+        where: {
+          userId,
+        },
+      }),
 
-      this.prisma.company.count(),
+      this.prisma.company.count({
+        where: {
+          userId,
+        },
+      }),
 
-      this.prisma.jobOffer.count(),
+      this.prisma.jobOffer.count({
+        where: {
+          company: {
+            userId,
+          },
+        },
+      }),
 
       this.prisma.application.count({
         where: {
+          userId,
           followUpAt: {
             gte: now,
           },
@@ -38,6 +53,7 @@ export class DashboardService {
 
       this.prisma.application.count({
         where: {
+          userId,
           interviewAt: {
             gte: now,
           },
@@ -46,6 +62,7 @@ export class DashboardService {
 
       this.prisma.application.count({
         where: {
+          userId,
           createdAt: {
             gte: thirtyDaysAgo,
           },
@@ -54,6 +71,7 @@ export class DashboardService {
 
       this.prisma.application.count({
         where: {
+          userId,
           interviewAt: {
             not: null,
           },
@@ -62,6 +80,9 @@ export class DashboardService {
 
       this.prisma.application.groupBy({
         by: ['status'],
+        where: {
+          userId,
+        },
         _count: {
           status: true,
         },

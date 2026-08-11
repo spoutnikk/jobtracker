@@ -39,6 +39,9 @@ describe('DashboardService', () => {
   });
 
   it('should return dashboard statistics', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-08-11T10:00:00.000Z'));
+
     prismaServiceMock.application.count
       .mockResolvedValueOnce(2) // totalApplications
       .mockResolvedValueOnce(1) // upcomingFollowUps
@@ -64,7 +67,7 @@ describe('DashboardService', () => {
       },
     ]);
 
-    await expect(service.getStats()).resolves.toEqual({
+    await expect(service.getStats(7)).resolves.toEqual({
       totalApplications: 2,
       totalCompanies: 3,
       totalJobOffers: 1,
@@ -83,11 +86,61 @@ describe('DashboardService', () => {
     });
 
     expect(prismaServiceMock.application.count).toHaveBeenCalledTimes(5);
-    expect(prismaServiceMock.company.count).toHaveBeenCalledTimes(1);
-    expect(prismaServiceMock.jobOffer.count).toHaveBeenCalledTimes(1);
+    expect(prismaServiceMock.application.count).toHaveBeenNthCalledWith(1, {
+      where: {
+        userId: 7,
+      },
+    });
+    expect(prismaServiceMock.application.count).toHaveBeenNthCalledWith(2, {
+      where: {
+        userId: 7,
+        followUpAt: {
+          gte: new Date('2026-08-11T10:00:00.000Z'),
+        },
+      },
+    });
+    expect(prismaServiceMock.application.count).toHaveBeenNthCalledWith(3, {
+      where: {
+        userId: 7,
+        interviewAt: {
+          gte: new Date('2026-08-11T10:00:00.000Z'),
+        },
+      },
+    });
+    expect(prismaServiceMock.application.count).toHaveBeenNthCalledWith(4, {
+      where: {
+        userId: 7,
+        createdAt: {
+          gte: new Date('2026-07-12T10:00:00.000Z'),
+        },
+      },
+    });
+    expect(prismaServiceMock.application.count).toHaveBeenNthCalledWith(5, {
+      where: {
+        userId: 7,
+        interviewAt: {
+          not: null,
+        },
+      },
+    });
+    expect(prismaServiceMock.company.count).toHaveBeenCalledWith({
+      where: {
+        userId: 7,
+      },
+    });
+    expect(prismaServiceMock.jobOffer.count).toHaveBeenCalledWith({
+      where: {
+        company: {
+          userId: 7,
+        },
+      },
+    });
 
     expect(prismaServiceMock.application.groupBy).toHaveBeenCalledWith({
       by: ['status'],
+      where: {
+        userId: 7,
+      },
       _count: {
         status: true,
       },

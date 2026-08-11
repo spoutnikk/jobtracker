@@ -4,6 +4,12 @@ import { DashboardService } from './dashboard.service';
 
 describe('DashboardController', () => {
   let controller: DashboardController;
+  const user = {
+    id: 7,
+    email: 'user@example.com',
+    firstName: 'Ada',
+    lastName: 'Lovelace',
+  };
 
   const dashboardServiceMock = {
     getStats: jest.fn(),
@@ -50,8 +56,8 @@ describe('DashboardController', () => {
 
     dashboardServiceMock.getStats.mockResolvedValue(stats);
 
-    await expect(controller.getStats()).resolves.toEqual(stats);
+    await expect(controller.getStats(user)).resolves.toEqual(stats);
 
-    expect(dashboardServiceMock.getStats).toHaveBeenCalledTimes(1);
+    expect(dashboardServiceMock.getStats).toHaveBeenCalledWith(user.id);
   });
 });
