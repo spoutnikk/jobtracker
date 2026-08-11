@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
@@ -69,10 +70,36 @@ export class CompaniesService {
       );
     }
 
-    return this.prisma.company.delete({
-      where: {
-        id,
-      },
-    });
+    try {
+      return await this.prisma.company.delete({
+        where: {
+          id,
+        },
+      });
+    } catch (error: unknown) {
+      if (
+        !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+        error.code !== 'P2003'
+      ) {
+        throw error;
+      }
+
+      const jobOffer = await this.prisma.jobOffer.findFirst({
+        where: {
+          companyId: id,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (jobOffer) {
+        throw new ConflictException(
+          `Company with id ${id} cannot be deleted because it has job offers`,
+        );
+      }
+
+      throw error;
+    }
   }
 }
