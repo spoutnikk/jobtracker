@@ -6,6 +6,10 @@ import {
   type ApplicationStatus,
   type ContractType,
 } from "../api/applications";
+import {
+  getApplicationEvents,
+  type ApplicationEventType,
+} from "../api/application-events";
 
 const statusLabels: Record<ApplicationStatus, string> = {
   DRAFT: "À préparer",
@@ -22,6 +26,17 @@ const contractTypeLabels: Record<ContractType, string> = {
   INTERNSHIP: "Stage",
   FREELANCE: "Freelance",
   TEMPORARY: "Intérim",
+  OTHER: "Autre",
+};
+
+const eventTypeLabels: Record<ApplicationEventType, string> = {
+  CREATED: "Création",
+  STATUS_CHANGED: "Changement de statut",
+  APPLICATION_SENT: "Candidature envoyée",
+  FOLLOW_UP: "Relance",
+  INTERVIEW: "Entretien",
+  DOCUMENT_ADDED: "Document ajouté",
+  NOTE: "Note",
   OTHER: "Autre",
 };
 
@@ -46,6 +61,11 @@ function ApplicationDetailPage() {
   const applicationQuery = useQuery({
     queryKey: ["applications", "detail", applicationId],
     queryFn: () => getApplication(applicationId),
+    enabled: isValidApplicationId,
+  });
+  const applicationEventsQuery = useQuery({
+    queryKey: ["application-events", applicationId],
+    queryFn: () => getApplicationEvents(applicationId),
     enabled: isValidApplicationId,
   });
 
@@ -214,6 +234,49 @@ function ApplicationDetailPage() {
             >
               Site de l'entreprise
             </a>
+          )}
+        </section>
+
+        <section className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+          <h2 className="text-xl font-semibold">Historique</h2>
+
+          {applicationEventsQuery.isPending ? (
+            <p className="mt-4">Chargement de l'historique...</p>
+          ) : applicationEventsQuery.isError ? (
+            <p className="mt-4 text-red-600">
+              {axios.isAxiosError(applicationEventsQuery.error) &&
+              applicationEventsQuery.error.response?.status === 404
+                ? "Historique indisponible."
+                : "Impossible de charger l'historique."}
+            </p>
+          ) : applicationEventsQuery.data.length === 0 ? (
+            <p className="mt-4">Aucun événement enregistré.</p>
+          ) : (
+            <ul className="mt-4 space-y-4">
+              {applicationEventsQuery.data.map((applicationEvent) => (
+                <li
+                  key={applicationEvent.id}
+                  className="rounded-md border border-gray-200 p-4"
+                >
+                  <p className="font-semibold">
+                    {eventTypeLabels[applicationEvent.type] ??
+                      applicationEvent.type}
+                  </p>
+                  <p className="mt-1">{applicationEvent.title}</p>
+                  {applicationEvent.description && (
+                    <p className="mt-1 whitespace-pre-wrap text-gray-700">
+                      {applicationEvent.description}
+                    </p>
+                  )}
+                  <time
+                    dateTime={applicationEvent.occurredAt}
+                    className="mt-2 block text-sm text-gray-600"
+                  >
+                    {formatDateTime(applicationEvent.occurredAt)}
+                  </time>
+                </li>
+              ))}
+            </ul>
           )}
         </section>
 

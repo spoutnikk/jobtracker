@@ -3,12 +3,41 @@ import { AxiosError, AxiosHeaders } from "axios";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getApplication, type Application } from "../api/applications";
+import {
+  getApplicationEvents,
+  type ApplicationEvent,
+} from "../api/application-events";
 import { renderWithProviders } from "../test/renderWithProviders";
 import ApplicationDetailPage from "./ApplicationDetailPage";
 
 vi.mock("../api/applications", () => ({
   getApplication: vi.fn(),
 }));
+
+vi.mock("../api/application-events", () => ({
+  getApplicationEvents: vi.fn(),
+}));
+
+const events: ApplicationEvent[] = [
+  {
+    id: 1,
+    type: "CREATED",
+    title: "Candidature créée",
+    description: null,
+    occurredAt: "2026-08-10T08:00:00.000Z",
+    createdAt: "2026-08-10T08:00:00.000Z",
+    applicationId: 42,
+  },
+  {
+    id: 2,
+    type: "STATUS_CHANGED",
+    title: "Statut modifié",
+    description: "Passage au statut entretien.",
+    occurredAt: "2026-08-12T12:30:00.000Z",
+    createdAt: "2026-08-12T12:30:00.000Z",
+    applicationId: 42,
+  },
+];
 
 const application: Application = {
   id: 42,
@@ -77,6 +106,7 @@ describe("ApplicationDetailPage", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.mocked(getApplication).mockResolvedValue(application);
+    vi.mocked(getApplicationEvents).mockResolvedValue([]);
   });
 
   it("renders the loading state", () => {
@@ -247,5 +277,94 @@ describe("ApplicationDetailPage", () => {
       ),
     ).toBeInTheDocument();
     expect(getApplication).not.toHaveBeenCalled();
+    expect(getApplicationEvents).not.toHaveBeenCalled();
+  });
+
+  it("renders the detail while the history is loading", async () => {
+    vi.mocked(getApplicationEvents).mockImplementation(
+      () => new Promise<ApplicationEvent[]>(() => undefined),
+    );
+
+    renderDetail();
+
+    expect(
+      await screen.findByRole("heading", { name: "Développeur React" }),
+    ).toBeInTheDocument();
+    const historySection = screen
+      .getByRole("heading", { name: "Historique" })
+      .closest("section");
+
+    expect(historySection).not.toBeNull();
+    expect(
+      within(historySection!).getByText("Chargement de l'historique..."),
+    ).toBeInTheDocument();
+  });
+
+  it("renders application events in the backend order", async () => {
+    vi.mocked(getApplicationEvents).mockResolvedValue(events);
+
+    renderDetail();
+
+    const historyHeading = await screen.findByRole("heading", {
+      name: "Historique",
+    });
+    const historySection = historyHeading.closest("section");
+
+    expect(historySection).not.toBeNull();
+    const historyItems = within(historySection!).getAllByRole("listitem");
+    expect(historyItems).toHaveLength(2);
+    expect(within(historyItems[0]).getByText("Création")).toBeInTheDocument();
+    expect(
+      within(historyItems[0]).getByText("Candidature créée"),
+    ).toBeInTheDocument();
+    expect(
+      within(historyItems[1]).getByText("Changement de statut"),
+    ).toBeInTheDocument();
+    expect(
+      within(historyItems[1]).getByText("Passage au statut entretien."),
+    ).toBeInTheDocument();
+    expect(
+      within(historyItems[0]).getByText(/10 août 2026/),
+    ).toBeInTheDocument();
+    expect(
+      within(historyItems[1]).getByText(/12 août 2026/),
+    ).toBeInTheDocument();
+    expect(getApplicationEvents).toHaveBeenCalledWith(42);
+  });
+
+  it("renders the empty history state", async () => {
+    renderDetail();
+
+    expect(
+      await screen.findByText("Aucun événement enregistré."),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the detail visible when history loading fails", async () => {
+    vi.mocked(getApplicationEvents).mockRejectedValue(
+      new Error("History request failed"),
+    );
+
+    renderDetail();
+
+    expect(
+      await screen.findByText("Impossible de charger l'historique."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Développeur React" }),
+    ).toBeInTheDocument();
+  });
+
+  it("renders the unavailable history state for a 404", async () => {
+    vi.mocked(getApplicationEvents).mockRejectedValue(axiosError(404));
+
+    renderDetail();
+
+    expect(
+      await screen.findByText("Historique indisponible."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Développeur React" }),
+    ).toBeInTheDocument();
   });
 });
