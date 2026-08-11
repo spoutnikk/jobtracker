@@ -102,6 +102,13 @@ export class ApplicationsService {
         throw new NotFoundException(`Application with id ${id} not found`);
       }
 
+      const followUpAt = updateApplicationDto.followUpAt
+        ? new Date(updateApplicationDto.followUpAt)
+        : undefined;
+      const interviewAt = updateApplicationDto.interviewAt
+        ? new Date(updateApplicationDto.interviewAt)
+        : undefined;
+
       const application = await tx.application.update({
         where: {
           id,
@@ -117,12 +124,8 @@ export class ApplicationsService {
           notes: updateApplicationDto.notes,
           contactName: updateApplicationDto.contactName,
           contactEmail: updateApplicationDto.contactEmail,
-          followUpAt: updateApplicationDto.followUpAt
-            ? new Date(updateApplicationDto.followUpAt)
-            : undefined,
-          interviewAt: updateApplicationDto.interviewAt
-            ? new Date(updateApplicationDto.interviewAt)
-            : undefined,
+          followUpAt,
+          interviewAt,
         },
         include: {
           jobOffer: {
@@ -148,31 +151,29 @@ export class ApplicationsService {
       }
 
       if (
-        updateApplicationDto.followUpAt !== undefined &&
-        updateApplicationDto.followUpAt !==
-          previousApplication.followUpAt?.toISOString()
+        followUpAt !== undefined &&
+        followUpAt.getTime() !== previousApplication.followUpAt?.getTime()
       ) {
         await tx.applicationEvent.create({
           data: {
             applicationId: id,
             type: 'FOLLOW_UP',
             title: 'Relance planifiée',
-            occurredAt: new Date(updateApplicationDto.followUpAt),
+            occurredAt: followUpAt,
           },
         });
       }
 
       if (
-        updateApplicationDto.interviewAt !== undefined &&
-        updateApplicationDto.interviewAt !==
-          previousApplication.interviewAt?.toISOString()
+        interviewAt !== undefined &&
+        interviewAt.getTime() !== previousApplication.interviewAt?.getTime()
       ) {
         await tx.applicationEvent.create({
           data: {
             applicationId: id,
             type: 'INTERVIEW',
             title: 'Entretien planifié',
-            occurredAt: new Date(updateApplicationDto.interviewAt),
+            occurredAt: interviewAt,
           },
         });
       }

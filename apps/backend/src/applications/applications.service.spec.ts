@@ -406,7 +406,8 @@ describe('ApplicationsService', () => {
   });
 
   it('should not create an event when followUpAt remains unchanged', async () => {
-    const followUpAt = '2026-08-25T10:00:00.000Z';
+    const previousFollowUpAt = '2026-08-25T10:00:00.000Z';
+    const followUpAt = '2026-08-25T12:00:00.000+02:00';
     const application = {
       id: 1,
       status: 'APPLIED',
@@ -415,7 +416,7 @@ describe('ApplicationsService', () => {
 
     prismaServiceMock.application.findUnique.mockResolvedValue({
       status: 'APPLIED',
-      followUpAt: new Date(followUpAt),
+      followUpAt: new Date(previousFollowUpAt),
       interviewAt: null,
     });
     prismaServiceMock.application.update.mockResolvedValue(application);
@@ -428,7 +429,8 @@ describe('ApplicationsService', () => {
   });
 
   it('should not create an event when interviewAt remains unchanged', async () => {
-    const interviewAt = '2026-08-20T14:00:00.000Z';
+    const previousInterviewAt = '2026-08-20T14:00:00.000Z';
+    const interviewAt = '2026-08-20T16:00:00.000+02:00';
     const application = {
       id: 1,
       status: 'INTERVIEW',
@@ -438,7 +440,7 @@ describe('ApplicationsService', () => {
     prismaServiceMock.application.findUnique.mockResolvedValue({
       status: 'INTERVIEW',
       followUpAt: null,
-      interviewAt: new Date(interviewAt),
+      interviewAt: new Date(previousInterviewAt),
     });
     prismaServiceMock.application.update.mockResolvedValue(application);
 
