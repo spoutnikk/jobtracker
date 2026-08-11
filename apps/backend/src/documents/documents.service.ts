@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { unlink } from 'fs/promises';
@@ -16,32 +17,61 @@ export class DocumentsService {
       path: string;
     },
   ) {
-    return this.prisma.$transaction(async (tx) => {
-      const document = await tx.document.create({
-        data: {
-          name: createDocumentDto.name,
-          originalName: file.originalname,
-          mimeType: file.mimetype,
-          size: file.size,
-          path: file.path,
-          type: createDocumentDto.type,
-          applicationId: createDocumentDto.applicationId,
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const document = await tx.document.create({
+          data: {
+            name: createDocumentDto.name,
+            originalName: file.originalname,
+            mimeType: file.mimetype,
+            size: file.size,
+            path: file.path,
+            type: createDocumentDto.type,
+            applicationId: createDocumentDto.applicationId,
+          },
+        });
+
+        if (createDocumentDto.applicationId !== undefined) {
+          await tx.applicationEvent.create({
+            data: {
+              applicationId: createDocumentDto.applicationId,
+              type: 'DOCUMENT_ADDED',
+              title: 'Document ajouté',
+              description: createDocumentDto.name,
+            },
+          });
+        }
+
+        return document;
+      });
+    } catch (error: unknown) {
+      const applicationId = createDocumentDto.applicationId;
+
+      if (
+        !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+        error.code !== 'P2003' ||
+        applicationId === undefined
+      ) {
+        throw error;
+      }
+
+      const application = await this.prisma.application.findUnique({
+        where: {
+          id: applicationId,
+        },
+        select: {
+          id: true,
         },
       });
 
-      if (createDocumentDto.applicationId !== undefined) {
-        await tx.applicationEvent.create({
-          data: {
-            applicationId: createDocumentDto.applicationId,
-            type: 'DOCUMENT_ADDED',
-            title: 'Document ajouté',
-            description: createDocumentDto.name,
-          },
-        });
+      if (!application) {
+        throw new NotFoundException(
+          `Application with id ${applicationId} not found`,
+        );
       }
 
-      return document;
-    });
+      throw error;
+    }
   }
 
   findAll() {

@@ -1,4 +1,6 @@
+import { HttpStatus, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { DocumentsService } from './documents.service';
 
@@ -6,6 +8,9 @@ describe('DocumentsService', () => {
   let service: DocumentsService;
 
   const transactionClientMock = {
+    application: {
+      findUnique: jest.fn(),
+    },
     document: {
       create: jest.fn(),
       findMany: jest.fn(),
@@ -93,6 +98,114 @@ describe('DocumentsService', () => {
         description: 'CV principal',
       },
     });
+    expect(prismaServiceMock.application.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('should throw NotFoundException when creating for an unknown application', async () => {
+    const prismaError = new Prisma.PrismaClientKnownRequestError(
+      'Foreign key constraint failed',
+      {
+        code: 'P2003',
+        clientVersion: '7.9.1',
+      },
+    );
+    const dto = {
+      name: 'CV principal',
+      type: 'CV' as const,
+      applicationId: 9999,
+    };
+    const file = {
+      originalname: 'cv.pdf',
+      mimetype: 'application/pdf',
+      size: 1234,
+      path: 'uploads/cv.pdf',
+    };
+
+    prismaServiceMock.document.create.mockRejectedValueOnce(prismaError);
+    prismaServiceMock.application.findUnique.mockResolvedValueOnce(null);
+
+    const error: unknown = await service
+      .create(dto, file)
+      .catch((caughtError: unknown) => caughtError);
+
+    expect(error).toBeInstanceOf(NotFoundException);
+
+    if (!(error instanceof NotFoundException)) {
+      throw new Error('Expected a NotFoundException');
+    }
+
+    expect(error.getStatus()).toBe(HttpStatus.NOT_FOUND);
+    expect(error.message).toBe('Application with id 9999 not found');
+
+    expect(prismaServiceMock.application.findUnique).toHaveBeenCalledWith({
+      where: {
+        id: 9999,
+      },
+      select: {
+        id: true,
+      },
+    });
+  });
+
+  it('should propagate P2003 when the application exists', async () => {
+    const prismaError = new Prisma.PrismaClientKnownRequestError(
+      'Foreign key constraint failed',
+      {
+        code: 'P2003',
+        clientVersion: '7.9.1',
+      },
+    );
+    const dto = {
+      name: 'CV principal',
+      type: 'CV' as const,
+      applicationId: 1,
+    };
+    const file = {
+      originalname: 'cv.pdf',
+      mimetype: 'application/pdf',
+      size: 1234,
+      path: 'uploads/cv.pdf',
+    };
+
+    prismaServiceMock.document.create.mockRejectedValueOnce(prismaError);
+    prismaServiceMock.application.findUnique.mockResolvedValueOnce({ id: 1 });
+
+    await expect(service.create(dto, file)).rejects.toBe(prismaError);
+
+    expect(prismaServiceMock.application.findUnique).toHaveBeenCalledWith({
+      where: {
+        id: 1,
+      },
+      select: {
+        id: true,
+      },
+    });
+  });
+
+  it('should propagate P2003 without checking an application when applicationId is missing', async () => {
+    const prismaError = new Prisma.PrismaClientKnownRequestError(
+      'Foreign key constraint failed',
+      {
+        code: 'P2003',
+        clientVersion: '7.9.1',
+      },
+    );
+    const dto = {
+      name: 'CV générique',
+      type: 'CV' as const,
+    };
+    const file = {
+      originalname: 'cv.pdf',
+      mimetype: 'application/pdf',
+      size: 1234,
+      path: 'uploads/cv.pdf',
+    };
+
+    prismaServiceMock.document.create.mockRejectedValueOnce(prismaError);
+
+    await expect(service.create(dto, file)).rejects.toBe(prismaError);
+
+    expect(prismaServiceMock.application.findUnique).not.toHaveBeenCalled();
   });
 
   it('should propagate the application event error when creating a document', async () => {
@@ -144,6 +257,7 @@ describe('DocumentsService', () => {
         description: 'CV principal',
       },
     });
+    expect(prismaServiceMock.application.findUnique).not.toHaveBeenCalled();
   });
 
   it('should create a document without an application event when applicationId is missing', async () => {
