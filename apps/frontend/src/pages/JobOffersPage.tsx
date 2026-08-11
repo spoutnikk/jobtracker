@@ -5,8 +5,11 @@ import { getCompanies } from "../api/companies";
 import {
   createJobOffer,
   getJobOffers,
+  updateJobOffer,
   type ContractType,
   type CreateJobOfferInput,
+  type JobOffer,
+  type UpdateJobOfferInput,
 } from "../api/job-offers";
 
 const contractTypeLabels: Record<ContractType, string> = {
@@ -17,6 +20,17 @@ const contractTypeLabels: Record<ContractType, string> = {
   TEMPORARY: "Intérim",
   OTHER: "Autre",
 };
+
+function toDatetimeLocal(value: string | null) {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+  const timezoneOffset = date.getTimezoneOffset() * 60_000;
+
+  return new Date(date.getTime() - timezoneOffset).toISOString().slice(0, 16);
+}
 
 function JobOffersPage() {
   const queryClient = useQueryClient();
@@ -30,6 +44,21 @@ function JobOffersPage() {
   const [salary, setSalary] = useState("");
   const [publishedAt, setPublishedAt] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
+
+  const [editingJobOfferId, setEditingJobOfferId] = useState<number | null>(
+    null,
+  );
+  const [editTitle, setEditTitle] = useState("");
+  const [editCompanyId, setEditCompanyId] = useState("");
+  const [editUrl, setEditUrl] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editLocation, setEditLocation] = useState("");
+  const [editContractType, setEditContractType] = useState<ContractType | "">(
+    "",
+  );
+  const [editSalary, setEditSalary] = useState("");
+  const [editPublishedAt, setEditPublishedAt] = useState("");
+  const [editError, setEditError] = useState<string | null>(null);
 
   const jobOffersQuery = useQuery({
     queryKey: ["job-offers"],
@@ -77,6 +106,39 @@ function JobOffersPage() {
     },
   });
 
+  const updateJobOfferMutation = useMutation({
+    mutationFn: ({ id, input }: { id: number; input: UpdateJobOfferInput }) =>
+      updateJobOffer(id, input),
+    onMutate: () => {
+      setEditError(null);
+    },
+    onSuccess: async () => {
+      setEditingJobOfferId(null);
+      setEditError(null);
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["job-offers"] }),
+        queryClient.invalidateQueries({ queryKey: ["companies"] }),
+        queryClient.invalidateQueries({ queryKey: ["applications"] }),
+      ]);
+    },
+    onError: async (error) => {
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        setEditError(
+          "Impossible de modifier cette offre car elle ou la société sélectionnée n'existe plus.",
+        );
+
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["job-offers"] }),
+          queryClient.invalidateQueries({ queryKey: ["companies"] }),
+        ]);
+        return;
+      }
+
+      setEditError("Impossible de modifier l'offre.");
+    },
+  });
+
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -100,6 +162,47 @@ function JobOffersPage() {
     };
 
     createJobOfferMutation.mutate(input);
+  }
+
+  function startEditing(jobOffer: JobOffer) {
+    setEditingJobOfferId(jobOffer.id);
+    setEditTitle(jobOffer.title);
+    setEditCompanyId(String(jobOffer.companyId));
+    setEditUrl(jobOffer.url ?? "");
+    setEditDescription(jobOffer.description ?? "");
+    setEditLocation(jobOffer.location ?? "");
+    setEditContractType(jobOffer.contractType ?? "");
+    setEditSalary(jobOffer.salary ?? "");
+    setEditPublishedAt(toDatetimeLocal(jobOffer.publishedAt));
+    setEditError(null);
+  }
+
+  function handleUpdate(
+    event: React.FormEvent<HTMLFormElement>,
+    jobOfferId: number,
+  ) {
+    event.preventDefault();
+
+    const trimmedTitle = editTitle.trim();
+
+    if (!trimmedTitle || !editCompanyId) {
+      return;
+    }
+
+    const input: UpdateJobOfferInput = {
+      title: trimmedTitle,
+      companyId: Number(editCompanyId),
+      url: editUrl || undefined,
+      description: editDescription || undefined,
+      location: editLocation || undefined,
+      contractType: editContractType || undefined,
+      salary: editSalary || undefined,
+      publishedAt: editPublishedAt
+        ? new Date(editPublishedAt).toISOString()
+        : undefined,
+    };
+
+    updateJobOfferMutation.mutate({ id: jobOfferId, input });
   }
 
   if (jobOffersQuery.isPending) {
@@ -280,6 +383,8 @@ function JobOffersPage() {
           )}
         </form>
 
+        {editError && <p className="mt-4 text-sm text-red-600">{editError}</p>}
+
         {jobOffersQuery.data.length === 0 ? (
           <p className="mt-6 text-gray-600">Aucune offre enregistrée.</p>
         ) : (
@@ -332,6 +437,182 @@ function JobOffersPage() {
                   <p className="mt-4 whitespace-pre-wrap text-sm text-gray-700">
                     {jobOffer.description}
                   </p>
+                )}
+
+                {editingJobOfferId !== jobOffer.id && (
+                  <button
+                    type="button"
+                    onClick={() => startEditing(jobOffer)}
+                    disabled={updateJobOfferMutation.isPending}
+                    className="mt-4 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    Modifier
+                  </button>
+                )}
+
+                {editingJobOfferId === jobOffer.id && (
+                  <form
+                    className="mt-4 space-y-4 rounded-md border border-gray-200 bg-gray-50 p-4"
+                    onSubmit={(event) => handleUpdate(event, jobOffer.id)}
+                  >
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <label className="flex flex-col gap-1">
+                        <span className="text-sm font-medium text-gray-700">
+                          Titre
+                        </span>
+                        <input
+                          type="text"
+                          value={editTitle}
+                          onChange={(event) => setEditTitle(event.target.value)}
+                          required
+                          className="rounded-md border border-gray-300 px-3 py-2"
+                        />
+                      </label>
+
+                      <label className="flex flex-col gap-1">
+                        <span className="text-sm font-medium text-gray-700">
+                          Société
+                        </span>
+                        <select
+                          value={editCompanyId}
+                          onChange={(event) =>
+                            setEditCompanyId(event.target.value)
+                          }
+                          required
+                          disabled={creationUnavailable}
+                          className="rounded-md border border-gray-300 px-3 py-2 disabled:opacity-50"
+                        >
+                          <option value="">Sélectionner une société</option>
+                          {companiesQuery.data?.map((company) => (
+                            <option key={company.id} value={company.id}>
+                              {company.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <label className="flex flex-col gap-1">
+                        <span className="text-sm font-medium text-gray-700">
+                          URL
+                        </span>
+                        <input
+                          type="url"
+                          value={editUrl}
+                          onChange={(event) => setEditUrl(event.target.value)}
+                          className="rounded-md border border-gray-300 px-3 py-2"
+                        />
+                      </label>
+
+                      <label className="flex flex-col gap-1">
+                        <span className="text-sm font-medium text-gray-700">
+                          Localisation
+                        </span>
+                        <input
+                          type="text"
+                          value={editLocation}
+                          onChange={(event) =>
+                            setEditLocation(event.target.value)
+                          }
+                          className="rounded-md border border-gray-300 px-3 py-2"
+                        />
+                      </label>
+
+                      <label className="flex flex-col gap-1">
+                        <span className="text-sm font-medium text-gray-700">
+                          Type de contrat
+                        </span>
+                        <select
+                          value={editContractType}
+                          onChange={(event) =>
+                            setEditContractType(
+                              event.target.value as ContractType | "",
+                            )
+                          }
+                          className="rounded-md border border-gray-300 px-3 py-2"
+                        >
+                          <option value="">Non renseigné</option>
+                          {Object.entries(contractTypeLabels).map(
+                            ([value, label]) => (
+                              <option key={value} value={value}>
+                                {label}
+                              </option>
+                            ),
+                          )}
+                        </select>
+                      </label>
+
+                      <label className="flex flex-col gap-1">
+                        <span className="text-sm font-medium text-gray-700">
+                          Salaire
+                        </span>
+                        <input
+                          type="text"
+                          value={editSalary}
+                          onChange={(event) =>
+                            setEditSalary(event.target.value)
+                          }
+                          className="rounded-md border border-gray-300 px-3 py-2"
+                        />
+                      </label>
+
+                      <label className="flex flex-col gap-1">
+                        <span className="text-sm font-medium text-gray-700">
+                          Date de publication
+                        </span>
+                        <input
+                          type="datetime-local"
+                          value={editPublishedAt}
+                          onChange={(event) =>
+                            setEditPublishedAt(event.target.value)
+                          }
+                          className="rounded-md border border-gray-300 px-3 py-2"
+                        />
+                      </label>
+                    </div>
+
+                    <label className="flex flex-col gap-1">
+                      <span className="text-sm font-medium text-gray-700">
+                        Description
+                      </span>
+                      <textarea
+                        value={editDescription}
+                        onChange={(event) =>
+                          setEditDescription(event.target.value)
+                        }
+                        rows={4}
+                        className="rounded-md border border-gray-300 px-3 py-2"
+                      />
+                    </label>
+
+                    <div className="flex gap-2">
+                      <button
+                        type="submit"
+                        disabled={
+                          updateJobOfferMutation.isPending ||
+                          !editTitle.trim() ||
+                          !editCompanyId ||
+                          creationUnavailable
+                        }
+                        className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+                      >
+                        {updateJobOfferMutation.isPending
+                          ? "Enregistrement..."
+                          : "Enregistrer"}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingJobOfferId(null);
+                          setEditError(null);
+                        }}
+                        disabled={updateJobOfferMutation.isPending}
+                        className="rounded-md border border-gray-300 px-3 py-2 text-sm disabled:opacity-50"
+                      >
+                        Annuler
+                      </button>
+                    </div>
+                  </form>
                 )}
               </article>
             ))}
