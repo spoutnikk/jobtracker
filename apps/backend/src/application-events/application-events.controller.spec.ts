@@ -4,6 +4,12 @@ import { ApplicationEventsService } from './application-events.service';
 
 describe('ApplicationEventsController', () => {
   let controller: ApplicationEventsController;
+  const user = {
+    id: 7,
+    email: 'user@example.com',
+    firstName: 'Ada',
+    lastName: 'Lovelace',
+  };
 
   const applicationEventsServiceMock = {
     create: jest.fn(),
@@ -49,9 +55,12 @@ describe('ApplicationEventsController', () => {
 
     applicationEventsServiceMock.create.mockResolvedValue(event);
 
-    await expect(controller.create(dto)).resolves.toEqual(event);
+    await expect(controller.create(user, dto)).resolves.toEqual(event);
 
-    expect(applicationEventsServiceMock.create).toHaveBeenCalledWith(dto);
+    expect(applicationEventsServiceMock.create).toHaveBeenCalledWith(
+      user.id,
+      dto,
+    );
   });
 
   it('should return events for one application', async () => {
@@ -66,9 +75,12 @@ describe('ApplicationEventsController', () => {
 
     applicationEventsServiceMock.findByApplication.mockResolvedValue(events);
 
-    await expect(controller.findByApplication(4)).resolves.toEqual(events);
+    await expect(controller.findByApplication(user, 4)).resolves.toEqual(
+      events,
+    );
 
     expect(applicationEventsServiceMock.findByApplication).toHaveBeenCalledWith(
+      user.id,
       4,
     );
   });

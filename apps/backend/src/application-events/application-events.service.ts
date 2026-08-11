@@ -7,10 +7,17 @@ import { CreateApplicationEventDto } from './dto/create-application-event.dto';
 export class ApplicationEventsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createApplicationEventDto: CreateApplicationEventDto) {
-    const application = await this.prisma.application.findUnique({
+  async create(
+    userId: number,
+    createApplicationEventDto: CreateApplicationEventDto,
+  ) {
+    const application = await this.prisma.application.findFirst({
       where: {
         id: createApplicationEventDto.applicationId,
+        userId,
+      },
+      select: {
+        id: true,
       },
     });
 
@@ -40,9 +47,10 @@ export class ApplicationEventsService {
         throw error;
       }
 
-      const existingApplication = await this.prisma.application.findUnique({
+      const existingApplication = await this.prisma.application.findFirst({
         where: {
           id: createApplicationEventDto.applicationId,
+          userId,
         },
         select: {
           id: true,
@@ -59,10 +67,14 @@ export class ApplicationEventsService {
     }
   }
 
-  async findByApplication(applicationId: number) {
-    const application = await this.prisma.application.findUnique({
+  async findByApplication(userId: number, applicationId: number) {
+    const application = await this.prisma.application.findFirst({
       where: {
         id: applicationId,
+        userId,
+      },
+      select: {
+        id: true,
       },
     });
 

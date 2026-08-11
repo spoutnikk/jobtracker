@@ -25,20 +25,27 @@ export class DocumentsController {
   constructor(private readonly documentsService: DocumentsService) {}
   @Get(':id/download')
   async download(
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseIntPipe) id: number,
     @Res() response: Response,
   ) {
-    const document = await this.documentsService.findOne(id);
+    const document = await this.documentsService.findOne(user.id, id);
 
     return response.download(document.path, document.originalName);
   }
   @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.documentsService.findOne(id);
+  findOne(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.documentsService.findOne(user.id, id);
   }
   @Delete(':id')
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.documentsService.remove(id);
+  remove(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.documentsService.remove(user.id, id);
   }
   @Post()
   @UseInterceptors(
@@ -89,7 +96,7 @@ export class DocumentsController {
   }
 
   @Get()
-  findAll() {
-    return this.documentsService.findAll();
+  findAll(@CurrentUser() user: AuthenticatedUser) {
+    return this.documentsService.findAll(user.id);
   }
 }

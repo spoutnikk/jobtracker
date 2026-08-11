@@ -65,6 +65,16 @@ export class DocumentsService {
         return document;
       });
     } catch (error: unknown) {
+      try {
+        await unlink(file.path);
+      } catch (fileError: unknown) {
+        const fileSystemError = fileError as NodeJS.ErrnoException;
+
+        if (fileSystemError.code !== 'ENOENT') {
+          throw fileError;
+        }
+      }
+
       const applicationId = createDocumentDto.applicationId;
 
       if (
@@ -95,8 +105,11 @@ export class DocumentsService {
     }
   }
 
-  findAll() {
+  findAll(userId: number) {
     return this.prisma.document.findMany({
+      where: {
+        userId,
+      },
       include: {
         application: {
           include: {
@@ -113,10 +126,11 @@ export class DocumentsService {
       },
     });
   }
-  async findOne(id: number) {
-    const document = await this.prisma.document.findUnique({
+  async findOne(userId: number, id: number) {
+    const document = await this.prisma.document.findFirst({
       where: {
         id,
+        userId,
       },
       include: {
         application: {
@@ -138,8 +152,8 @@ export class DocumentsService {
     return document;
   }
 
-  async remove(id: number) {
-    const document = await this.findOne(id);
+  async remove(userId: number, id: number) {
+    const document = await this.findOne(userId, id);
 
     try {
       await unlink(document.path);
@@ -151,10 +165,22 @@ export class DocumentsService {
       }
     }
 
-    return this.prisma.document.delete({
-      where: {
-        id,
-      },
-    });
+    try {
+      return await this.prisma.document.delete({
+        where: {
+          id,
+          userId,
+        },
+      });
+    } catch (error: unknown) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        throw new NotFoundException(`Document with id ${id} not found`);
+      }
+
+      throw error;
+    }
   }
 }

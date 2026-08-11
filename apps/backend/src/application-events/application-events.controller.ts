@@ -8,6 +8,8 @@ import {
 } from '@nestjs/common';
 import { ApplicationEventsService } from './application-events.service';
 import { CreateApplicationEventDto } from './dto/create-application-event.dto';
+import { CurrentUser } from '../auth/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/authenticated-user';
 
 @Controller('application-events')
 export class ApplicationEventsController {
@@ -16,14 +18,24 @@ export class ApplicationEventsController {
   ) {}
 
   @Post()
-  create(@Body() createApplicationEventDto: CreateApplicationEventDto) {
-    return this.applicationEventsService.create(createApplicationEventDto);
+  create(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() createApplicationEventDto: CreateApplicationEventDto,
+  ) {
+    return this.applicationEventsService.create(
+      user.id,
+      createApplicationEventDto,
+    );
   }
 
   @Get('application/:applicationId')
   findByApplication(
+    @CurrentUser() user: AuthenticatedUser,
     @Param('applicationId', ParseIntPipe) applicationId: number,
   ) {
-    return this.applicationEventsService.findByApplication(applicationId);
+    return this.applicationEventsService.findByApplication(
+      user.id,
+      applicationId,
+    );
   }
 }

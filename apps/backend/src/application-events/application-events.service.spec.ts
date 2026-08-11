@@ -9,7 +9,7 @@ describe('ApplicationEventsService', () => {
 
   const prismaServiceMock = {
     application: {
-      findUnique: jest.fn(),
+      findFirst: jest.fn(),
     },
     applicationEvent: {
       create: jest.fn(),
@@ -56,14 +56,18 @@ describe('ApplicationEventsService', () => {
       createdAt: new Date('2026-08-10T23:33:44.237Z'),
     };
 
-    prismaServiceMock.application.findUnique.mockResolvedValue(application);
+    prismaServiceMock.application.findFirst.mockResolvedValue(application);
     prismaServiceMock.applicationEvent.create.mockResolvedValue(createdEvent);
 
-    await expect(service.create(dto)).resolves.toEqual(createdEvent);
+    await expect(service.create(7, dto)).resolves.toEqual(createdEvent);
 
-    expect(prismaServiceMock.application.findUnique).toHaveBeenCalledWith({
+    expect(prismaServiceMock.application.findFirst).toHaveBeenCalledWith({
       where: {
         id: 4,
+        userId: 7,
+      },
+      select: {
+        id: true,
       },
     });
 
@@ -97,10 +101,10 @@ describe('ApplicationEventsService', () => {
       createdAt: new Date(),
     };
 
-    prismaServiceMock.application.findUnique.mockResolvedValue(application);
+    prismaServiceMock.application.findFirst.mockResolvedValue(application);
     prismaServiceMock.applicationEvent.create.mockResolvedValue(createdEvent);
 
-    await expect(service.create(dto)).resolves.toEqual(createdEvent);
+    await expect(service.create(7, dto)).resolves.toEqual(createdEvent);
 
     expect(prismaServiceMock.applicationEvent.create).toHaveBeenCalledWith({
       data: {
@@ -114,10 +118,10 @@ describe('ApplicationEventsService', () => {
   });
 
   it('should throw NotFoundException when creating an event for an unknown application', async () => {
-    prismaServiceMock.application.findUnique.mockResolvedValue(null);
+    prismaServiceMock.application.findFirst.mockResolvedValue(null);
 
     const error: unknown = await service
-      .create({
+      .create(7, {
         applicationId: 9999,
         type: 'NOTE',
         title: 'Événement impossible',
@@ -150,7 +154,7 @@ describe('ApplicationEventsService', () => {
       title: 'Événement concurrent',
     };
 
-    prismaServiceMock.application.findUnique
+    prismaServiceMock.application.findFirst
       .mockResolvedValueOnce({ id: 4 })
       .mockResolvedValueOnce(null);
     prismaServiceMock.applicationEvent.create.mockRejectedValueOnce(
@@ -158,7 +162,7 @@ describe('ApplicationEventsService', () => {
     );
 
     const error: unknown = await service
-      .create(dto)
+      .create(7, dto)
       .catch((caughtError: unknown) => caughtError);
 
     expect(error).toBeInstanceOf(NotFoundException);
@@ -169,17 +173,15 @@ describe('ApplicationEventsService', () => {
 
     expect(error.getStatus()).toBe(HttpStatus.NOT_FOUND);
     expect(error.message).toBe('Application with id 4 not found');
-    expect(prismaServiceMock.application.findUnique).toHaveBeenNthCalledWith(
-      2,
-      {
-        where: {
-          id: 4,
-        },
-        select: {
-          id: true,
-        },
+    expect(prismaServiceMock.application.findFirst).toHaveBeenNthCalledWith(2, {
+      where: {
+        id: 4,
+        userId: 7,
       },
-    );
+      select: {
+        id: true,
+      },
+    });
   });
 
   it('should propagate P2003 when the application still exists', async () => {
@@ -196,26 +198,24 @@ describe('ApplicationEventsService', () => {
       title: 'Événement concurrent',
     };
 
-    prismaServiceMock.application.findUnique
+    prismaServiceMock.application.findFirst
       .mockResolvedValueOnce({ id: 4 })
       .mockResolvedValueOnce({ id: 4 });
     prismaServiceMock.applicationEvent.create.mockRejectedValueOnce(
       prismaError,
     );
 
-    await expect(service.create(dto)).rejects.toBe(prismaError);
+    await expect(service.create(7, dto)).rejects.toBe(prismaError);
 
-    expect(prismaServiceMock.application.findUnique).toHaveBeenNthCalledWith(
-      2,
-      {
-        where: {
-          id: 4,
-        },
-        select: {
-          id: true,
-        },
+    expect(prismaServiceMock.application.findFirst).toHaveBeenNthCalledWith(2, {
+      where: {
+        id: 4,
+        userId: 7,
       },
-    );
+      select: {
+        id: true,
+      },
+    });
   });
 
   it('should propagate a non-P2003 error without checking the application again', async () => {
@@ -226,14 +226,14 @@ describe('ApplicationEventsService', () => {
       title: 'Événement impossible',
     };
 
-    prismaServiceMock.application.findUnique.mockResolvedValueOnce({ id: 4 });
+    prismaServiceMock.application.findFirst.mockResolvedValueOnce({ id: 4 });
     prismaServiceMock.applicationEvent.create.mockRejectedValueOnce(
       creationError,
     );
 
-    await expect(service.create(dto)).rejects.toBe(creationError);
+    await expect(service.create(7, dto)).rejects.toBe(creationError);
 
-    expect(prismaServiceMock.application.findUnique).toHaveBeenCalledTimes(1);
+    expect(prismaServiceMock.application.findFirst).toHaveBeenCalledTimes(1);
   });
 
   it('should return application events ordered by date', async () => {
@@ -256,14 +256,18 @@ describe('ApplicationEventsService', () => {
       },
     ];
 
-    prismaServiceMock.application.findUnique.mockResolvedValue(application);
+    prismaServiceMock.application.findFirst.mockResolvedValue(application);
     prismaServiceMock.applicationEvent.findMany.mockResolvedValue(events);
 
-    await expect(service.findByApplication(4)).resolves.toEqual(events);
+    await expect(service.findByApplication(7, 4)).resolves.toEqual(events);
 
-    expect(prismaServiceMock.application.findUnique).toHaveBeenCalledWith({
+    expect(prismaServiceMock.application.findFirst).toHaveBeenCalledWith({
       where: {
         id: 4,
+        userId: 7,
+      },
+      select: {
+        id: true,
       },
     });
 
@@ -278,9 +282,9 @@ describe('ApplicationEventsService', () => {
   });
 
   it('should throw NotFoundException when application does not exist', async () => {
-    prismaServiceMock.application.findUnique.mockResolvedValue(null);
+    prismaServiceMock.application.findFirst.mockResolvedValue(null);
 
-    await expect(service.findByApplication(9999)).rejects.toThrow(
+    await expect(service.findByApplication(7, 9999)).rejects.toThrow(
       'Application with id 9999 not found',
     );
 

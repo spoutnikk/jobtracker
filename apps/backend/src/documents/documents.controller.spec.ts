@@ -100,9 +100,9 @@ describe('DocumentsController', () => {
 
     documentsServiceMock.findAll.mockResolvedValue(documents);
 
-    await expect(controller.findAll()).resolves.toEqual(documents);
+    await expect(controller.findAll(user)).resolves.toEqual(documents);
 
-    expect(documentsServiceMock.findAll).toHaveBeenCalledTimes(1);
+    expect(documentsServiceMock.findAll).toHaveBeenCalledWith(user.id);
   });
 
   it('should return one document', async () => {
@@ -114,9 +114,9 @@ describe('DocumentsController', () => {
 
     documentsServiceMock.findOne.mockResolvedValue(document);
 
-    await expect(controller.findOne(1)).resolves.toEqual(document);
+    await expect(controller.findOne(user, 1)).resolves.toEqual(document);
 
-    expect(documentsServiceMock.findOne).toHaveBeenCalledWith(1);
+    expect(documentsServiceMock.findOne).toHaveBeenCalledWith(user.id, 1);
   });
 
   it('should remove a document', async () => {
@@ -127,9 +127,9 @@ describe('DocumentsController', () => {
 
     documentsServiceMock.remove.mockResolvedValue(document);
 
-    await expect(controller.remove(1)).resolves.toEqual(document);
+    await expect(controller.remove(user, 1)).resolves.toEqual(document);
 
-    expect(documentsServiceMock.remove).toHaveBeenCalledWith(1);
+    expect(documentsServiceMock.remove).toHaveBeenCalledWith(user.id, 1);
   });
 
   it('should download a document', async () => {
@@ -147,11 +147,12 @@ describe('DocumentsController', () => {
     documentsServiceMock.findOne.mockResolvedValue(document);
 
     await controller.download(
+      user,
       1,
       response as unknown as import('express').Response,
     );
 
-    expect(documentsServiceMock.findOne).toHaveBeenCalledWith(1);
+    expect(documentsServiceMock.findOne).toHaveBeenCalledWith(user.id, 1);
 
     expect(response.download).toHaveBeenCalledWith(
       'uploads/document.txt',

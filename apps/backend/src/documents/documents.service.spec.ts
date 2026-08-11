@@ -1,11 +1,22 @@
 import { HttpStatus, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { DocumentsService } from './documents.service';
 
 describe('DocumentsService', () => {
   let service: DocumentsService;
+  const failedUploadPath = join(
+    tmpdir(),
+    'jobtracker-documents-service-tests',
+    'missing-cv.pdf',
+  );
+
+  function expectSafeFailurePath(path: string) {
+    expect(resolve(path).startsWith(`${resolve('uploads')}/`)).toBe(false);
+  }
 
   const transactionClientMock = {
     application: {
@@ -14,7 +25,7 @@ describe('DocumentsService', () => {
     document: {
       create: jest.fn(),
       findMany: jest.fn(),
-      findUnique: jest.fn(),
+      findFirst: jest.fn(),
       delete: jest.fn(),
     },
     applicationEvent: {
@@ -88,7 +99,6 @@ describe('DocumentsService', () => {
         id: true,
       },
     });
-
     expect(prismaServiceMock.document.create).toHaveBeenCalledWith({
       data: {
         name: 'CV principal',
@@ -122,9 +132,10 @@ describe('DocumentsService', () => {
       originalname: 'cv.pdf',
       mimetype: 'application/pdf',
       size: 1234,
-      path: 'uploads/cv.pdf',
+      path: failedUploadPath,
     };
 
+    expectSafeFailurePath(file.path);
     prismaServiceMock.application.findFirst.mockResolvedValueOnce(null);
 
     const error: unknown = await service
@@ -149,6 +160,8 @@ describe('DocumentsService', () => {
         id: true,
       },
     });
+    expect(prismaServiceMock.document.create).not.toHaveBeenCalled();
+    expect(prismaServiceMock.applicationEvent.create).not.toHaveBeenCalled();
   });
 
   it('should propagate P2003 when the application exists', async () => {
@@ -168,9 +181,10 @@ describe('DocumentsService', () => {
       originalname: 'cv.pdf',
       mimetype: 'application/pdf',
       size: 1234,
-      path: 'uploads/cv.pdf',
+      path: failedUploadPath,
     };
 
+    expectSafeFailurePath(file.path);
     prismaServiceMock.document.create.mockRejectedValueOnce(prismaError);
     prismaServiceMock.application.findFirst.mockResolvedValue({ id: 1 });
 
@@ -203,9 +217,10 @@ describe('DocumentsService', () => {
       originalname: 'cv.pdf',
       mimetype: 'application/pdf',
       size: 1234,
-      path: 'uploads/cv.pdf',
+      path: failedUploadPath,
     };
 
+    expectSafeFailurePath(file.path);
     prismaServiceMock.document.create.mockRejectedValueOnce(prismaError);
 
     await expect(service.create(7, dto, file)).rejects.toBe(prismaError);
@@ -224,7 +239,7 @@ describe('DocumentsService', () => {
       originalname: 'cv.pdf',
       mimetype: 'application/pdf',
       size: 1234,
-      path: 'uploads/cv.pdf',
+      path: failedUploadPath,
     };
     const document = {
       id: 1,
@@ -235,6 +250,7 @@ describe('DocumentsService', () => {
       path: file.path,
     };
 
+    expectSafeFailurePath(file.path);
     prismaServiceMock.document.create.mockResolvedValue(document);
     prismaServiceMock.applicationEvent.create.mockRejectedValueOnce(
       transactionError,
@@ -249,7 +265,7 @@ describe('DocumentsService', () => {
         originalName: 'cv.pdf',
         mimeType: 'application/pdf',
         size: 1234,
-        path: 'uploads/cv.pdf',
+        path: failedUploadPath,
         type: 'CV',
         applicationId: 1,
         userId: 7,
@@ -319,9 +335,12 @@ describe('DocumentsService', () => {
 
     prismaServiceMock.document.findMany.mockResolvedValue(documents);
 
-    await expect(service.findAll()).resolves.toEqual(documents);
+    await expect(service.findAll(7)).resolves.toEqual(documents);
 
     expect(prismaServiceMock.document.findMany).toHaveBeenCalledWith({
+      where: {
+        userId: 7,
+      },
       include: {
         application: {
           include: {
@@ -345,13 +364,14 @@ describe('DocumentsService', () => {
       path: 'uploads/test.txt',
     };
 
-    prismaServiceMock.document.findUnique.mockResolvedValue(document);
+    prismaServiceMock.document.findFirst.mockResolvedValue(document);
 
-    await expect(service.findOne(1)).resolves.toEqual(document);
+    await expect(service.findOne(7, 1)).resolves.toEqual(document);
 
-    expect(prismaServiceMock.document.findUnique).toHaveBeenCalledWith({
+    expect(prismaServiceMock.document.findFirst).toHaveBeenCalledWith({
       where: {
         id: 1,
+        userId: 7,
       },
       include: {
         application: {
@@ -368,9 +388,9 @@ describe('DocumentsService', () => {
   });
 
   it('should throw NotFoundException when document does not exist', async () => {
-    prismaServiceMock.document.findUnique.mockResolvedValue(null);
+    prismaServiceMock.document.findFirst.mockResolvedValue(null);
 
-    await expect(service.findOne(9999)).rejects.toThrow(
+    await expect(service.findOne(7, 9999)).rejects.toThrow(
       'Document with id 9999 not found',
     );
   });
@@ -383,15 +403,63 @@ describe('DocumentsService', () => {
       application: null,
     };
 
-    prismaServiceMock.document.findUnique.mockResolvedValue(document);
+    prismaServiceMock.document.findFirst.mockResolvedValue(document);
     prismaServiceMock.document.delete.mockResolvedValue(document);
 
-    await expect(service.remove(1)).resolves.toEqual(document);
+    await expect(service.remove(7, 1)).resolves.toEqual(document);
 
     expect(prismaServiceMock.document.delete).toHaveBeenCalledWith({
       where: {
         id: 1,
+        userId: 7,
       },
     });
+  });
+
+  it('should not delete a document owned by another user', async () => {
+    prismaServiceMock.document.findFirst.mockResolvedValue(null);
+
+    await expect(service.remove(7, 9999)).rejects.toThrow(
+      'Document with id 9999 not found',
+    );
+
+    expect(prismaServiceMock.document.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: 9999,
+        userId: 7,
+      },
+      include: {
+        application: {
+          include: {
+            jobOffer: {
+              include: {
+                company: true,
+              },
+            },
+          },
+        },
+      },
+    });
+    expect(prismaServiceMock.document.delete).not.toHaveBeenCalled();
+  });
+
+  it('should translate P2025 during removal to the same NotFoundException', async () => {
+    const document = {
+      id: 1,
+      name: 'Document de test',
+      path: 'uploads/file-that-does-not-exist.txt',
+      application: null,
+    };
+    const prismaError = new Prisma.PrismaClientKnownRequestError(
+      'Record not found',
+      { code: 'P2025', clientVersion: '7.9.1' },
+    );
+
+    prismaServiceMock.document.findFirst.mockResolvedValue(document);
+    prismaServiceMock.document.delete.mockRejectedValueOnce(prismaError);
+
+    await expect(service.remove(7, 1)).rejects.toThrow(
+      'Document with id 1 not found',
+    );
   });
 });
