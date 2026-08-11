@@ -7,33 +7,45 @@ import { UpdateApplicationDto } from './dto/update-application.dto';
 export class ApplicationsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  create(createApplicationDto: CreateApplicationDto) {
-    return this.prisma.application.create({
-      data: {
-        userId: createApplicationDto.userId,
-        jobOfferId: createApplicationDto.jobOfferId,
-        status: createApplicationDto.status,
-        appliedAt: createApplicationDto.appliedAt
-          ? new Date(createApplicationDto.appliedAt)
-          : undefined,
-        source: createApplicationDto.source,
-        notes: createApplicationDto.notes,
-        contactName: createApplicationDto.contactName,
-        contactEmail: createApplicationDto.contactEmail,
-        followUpAt: createApplicationDto.followUpAt
-          ? new Date(createApplicationDto.followUpAt)
-          : undefined,
-        interviewAt: createApplicationDto.interviewAt
-          ? new Date(createApplicationDto.interviewAt)
-          : undefined,
-      },
-      include: {
-        jobOffer: {
-          include: {
-            company: true,
+  async create(createApplicationDto: CreateApplicationDto) {
+    return this.prisma.$transaction(async (tx) => {
+      const application = await tx.application.create({
+        data: {
+          userId: createApplicationDto.userId,
+          jobOfferId: createApplicationDto.jobOfferId,
+          status: createApplicationDto.status,
+          appliedAt: createApplicationDto.appliedAt
+            ? new Date(createApplicationDto.appliedAt)
+            : undefined,
+          source: createApplicationDto.source,
+          notes: createApplicationDto.notes,
+          contactName: createApplicationDto.contactName,
+          contactEmail: createApplicationDto.contactEmail,
+          followUpAt: createApplicationDto.followUpAt
+            ? new Date(createApplicationDto.followUpAt)
+            : undefined,
+          interviewAt: createApplicationDto.interviewAt
+            ? new Date(createApplicationDto.interviewAt)
+            : undefined,
+        },
+        include: {
+          jobOffer: {
+            include: {
+              company: true,
+            },
           },
         },
-      },
+      });
+
+      await tx.applicationEvent.create({
+        data: {
+          applicationId: application.id,
+          type: 'CREATED',
+          title: 'Candidature créée',
+        },
+      });
+
+      return application;
     });
   }
 
@@ -74,37 +86,85 @@ export class ApplicationsService {
   }
 
   async update(id: number, updateApplicationDto: UpdateApplicationDto) {
-    await this.findOne(id);
+    const previousApplication = await this.findOne(id);
 
-    return this.prisma.application.update({
-      where: {
-        id,
-      },
-      data: {
-        userId: updateApplicationDto.userId,
-        jobOfferId: updateApplicationDto.jobOfferId,
-        status: updateApplicationDto.status,
-        appliedAt: updateApplicationDto.appliedAt
-          ? new Date(updateApplicationDto.appliedAt)
-          : undefined,
-        source: updateApplicationDto.source,
-        notes: updateApplicationDto.notes,
-        contactName: updateApplicationDto.contactName,
-        contactEmail: updateApplicationDto.contactEmail,
-        followUpAt: updateApplicationDto.followUpAt
-          ? new Date(updateApplicationDto.followUpAt)
-          : undefined,
-        interviewAt: updateApplicationDto.interviewAt
-          ? new Date(updateApplicationDto.interviewAt)
-          : undefined,
-      },
-      include: {
-        jobOffer: {
-          include: {
-            company: true,
+    return this.prisma.$transaction(async (tx) => {
+      const application = await tx.application.update({
+        where: {
+          id,
+        },
+        data: {
+          userId: updateApplicationDto.userId,
+          jobOfferId: updateApplicationDto.jobOfferId,
+          status: updateApplicationDto.status,
+          appliedAt: updateApplicationDto.appliedAt
+            ? new Date(updateApplicationDto.appliedAt)
+            : undefined,
+          source: updateApplicationDto.source,
+          notes: updateApplicationDto.notes,
+          contactName: updateApplicationDto.contactName,
+          contactEmail: updateApplicationDto.contactEmail,
+          followUpAt: updateApplicationDto.followUpAt
+            ? new Date(updateApplicationDto.followUpAt)
+            : undefined,
+          interviewAt: updateApplicationDto.interviewAt
+            ? new Date(updateApplicationDto.interviewAt)
+            : undefined,
+        },
+        include: {
+          jobOffer: {
+            include: {
+              company: true,
+            },
           },
         },
-      },
+      });
+
+      if (
+        updateApplicationDto.status !== undefined &&
+        updateApplicationDto.status !== previousApplication.status
+      ) {
+        await tx.applicationEvent.create({
+          data: {
+            applicationId: id,
+            type: 'STATUS_CHANGED',
+            title: 'Statut modifié',
+            description: `${previousApplication.status} → ${updateApplicationDto.status}`,
+          },
+        });
+      }
+
+      if (
+        updateApplicationDto.followUpAt !== undefined &&
+        updateApplicationDto.followUpAt !==
+          previousApplication.followUpAt?.toISOString()
+      ) {
+        await tx.applicationEvent.create({
+          data: {
+            applicationId: id,
+            type: 'FOLLOW_UP',
+            title: 'Relance planifiée',
+            occurredAt: new Date(updateApplicationDto.followUpAt),
+          },
+        });
+      }
+
+      if (
+        updateApplicationDto.interviewAt !== undefined &&
+        updateApplicationDto.interviewAt !==
+          previousApplication.interviewAt?.toISOString()
+      ) {
+        await tx.applicationEvent.create({
+          data: {
+            applicationId: id,
+            type: 'INTERVIEW',
+            title: 'Entretien planifié',
+            occurredAt: new Date(updateApplicationDto.interviewAt),
+          },
+        });
+      }
+
+      return application;
     });
   }
 

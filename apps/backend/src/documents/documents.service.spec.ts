@@ -5,13 +5,25 @@ import { DocumentsService } from './documents.service';
 describe('DocumentsService', () => {
   let service: DocumentsService;
 
-  const prismaServiceMock = {
+  const transactionClientMock = {
     document: {
       create: jest.fn(),
       findMany: jest.fn(),
       findUnique: jest.fn(),
       delete: jest.fn(),
     },
+    applicationEvent: {
+      create: jest.fn(),
+    },
+  };
+
+  const prismaServiceMock = {
+    ...transactionClientMock,
+    $transaction: jest.fn(
+      <T>(
+        callback: (tx: typeof transactionClientMock) => Promise<T>,
+      ): Promise<T> => callback(transactionClientMock),
+    ),
   };
 
   beforeEach(async () => {
@@ -70,6 +82,15 @@ describe('DocumentsService', () => {
         path: 'uploads/cv.pdf',
         type: 'CV',
         applicationId: 1,
+      },
+    });
+
+    expect(prismaServiceMock.applicationEvent.create).toHaveBeenCalledWith({
+      data: {
+        applicationId: 1,
+        type: 'DOCUMENT_ADDED',
+        title: 'Document ajouté',
+        description: 'CV principal',
       },
     });
   });

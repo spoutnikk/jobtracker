@@ -7,7 +7,7 @@ import { unlink } from 'fs/promises';
 export class DocumentsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  create(
+  async create(
     createDocumentDto: CreateDocumentDto,
     file: {
       originalname: string;
@@ -16,16 +16,31 @@ export class DocumentsService {
       path: string;
     },
   ) {
-    return this.prisma.document.create({
-      data: {
-        name: createDocumentDto.name,
-        originalName: file.originalname,
-        mimeType: file.mimetype,
-        size: file.size,
-        path: file.path,
-        type: createDocumentDto.type,
-        applicationId: createDocumentDto.applicationId,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      const document = await tx.document.create({
+        data: {
+          name: createDocumentDto.name,
+          originalName: file.originalname,
+          mimeType: file.mimetype,
+          size: file.size,
+          path: file.path,
+          type: createDocumentDto.type,
+          applicationId: createDocumentDto.applicationId,
+        },
+      });
+
+      if (createDocumentDto.applicationId !== undefined) {
+        await tx.applicationEvent.create({
+          data: {
+            applicationId: createDocumentDto.applicationId,
+            type: 'DOCUMENT_ADDED',
+            title: 'Document ajouté',
+            description: createDocumentDto.name,
+          },
+        });
+      }
+
+      return document;
     });
   }
 

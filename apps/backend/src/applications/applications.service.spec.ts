@@ -5,7 +5,7 @@ import { ApplicationsService } from './applications.service';
 describe('ApplicationsService', () => {
   let service: ApplicationsService;
 
-  const prismaServiceMock = {
+  const transactionClientMock = {
     application: {
       create: jest.fn(),
       findMany: jest.fn(),
@@ -13,6 +13,18 @@ describe('ApplicationsService', () => {
       update: jest.fn(),
       delete: jest.fn(),
     },
+    applicationEvent: {
+      create: jest.fn(),
+    },
+  };
+
+  const prismaServiceMock = {
+    ...transactionClientMock,
+    $transaction: jest.fn(
+      <T>(
+        callback: (tx: typeof transactionClientMock) => Promise<T>,
+      ): Promise<T> => callback(transactionClientMock),
+    ),
   };
 
   beforeEach(async () => {
@@ -132,6 +144,14 @@ describe('ApplicationsService', () => {
         },
       },
     });
+
+    expect(prismaServiceMock.applicationEvent.create).toHaveBeenCalledWith({
+      data: {
+        applicationId: 1,
+        type: 'CREATED',
+        title: 'Candidature créée',
+      },
+    });
   });
 
   it('should update an application', async () => {
@@ -182,6 +202,30 @@ describe('ApplicationsService', () => {
         },
       },
     });
+
+    expect(prismaServiceMock.applicationEvent.create).toHaveBeenNthCalledWith(
+      1,
+      {
+        data: {
+          applicationId: 1,
+          type: 'STATUS_CHANGED',
+          title: 'Statut modifié',
+          description: 'APPLIED → INTERVIEW',
+        },
+      },
+    );
+
+    expect(prismaServiceMock.applicationEvent.create).toHaveBeenNthCalledWith(
+      2,
+      {
+        data: {
+          applicationId: 1,
+          type: 'INTERVIEW',
+          title: 'Entretien planifié',
+          occurredAt: new Date('2026-08-20T14:00:00.000Z'),
+        },
+      },
+    );
   });
 
   it('should remove an application', async () => {
