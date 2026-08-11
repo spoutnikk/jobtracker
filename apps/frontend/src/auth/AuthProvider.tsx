@@ -1,10 +1,14 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { me, type AuthenticatedUser } from "../api/auth";
+import { apiClient } from "../api/client";
+import { authMeQueryKey, setAnonymousAuthState } from "./auth-cache";
 import { AuthContext, type AuthContextValue, type AuthStatus } from "./useAuth";
 
-const authMeQueryKey = ["auth", "me"] as const;
+function isLocallyHandledAuthRequest(url: string | undefined): boolean {
+  return url === "/auth/login" || url === "/auth/me" || url === "/auth/logout";
+}
 
 async function restoreAuthenticatedUser(): Promise<AuthenticatedUser | null> {
   try {
@@ -19,12 +23,34 @@ async function restoreAuthenticatedUser(): Promise<AuthenticatedUser | null> {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const authQuery = useQuery({
     queryKey: authMeQueryKey,
     queryFn: restoreAuthenticatedUser,
     retry: false,
     staleTime: Infinity,
   });
+
+  useEffect(() => {
+    const interceptorId = apiClient.interceptors.response.use(
+      (response) => response,
+      (error: unknown) => {
+        if (
+          axios.isAxiosError(error) &&
+          error.response?.status === 401 &&
+          !isLocallyHandledAuthRequest(error.config?.url)
+        ) {
+          setAnonymousAuthState(queryClient);
+        }
+
+        return Promise.reject(error);
+      },
+    );
+
+    return () => {
+      apiClient.interceptors.response.eject(interceptorId);
+    };
+  }, [queryClient]);
 
   let status: AuthStatus;
   let user: AuthenticatedUser | null = null;

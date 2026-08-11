@@ -3,6 +3,7 @@ import axios from "axios";
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { login } from "../api/auth";
+import { authMeQueryKey, clearSensitiveQueries } from "../auth/auth-cache";
 
 interface RedirectLocation {
   pathname: string;
@@ -46,15 +47,8 @@ function LoginPage() {
     mutationFn: login,
     onSuccess: (user) => {
       setPassword("");
-      queryClient.removeQueries({
-        predicate: (query) =>
-          !(
-            query.queryKey.length === 2 &&
-            query.queryKey[0] === "auth" &&
-            query.queryKey[1] === "me"
-          ),
-      });
-      queryClient.setQueryData(["auth", "me"], user);
+      clearSensitiveQueries(queryClient);
+      queryClient.setQueryData(authMeQueryKey, user);
       navigate(getRedirectPath(location.state), { replace: true });
     },
   });
