@@ -1,6 +1,7 @@
 import { UnauthorizedException, type ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { AuthGuard, AUTH_SESSION_COOKIE_NAME } from './auth.guard';
+import { AUTH_SESSION_COOKIE_NAME } from './auth-cookie';
+import { AuthGuard } from './auth.guard';
 import { AuthService } from './auth.service';
 import type { AuthenticatedRequest } from './current-user.decorator';
 
@@ -12,9 +13,10 @@ describe('AuthGuard', () => {
     authenticateSessionToken: jest.fn(),
   };
 
-  function createContext(cookie?: string) {
+  function createContext(token?: string) {
     const request = {
-      headers: cookie === undefined ? {} : { cookie },
+      headers: {},
+      cookies: token === undefined ? {} : { [AUTH_SESSION_COOKIE_NAME]: token },
     } as AuthenticatedRequest;
     const context = {
       getHandler: jest.fn(),
@@ -61,7 +63,7 @@ describe('AuthGuard', () => {
       reflectorMock as unknown as Reflector,
       authServiceMock as unknown as AuthService,
     );
-    const { context } = createContext(`${AUTH_SESSION_COOKIE_NAME}=unknown`);
+    const { context } = createContext('unknown');
 
     await expect(guard.canActivate(context)).rejects.toBeInstanceOf(
       UnauthorizedException,
@@ -75,7 +77,7 @@ describe('AuthGuard', () => {
       reflectorMock as unknown as Reflector,
       authServiceMock as unknown as AuthService,
     );
-    const { context } = createContext(`${AUTH_SESSION_COOKIE_NAME}=expired`);
+    const { context } = createContext('expired');
 
     await expect(guard.canActivate(context)).rejects.toBeInstanceOf(
       UnauthorizedException,
@@ -95,9 +97,7 @@ describe('AuthGuard', () => {
       reflectorMock as unknown as Reflector,
       authServiceMock as unknown as AuthService,
     );
-    const { context, request } = createContext(
-      `other=value; ${AUTH_SESSION_COOKIE_NAME}=opaque%20token`,
-    );
+    const { context, request } = createContext('opaque token');
 
     await expect(guard.canActivate(context)).resolves.toBe(true);
     expect(authServiceMock.authenticateSessionToken).toHaveBeenCalledWith(

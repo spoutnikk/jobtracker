@@ -1,16 +1,14 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { configureHttpApplication } from './http-configuration';
 import { PrismaExceptionFilter } from './prisma/prisma-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  configureHttpApplication(app, process.env);
   app.useGlobalFilters(new PrismaExceptionFilter(app.getHttpAdapter()));
-
-  app.enableCors({
-    origin: 'http://localhost:5173',
-  });
 
   app.useGlobalPipes(
     new ValidationPipe({

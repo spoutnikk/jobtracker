@@ -6,38 +6,9 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AuthService } from './auth.service';
+import { getAuthSessionToken } from './auth-cookie';
 import type { AuthenticatedRequest } from './current-user.decorator';
 import { IS_PUBLIC_KEY } from './public.decorator';
-
-export const AUTH_SESSION_COOKIE_NAME = 'jobtracker_session';
-
-function readCookie(cookieHeader: string | undefined, name: string) {
-  if (!cookieHeader) {
-    return undefined;
-  }
-
-  for (const part of cookieHeader.split(';')) {
-    const separatorIndex = part.indexOf('=');
-
-    if (separatorIndex === -1) {
-      continue;
-    }
-
-    const cookieName = part.slice(0, separatorIndex).trim();
-
-    if (cookieName === name) {
-      const value = part.slice(separatorIndex + 1).trim();
-
-      try {
-        return decodeURIComponent(value);
-      } catch {
-        return undefined;
-      }
-    }
-  }
-
-  return undefined;
-}
 
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -57,7 +28,7 @@ export class AuthGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
-    const token = readCookie(request.headers.cookie, AUTH_SESSION_COOKIE_NAME);
+    const token = getAuthSessionToken(request);
 
     if (!token) {
       throw new UnauthorizedException();

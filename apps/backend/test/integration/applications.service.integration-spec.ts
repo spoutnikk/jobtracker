@@ -103,6 +103,7 @@ describe('ApplicationsService PostgreSQL integration', () => {
         email: `integration-${fixtureId}@jobtracker.test`,
         firstName: 'Integration',
         lastName: 'Test',
+        passwordHash: 'integration-test-hash',
       },
     });
     userId = user.id;
@@ -110,6 +111,7 @@ describe('ApplicationsService PostgreSQL integration', () => {
     const company = await prisma.company.create({
       data: {
         name: `Integration Company ${fixtureId}`,
+        userId,
       },
     });
     companyId = company.id;
