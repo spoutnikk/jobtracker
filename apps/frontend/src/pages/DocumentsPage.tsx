@@ -26,7 +26,7 @@ function DocumentsPage() {
 
   const documentsQuery = useQuery({
     queryKey: ["documents"],
-    queryFn: getDocuments,
+    queryFn: () => getDocuments(),
   });
 
   const uploadDocumentMutation = useMutation({

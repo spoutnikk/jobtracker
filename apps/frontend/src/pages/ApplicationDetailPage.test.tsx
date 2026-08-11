@@ -7,6 +7,11 @@ import {
   getApplicationEvents,
   type ApplicationEvent,
 } from "../api/application-events";
+import {
+  getDocumentDownloadUrl,
+  getDocuments,
+  type Document,
+} from "../api/documents";
 import { renderWithProviders } from "../test/renderWithProviders";
 import ApplicationDetailPage from "./ApplicationDetailPage";
 
@@ -16,6 +21,11 @@ vi.mock("../api/applications", () => ({
 
 vi.mock("../api/application-events", () => ({
   getApplicationEvents: vi.fn(),
+}));
+
+vi.mock("../api/documents", () => ({
+  getDocumentDownloadUrl: vi.fn(),
+  getDocuments: vi.fn(),
 }));
 
 const events: ApplicationEvent[] = [
@@ -38,6 +48,27 @@ const events: ApplicationEvent[] = [
     applicationId: 42,
   },
 ];
+
+const document: Document = {
+  id: 5,
+  name: "CV Bruno",
+  originalName: "cv-bruno.pdf",
+  mimeType: "application/pdf",
+  size: 2048,
+  path: "/uploads/cv-bruno.pdf",
+  type: "CV",
+  createdAt: "2026-08-11T10:15:00.000Z",
+  updatedAt: "2026-08-11T10:15:00.000Z",
+  applicationId: 42,
+  application: null,
+};
+
+const foreignDocument: Document = {
+  ...document,
+  id: 6,
+  name: "Document d'une autre candidature",
+  applicationId: 99,
+};
 
 const application: Application = {
   id: 42,
@@ -107,6 +138,10 @@ describe("ApplicationDetailPage", () => {
     vi.restoreAllMocks();
     vi.mocked(getApplication).mockResolvedValue(application);
     vi.mocked(getApplicationEvents).mockResolvedValue([]);
+    vi.mocked(getDocuments).mockResolvedValue([]);
+    vi.mocked(getDocumentDownloadUrl).mockImplementation(
+      (documentId) => `http://localhost:3000/documents/${documentId}/download`,
+    );
   });
 
   it("renders the loading state", () => {
@@ -278,6 +313,7 @@ describe("ApplicationDetailPage", () => {
     ).toBeInTheDocument();
     expect(getApplication).not.toHaveBeenCalled();
     expect(getApplicationEvents).not.toHaveBeenCalled();
+    expect(getDocuments).not.toHaveBeenCalled();
   });
 
   it("renders the detail while the history is loading", async () => {
@@ -366,5 +402,76 @@ describe("ApplicationDetailPage", () => {
     expect(
       screen.getByRole("heading", { name: "Développeur React" }),
     ).toBeInTheDocument();
+  });
+
+  it("renders the detail and history while documents are loading", async () => {
+    vi.mocked(getApplicationEvents).mockResolvedValue(events);
+    vi.mocked(getDocuments).mockImplementation(
+      () => new Promise<Document[]>(() => undefined),
+    );
+
+    renderDetail();
+
+    expect(
+      await screen.findByText("Chargement des documents..."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Développeur React" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Candidature créée")).toBeInTheDocument();
+  });
+
+  it("renders associated documents and their download links", async () => {
+    vi.mocked(getDocuments).mockResolvedValue([document]);
+
+    renderDetail();
+
+    const documentsHeading = await screen.findByRole("heading", {
+      name: "Documents",
+    });
+    const documentsSection = documentsHeading.closest("section");
+
+    expect(documentsSection).not.toBeNull();
+    expect(within(documentsSection!).getByText("CV Bruno")).toBeInTheDocument();
+    expect(within(documentsSection!).getByText("CV")).toBeInTheDocument();
+    expect(
+      within(documentsSection!).getByText(/11 août 2026/),
+    ).toBeInTheDocument();
+    expect(
+      within(documentsSection!).getByRole("link", {
+        name: "Télécharger CV Bruno",
+      }),
+    ).toHaveAttribute(
+      "href",
+      `http://localhost:3000/documents/${document.id}/download`,
+    );
+    expect(getDocuments).toHaveBeenCalledWith({ applicationId: 42 });
+    expect(getDocumentDownloadUrl).toHaveBeenCalledWith(document.id);
+    expect(screen.queryByText(foreignDocument.name)).not.toBeInTheDocument();
+  });
+
+  it("renders the empty documents state", async () => {
+    renderDetail();
+
+    expect(
+      await screen.findByText("Aucun document associé."),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the detail and history visible when documents loading fails", async () => {
+    vi.mocked(getApplicationEvents).mockResolvedValue(events);
+    vi.mocked(getDocuments).mockRejectedValue(
+      new Error("Documents request failed"),
+    );
+
+    renderDetail();
+
+    expect(
+      await screen.findByText("Impossible de charger les documents."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Développeur React" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Candidature créée")).toBeInTheDocument();
   });
 });

@@ -10,6 +10,7 @@ import {
   Param,
   ParseIntPipe,
   Res,
+  Query,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -19,6 +20,7 @@ import { DocumentsService } from './documents.service';
 import type { Response } from 'express';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/authenticated-user';
+import { FindDocumentsQueryDto } from './dto/find-documents-query.dto';
 
 @Controller('documents')
 export class DocumentsController {
@@ -96,7 +98,10 @@ export class DocumentsController {
   }
 
   @Get()
-  findAll(@CurrentUser() user: AuthenticatedUser) {
-    return this.documentsService.findAll(user.id);
+  findAll(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() filters: FindDocumentsQueryDto,
+  ) {
+    return this.documentsService.findAll(user.id, filters);
   }
 }

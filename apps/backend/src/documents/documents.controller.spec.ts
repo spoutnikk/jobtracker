@@ -100,9 +100,11 @@ describe('DocumentsController', () => {
 
     documentsServiceMock.findAll.mockResolvedValue(documents);
 
-    await expect(controller.findAll(user)).resolves.toEqual(documents);
+    const filters = { applicationId: 42 };
 
-    expect(documentsServiceMock.findAll).toHaveBeenCalledWith(user.id);
+    await expect(controller.findAll(user, filters)).resolves.toEqual(documents);
+
+    expect(documentsServiceMock.findAll).toHaveBeenCalledWith(user.id, filters);
   });
 
   it('should return one document', async () => {

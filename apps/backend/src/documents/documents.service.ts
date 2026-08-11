@@ -3,6 +3,7 @@ import { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { unlink } from 'fs/promises';
+import { FindDocumentsQueryDto } from './dto/find-documents-query.dto';
 
 @Injectable()
 export class DocumentsService {
@@ -105,10 +106,16 @@ export class DocumentsService {
     }
   }
 
-  findAll(userId: number) {
+  findAll(
+    userId: number,
+    filters: FindDocumentsQueryDto = new FindDocumentsQueryDto(),
+  ) {
     return this.prisma.document.findMany({
       where: {
         userId,
+        ...(filters.applicationId !== undefined
+          ? { applicationId: filters.applicationId }
+          : {}),
       },
       include: {
         application: {

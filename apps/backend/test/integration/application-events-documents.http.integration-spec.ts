@@ -285,6 +285,27 @@ describe('ApplicationEvents and Documents HTTP ownership integration', () => {
       .expect(200);
     expect(readIds(documents.body)).toEqual([userA.documentId]);
 
+    const applicationDocuments = await request(app.getHttpServer())
+      .get(`/documents?applicationId=${userA.applicationId}`)
+      .set('Cookie', userA.cookie)
+      .expect(200);
+    expect(readIds(applicationDocuments.body)).toEqual([userA.documentId]);
+
+    const foreignApplicationDocuments = await request(app.getHttpServer())
+      .get(`/documents?applicationId=${userB.applicationId}`)
+      .set('Cookie', userA.cookie)
+      .expect(200);
+    expect(foreignApplicationDocuments.body).toEqual([]);
+
+    await request(app.getHttpServer())
+      .get('/documents?applicationId=0')
+      .set('Cookie', userA.cookie)
+      .expect(400);
+    await request(app.getHttpServer())
+      .get(`/documents?userId=${userB.userId}`)
+      .set('Cookie', userA.cookie)
+      .expect(400);
+
     const documentCount = await prisma.document.count();
     await request(app.getHttpServer())
       .get(`/documents/${userB.documentId}`)

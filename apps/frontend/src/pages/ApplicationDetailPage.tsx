@@ -10,6 +10,11 @@ import {
   getApplicationEvents,
   type ApplicationEventType,
 } from "../api/application-events";
+import {
+  getDocumentDownloadUrl,
+  getDocuments,
+  type DocumentType,
+} from "../api/documents";
 
 const statusLabels: Record<ApplicationStatus, string> = {
   DRAFT: "À préparer",
@@ -40,6 +45,13 @@ const eventTypeLabels: Record<ApplicationEventType, string> = {
   OTHER: "Autre",
 };
 
+const documentTypeLabels: Record<DocumentType, string> = {
+  CV: "CV",
+  COVER_LETTER: "Lettre de motivation",
+  JOB_OFFER: "Offre d'emploi",
+  OTHER: "Autre",
+};
+
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("fr-FR", {
     dateStyle: "long",
@@ -66,6 +78,11 @@ function ApplicationDetailPage() {
   const applicationEventsQuery = useQuery({
     queryKey: ["application-events", applicationId],
     queryFn: () => getApplicationEvents(applicationId),
+    enabled: isValidApplicationId,
+  });
+  const documentsQuery = useQuery({
+    queryKey: ["documents", { applicationId }],
+    queryFn: () => getDocuments({ applicationId }),
     enabled: isValidApplicationId,
   });
 
@@ -274,6 +291,46 @@ function ApplicationDetailPage() {
                   >
                     {formatDateTime(applicationEvent.occurredAt)}
                   </time>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+          <h2 className="text-xl font-semibold">Documents</h2>
+
+          {documentsQuery.isPending ? (
+            <p className="mt-4">Chargement des documents...</p>
+          ) : documentsQuery.isError ? (
+            <p className="mt-4 text-red-600">
+              Impossible de charger les documents.
+            </p>
+          ) : documentsQuery.data.length === 0 ? (
+            <p className="mt-4">Aucun document associé.</p>
+          ) : (
+            <ul className="mt-4 space-y-4">
+              {documentsQuery.data.map((document) => (
+                <li
+                  key={document.id}
+                  className="rounded-md border border-gray-200 p-4"
+                >
+                  <p className="font-semibold">{document.name}</p>
+                  <p className="mt-1 text-sm text-gray-700">
+                    {documentTypeLabels[document.type]}
+                  </p>
+                  <time
+                    dateTime={document.createdAt}
+                    className="mt-1 block text-sm text-gray-600"
+                  >
+                    Ajouté le {formatDateTime(document.createdAt)}
+                  </time>
+                  <a
+                    href={getDocumentDownloadUrl(document.id)}
+                    className="mt-3 inline-block font-medium text-blue-700 hover:underline"
+                  >
+                    Télécharger {document.name}
+                  </a>
                 </li>
               ))}
             </ul>

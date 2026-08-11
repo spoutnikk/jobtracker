@@ -357,6 +357,35 @@ describe('DocumentsService', () => {
       },
     });
   });
+  it('should filter documents by application without weakening ownership', async () => {
+    prismaServiceMock.document.findMany.mockResolvedValue([]);
+
+    await expect(service.findAll(7, { applicationId: 9999 })).resolves.toEqual(
+      [],
+    );
+
+    expect(prismaServiceMock.document.findMany).toHaveBeenCalledWith({
+      where: {
+        userId: 7,
+        applicationId: 9999,
+      },
+      include: {
+        application: {
+          include: {
+            jobOffer: {
+              include: {
+                company: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+    expect(prismaServiceMock.application.findFirst).not.toHaveBeenCalled();
+  });
   it('should return one document', async () => {
     const document = {
       id: 1,

@@ -35,8 +35,16 @@ export interface CreateDocumentInput {
   applicationId?: number;
 }
 
-export async function getDocuments(): Promise<Document[]> {
-  const response = await apiClient.get<Document[]>("/documents");
+export interface DocumentFilters {
+  applicationId?: number;
+}
+
+export async function getDocuments(
+  filters?: DocumentFilters,
+): Promise<Document[]> {
+  const response = filters
+    ? await apiClient.get<Document[]>("/documents", { params: filters })
+    : await apiClient.get<Document[]>("/documents");
 
   return response.data;
 }
