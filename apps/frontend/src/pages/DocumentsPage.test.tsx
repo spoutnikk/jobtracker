@@ -160,9 +160,11 @@ describe("DocumentsPage", () => {
     const uploadSection = (
       await screen.findByRole("heading", { name: "Ajouter un document" })
     ).closest("section");
+
     if (!uploadSection) {
       throw new Error("Upload section not found");
     }
+
     await user.click(
       within(uploadSection).getByRole("button", {
         name: "Afficher Ajouter un document",
@@ -176,39 +178,49 @@ describe("DocumentsPage", () => {
         name: `${application.jobOffer.title} — ${application.jobOffer.company.name}`,
       }),
     ).toBeInTheDocument();
+
     expect(
       within(applicationSelect).getByRole("option", {
         name: `${applicationFromNextPage.jobOffer.title} — ${applicationFromNextPage.jobOffer.company.name}`,
       }),
     ).toBeInTheDocument();
+
     expect(getAllApplications).toHaveBeenCalledTimes(1);
   });
 
   it("uploads a document associated with an application", async () => {
     vi.mocked(getDocuments).mockResolvedValue([]);
+
     const user = userEvent.setup();
     const file = new File(["PDF content"], "cv.pdf", {
       type: "application/pdf",
     });
+
     const { queryClient } = renderWithProviders(<DocumentsPage />);
     const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
 
     const formHeading = await screen.findByRole("heading", {
       name: "Ajouter un document",
     });
+
     const uploadSection = formHeading.closest("section");
+
     if (!uploadSection) {
       throw new Error("Upload section not found");
     }
+
     expect(screen.getByLabelText("Nom")).not.toBeVisible();
+
     await user.click(
       within(uploadSection).getByRole("button", {
         name: "Afficher Ajouter un document",
       }),
     );
+
     const form = screen
       .getByRole("button", { name: "Ajouter le document" })
       .closest("form");
+
     const fileInput = screen.getByLabelText<HTMLInputElement>("Fichier");
 
     expect(form).not.toBeNull();
@@ -220,28 +232,35 @@ describe("DocumentsPage", () => {
     await user.type(screen.getByLabelText("Nom"), "CV candidature");
     await user.selectOptions(screen.getByLabelText("Type"), "CV");
     await user.upload(fileInput, file);
+
     expect(fileInput.files).toHaveLength(1);
     expect(fileInput.files?.[0]).toBe(file);
+
     await user.click(
       within(uploadSection).getByRole("button", {
         name: "Masquer Ajouter un document",
       }),
     );
+
     await user.click(
       within(uploadSection).getByRole("button", {
         name: "Afficher Ajouter un document",
       }),
     );
+
     expect(fileInput.files?.[0]).toBe(file);
+
     await user.selectOptions(
       screen.getByLabelText("Candidature associée"),
       String(application.id),
     );
+
     fireEvent.submit(form);
 
     await waitFor(() => {
       expect(uploadDocument).toHaveBeenCalledTimes(1);
     });
+
     const [uploadInput] = vi.mocked(uploadDocument).mock.calls[0];
 
     expect(uploadInput).toEqual({
@@ -250,19 +269,102 @@ describe("DocumentsPage", () => {
       type: "CV",
       applicationId: application.id,
     });
+
     await waitFor(() => {
       expect(screen.getByLabelText("Nom")).toHaveValue("");
       expect(screen.getByLabelText("Type")).toHaveValue("OTHER");
       expect(screen.getByLabelText("Candidature associée")).toHaveValue("");
+
+      expect(invalidateQueriesSpy).toHaveBeenCalledWith({
+        queryKey: ["documents"],
+      });
+
+      expect(invalidateQueriesSpy).toHaveBeenCalledWith({
+        queryKey: ["application-events", application.id],
+      });
+    });
+  });
+
+  it("does not invalidate application events when uploading without an application", async () => {
+    vi.mocked(getDocuments).mockResolvedValue([]);
+
+    const documentWithoutApplication: Document = {
+      ...document,
+      applicationId: null,
+      application: null,
+    };
+
+    vi.mocked(uploadDocument).mockResolvedValue(documentWithoutApplication);
+
+    const user = userEvent.setup();
+    const file = new File(["PDF content"], "document.pdf", {
+      type: "application/pdf",
+    });
+
+    const { queryClient } = renderWithProviders(<DocumentsPage />);
+    const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
+
+    const uploadSection = (
+      await screen.findByRole("heading", { name: "Ajouter un document" })
+    ).closest("section");
+
+    if (!uploadSection) {
+      throw new Error("Upload section not found");
+    }
+
+    await user.click(
+      within(uploadSection).getByRole("button", {
+        name: "Afficher Ajouter un document",
+      }),
+    );
+
+    const form = screen
+      .getByRole("button", { name: "Ajouter le document" })
+      .closest("form");
+
+    if (!form) {
+      throw new Error("Upload form not found");
+    }
+
+    const fileInput = screen.getByLabelText<HTMLInputElement>("Fichier");
+
+    await user.type(screen.getByLabelText("Nom"), "Document libre");
+    await user.upload(fileInput, file);
+
+    fireEvent.submit(form);
+
+    await waitFor(() => {
+      expect(uploadDocument).toHaveBeenCalledTimes(1);
       expect(invalidateQueriesSpy).toHaveBeenCalledWith({
         queryKey: ["documents"],
       });
     });
+
+    const [uploadInput] = vi.mocked(uploadDocument).mock.calls[0];
+
+    expect(uploadInput).toEqual({
+      file,
+      name: "Document libre",
+      type: "OTHER",
+      applicationId: undefined,
+    });
+
+    const invalidatedQueryKeys = invalidateQueriesSpy.mock.calls
+      .map(([filters]) => filters?.queryKey)
+      .filter((queryKey) => queryKey !== undefined);
+
+    const applicationEventsInvalidation = invalidatedQueryKeys.find(
+      (queryKey) =>
+        Array.isArray(queryKey) && queryKey[0] === "application-events",
+    );
+
+    expect(applicationEventsInvalidation).toBeUndefined();
   });
 
   it("shows an error when upload fails", async () => {
     vi.mocked(getDocuments).mockResolvedValue([]);
     vi.mocked(uploadDocument).mockRejectedValue(new Error("Upload failed"));
+
     const user = userEvent.setup();
     const file = new File(["PDF content"], "cv.pdf", {
       type: "application/pdf",
@@ -273,14 +375,17 @@ describe("DocumentsPage", () => {
     const uploadSection = (
       await screen.findByRole("heading", { name: "Ajouter un document" })
     ).closest("section");
+
     if (!uploadSection) {
       throw new Error("Upload section not found");
     }
+
     await user.click(
       within(uploadSection).getByRole("button", {
         name: "Afficher Ajouter un document",
       }),
     );
+
     const nameInput = screen.getByLabelText("Nom");
     const form = nameInput.closest("form");
     const fileInput = screen.getByLabelText<HTMLInputElement>("Fichier");
@@ -293,13 +398,16 @@ describe("DocumentsPage", () => {
 
     await user.type(nameInput, "CV candidature");
     await user.upload(fileInput, file);
+
     expect(fileInput.files).toHaveLength(1);
     expect(fileInput.files?.[0]).toBe(file);
+
     fireEvent.submit(form);
 
     expect(
       await screen.findByText("Impossible d'ajouter le document."),
     ).toBeInTheDocument();
+
     expect(uploadDocument).toHaveBeenCalledTimes(1);
   });
 
@@ -307,23 +415,31 @@ describe("DocumentsPage", () => {
     vi.mocked(deleteDocument)
       .mockResolvedValueOnce(document)
       .mockRejectedValueOnce(new Error("Unexpected second deletion"));
+
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     const user = userEvent.setup();
+
     const { queryClient } = renderWithProviders(<DocumentsPage />);
     const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
 
-    await user.click(await screen.findByRole("button", { name: "Supprimer" }));
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Supprimer",
+      }),
+    );
 
     expect(confirmSpy).toHaveBeenCalledTimes(1);
     expect(confirmSpy).toHaveBeenCalledWith(
       `Supprimer le document "${document.name}" ?`,
     );
+
     await waitFor(() => {
       expect(deleteDocument).toHaveBeenCalledTimes(1);
       expect(invalidateQueriesSpy).toHaveBeenCalledWith({
         queryKey: ["documents"],
       });
     });
+
     const [deletedId] = vi.mocked(deleteDocument).mock.calls[0];
 
     expect(deletedId).toBe(document.id);
@@ -331,21 +447,32 @@ describe("DocumentsPage", () => {
 
   it("keeps the document when deletion fails", async () => {
     vi.mocked(deleteDocument).mockRejectedValue(new Error("Delete failed"));
+
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     const user = userEvent.setup();
+
     const { queryClient } = renderWithProviders(<DocumentsPage />);
     const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
 
-    await user.click(await screen.findByRole("button", { name: "Supprimer" }));
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Supprimer",
+      }),
+    );
 
     await waitFor(() => {
       expect(deleteDocument).toHaveBeenCalledTimes(1);
       expect(screen.getByRole("button", { name: "Supprimer" })).toBeEnabled();
     });
+
     expect(confirmSpy).toHaveBeenCalledTimes(1);
+
     expect(
-      screen.getByRole("heading", { name: document.name }),
+      screen.getByRole("heading", {
+        name: document.name,
+      }),
     ).toBeInTheDocument();
+
     expect(invalidateQueriesSpy).not.toHaveBeenCalledWith({
       queryKey: ["documents"],
     });

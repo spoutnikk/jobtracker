@@ -31,7 +31,7 @@ function DocumentsPage() {
 
   const uploadDocumentMutation = useMutation({
     mutationFn: uploadDocument,
-    onSuccess: async () => {
+    onSuccess: async (_, variables) => {
       setFile(null);
       setName("");
       setType("OTHER");
@@ -40,6 +40,12 @@ function DocumentsPage() {
       await queryClient.invalidateQueries({
         queryKey: ["documents"],
       });
+
+      if (variables.applicationId !== undefined) {
+        await queryClient.invalidateQueries({
+          queryKey: ["application-events", variables.applicationId],
+        });
+      }
     },
   });
 
