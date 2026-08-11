@@ -5,7 +5,10 @@ import argon2 from 'argon2';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 import { AppModule } from '../../src/app.module';
-import { configureHttpApplication } from '../../src/http-configuration';
+import {
+  configureHttpApplication,
+  DEFAULT_FRONTEND_ORIGIN,
+} from '../../src/http-configuration';
 import { PrismaService } from '../../src/prisma/prisma.service';
 
 const databaseUrlValue = process.env.DATABASE_URL;
@@ -106,6 +109,7 @@ describe('Authentication HTTP integration', () => {
 
     const loginResponse = await request(app.getHttpServer())
       .post('/auth/login')
+      .set('Origin', DEFAULT_FRONTEND_ORIGIN)
       .send({ email: email.toUpperCase(), password })
       .expect(200);
     const setCookieHeader = readSetCookieHeaders(loginResponse.headers);
@@ -137,6 +141,7 @@ describe('Authentication HTTP integration', () => {
 
     const logoutResponse = await request(app.getHttpServer())
       .post('/auth/logout')
+      .set('Origin', DEFAULT_FRONTEND_ORIGIN)
       .set('Cookie', sessionCookie)
       .expect(204);
 

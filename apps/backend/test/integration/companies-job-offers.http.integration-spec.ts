@@ -5,7 +5,10 @@ import argon2 from 'argon2';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 import { AppModule } from '../../src/app.module';
-import { configureHttpApplication } from '../../src/http-configuration';
+import {
+  configureHttpApplication,
+  DEFAULT_FRONTEND_ORIGIN,
+} from '../../src/http-configuration';
 import { PrismaService } from '../../src/prisma/prisma.service';
 
 const databaseUrlValue = process.env.DATABASE_URL;
@@ -201,11 +204,13 @@ describe('Companies and JobOffers HTTP ownership integration', () => {
 
     await request(app.getHttpServer())
       .patch(`/companies/${userB.companyId}`)
+      .set('Origin', DEFAULT_FRONTEND_ORIGIN)
       .set('Cookie', userA.cookie)
       .send({ city: 'Paris' })
       .expect(404);
     await request(app.getHttpServer())
       .delete(`/companies/${userB.companyId}`)
+      .set('Origin', DEFAULT_FRONTEND_ORIGIN)
       .set('Cookie', userA.cookie)
       .expect(404);
   });
@@ -227,16 +232,19 @@ describe('Companies and JobOffers HTTP ownership integration', () => {
       .expect(404);
     await request(app.getHttpServer())
       .post('/job-offers')
+      .set('Origin', DEFAULT_FRONTEND_ORIGIN)
       .set('Cookie', userA.cookie)
       .send({ title: 'Foreign company offer', companyId: userB.companyId })
       .expect(404);
     await request(app.getHttpServer())
       .patch(`/job-offers/${userA.jobOfferId}`)
+      .set('Origin', DEFAULT_FRONTEND_ORIGIN)
       .set('Cookie', userA.cookie)
       .send({ companyId: userB.companyId })
       .expect(404);
     await request(app.getHttpServer())
       .delete(`/job-offers/${userB.jobOfferId}`)
+      .set('Origin', DEFAULT_FRONTEND_ORIGIN)
       .set('Cookie', userA.cookie)
       .expect(404);
   });
@@ -248,6 +256,7 @@ describe('Companies and JobOffers HTTP ownership integration', () => {
 
     const companyConflict = await request(app.getHttpServer())
       .delete(`/companies/${userA.companyId}`)
+      .set('Origin', DEFAULT_FRONTEND_ORIGIN)
       .set('Cookie', userA.cookie)
       .expect(409);
     expect(readMessage(companyConflict.body)).toBe(
@@ -256,6 +265,7 @@ describe('Companies and JobOffers HTTP ownership integration', () => {
 
     const jobOfferConflict = await request(app.getHttpServer())
       .delete(`/job-offers/${userA.jobOfferId}`)
+      .set('Origin', DEFAULT_FRONTEND_ORIGIN)
       .set('Cookie', userA.cookie)
       .expect(409);
     expect(readMessage(jobOfferConflict.body)).toBe(

@@ -8,7 +8,10 @@ import argon2 from 'argon2';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 import { AppModule } from '../../src/app.module';
-import { configureHttpApplication } from '../../src/http-configuration';
+import {
+  configureHttpApplication,
+  DEFAULT_FRONTEND_ORIGIN,
+} from '../../src/http-configuration';
 import { PrismaService } from '../../src/prisma/prisma.service';
 
 const databaseUrlValue = process.env.DATABASE_URL;
@@ -260,6 +263,7 @@ describe('ApplicationEvents and Documents HTTP ownership integration', () => {
 
     await request(app.getHttpServer())
       .post('/application-events')
+      .set('Origin', DEFAULT_FRONTEND_ORIGIN)
       .set('Cookie', userA.cookie)
       .send({
         applicationId: userB.applicationId,
@@ -292,6 +296,7 @@ describe('ApplicationEvents and Documents HTTP ownership integration', () => {
       .expect(404);
     await request(app.getHttpServer())
       .delete(`/documents/${userB.documentId}`)
+      .set('Origin', DEFAULT_FRONTEND_ORIGIN)
       .set('Cookie', userA.cookie)
       .expect(404);
 
@@ -312,6 +317,7 @@ describe('ApplicationEvents and Documents HTTP ownership integration', () => {
 
     await request(app.getHttpServer())
       .post('/documents')
+      .set('Origin', DEFAULT_FRONTEND_ORIGIN)
       .set('Cookie', userA.cookie)
       .field('name', 'Forbidden document')
       .field('type', 'OTHER')

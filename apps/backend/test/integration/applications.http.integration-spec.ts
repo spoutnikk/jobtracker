@@ -5,7 +5,10 @@ import argon2 from 'argon2';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 import { AppModule } from '../../src/app.module';
-import { configureHttpApplication } from '../../src/http-configuration';
+import {
+  configureHttpApplication,
+  DEFAULT_FRONTEND_ORIGIN,
+} from '../../src/http-configuration';
 import { PrismaService } from '../../src/prisma/prisma.service';
 
 const databaseUrlValue = process.env.DATABASE_URL;
@@ -215,11 +218,13 @@ describe('Applications HTTP ownership integration', () => {
 
     await request(app.getHttpServer())
       .patch(`/applications/${userB.applicationId}`)
+      .set('Origin', DEFAULT_FRONTEND_ORIGIN)
       .set('Cookie', userA.cookie)
       .send({ status: 'APPLIED' })
       .expect(404);
     await request(app.getHttpServer())
       .delete(`/applications/${userB.applicationId}`)
+      .set('Origin', DEFAULT_FRONTEND_ORIGIN)
       .set('Cookie', userA.cookie)
       .expect(404);
   });
@@ -236,6 +241,7 @@ describe('Applications HTTP ownership integration', () => {
     for (const jobOfferId of [userB.jobOfferId, missingId]) {
       await request(app.getHttpServer())
         .post('/applications')
+        .set('Origin', DEFAULT_FRONTEND_ORIGIN)
         .set('Cookie', userA.cookie)
         .send({ jobOfferId, status: 'DRAFT' })
         .expect(404);
@@ -243,6 +249,7 @@ describe('Applications HTTP ownership integration', () => {
 
     await request(app.getHttpServer())
       .patch(`/applications/${userA.applicationId}`)
+      .set('Origin', DEFAULT_FRONTEND_ORIGIN)
       .set('Cookie', userA.cookie)
       .send({ jobOfferId: userB.jobOfferId })
       .expect(404);
@@ -258,11 +265,13 @@ describe('Applications HTTP ownership integration', () => {
 
     await request(app.getHttpServer())
       .post('/applications')
+      .set('Origin', DEFAULT_FRONTEND_ORIGIN)
       .set('Cookie', userA.cookie)
       .send({ jobOfferId: userA.jobOfferId, userId: userA.userId })
       .expect(400);
     await request(app.getHttpServer())
       .patch(`/applications/${userA.applicationId}`)
+      .set('Origin', DEFAULT_FRONTEND_ORIGIN)
       .set('Cookie', userA.cookie)
       .send({ userId: userA.userId })
       .expect(400);
