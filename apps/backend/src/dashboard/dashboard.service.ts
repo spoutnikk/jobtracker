@@ -2,6 +2,23 @@ import { Injectable } from '@nestjs/common';
 import { ApplicationStatus } from '../../generated/prisma/enums';
 import { PrismaService } from '../prisma/prisma.service';
 
+const weekInMilliseconds = 7 * 24 * 60 * 60 * 1000;
+
+function startOfUtcWeek(date: Date): Date {
+  const weekStart = new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+  );
+  const daysSinceMonday = (weekStart.getUTCDay() + 6) % 7;
+
+  weekStart.setUTCDate(weekStart.getUTCDate() - daysSinceMonday);
+
+  return weekStart;
+}
+
+function addUtcWeeks(date: Date, delta: number): Date {
+  return new Date(date.getTime() + delta * weekInMilliseconds);
+}
+
 @Injectable()
 export class DashboardService {
   constructor(private readonly prisma: PrismaService) {}
@@ -12,6 +29,9 @@ export class DashboardService {
     const sevenDaysAgo = new Date(now.getTime() - 7 * dayInMilliseconds);
     const thirtyDaysAgo = new Date(now.getTime() - 30 * dayInMilliseconds);
     const sevenDaysFromNow = new Date(now.getTime() + 7 * dayInMilliseconds);
+    const currentWeekStart = startOfUtcWeek(now);
+    const oldestWeekStart = addUtcWeeks(currentWeekStart, -7);
+    const nextWeekStart = addUtcWeeks(currentWeekStart, 1);
 
     const [
       totalApplications,
@@ -25,6 +45,7 @@ export class DashboardService {
       upcomingInterviews7Days,
       applicationsWithInterview,
       applicationsByStatus,
+      weeklyApplicationDates,
     ] = await Promise.all([
       this.prisma.application.count({
         where: {
@@ -122,6 +143,19 @@ export class DashboardService {
           status: true,
         },
       }),
+
+      this.prisma.application.findMany({
+        where: {
+          userId,
+          createdAt: {
+            gte: oldestWeekStart,
+            lt: nextWeekStart,
+          },
+        },
+        select: {
+          createdAt: true,
+        },
+      }),
     ]);
 
     const applicationStatuses = Object.values(ApplicationStatus);
@@ -142,6 +176,23 @@ export class DashboardService {
         ? 0
         : (applicationsWithInterview / totalApplications) * 100;
 
+    const weeklyApplications = Array.from({ length: 8 }, (_, index) => ({
+      weekStart: addUtcWeeks(oldestWeekStart, index).toISOString(),
+      count: 0,
+    }));
+
+    for (const application of weeklyApplicationDates) {
+      const bucketIndex = Math.floor(
+        (application.createdAt.getTime() - oldestWeekStart.getTime()) /
+          weekInMilliseconds,
+      );
+      const bucket = weeklyApplications[bucketIndex];
+
+      if (bucket) {
+        bucket.count += 1;
+      }
+    }
+
     return {
       totalApplications,
       totalCompanies,
@@ -155,6 +206,7 @@ export class DashboardService {
       upcomingInterviews7Days,
       interviewRate,
       applicationsByStatus: completeApplicationsByStatus,
+      weeklyApplications,
     };
   }
 }

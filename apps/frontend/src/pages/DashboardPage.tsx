@@ -29,6 +29,15 @@ function DashboardPage() {
   const percentageFormatter = new Intl.NumberFormat("fr-FR", {
     maximumFractionDigits: 1,
   });
+  const weekFormatter = new Intl.DateTimeFormat("fr-FR", {
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  });
+  const maxWeeklyApplications = Math.max(
+    ...stats.weeklyApplications.map(({ count }) => count),
+    1,
+  );
 
   return (
     <main className="min-h-screen p-8">
@@ -106,6 +115,41 @@ function DashboardPage() {
             </p>
           </article>
         </div>
+
+        <section className="mt-10">
+          <h2 className="text-2xl font-semibold">
+            Candidatures des 8 dernières semaines
+          </h2>
+
+          <div className="mt-4 grid h-64 grid-cols-8 gap-2 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+            {stats.weeklyApplications.map(({ weekStart, count }) => {
+              const weekLabel = weekFormatter.format(new Date(weekStart));
+              const accessibleLabel = `Semaine du ${weekLabel} : ${count} ${count > 1 ? "candidatures" : "candidature"}`;
+
+              return (
+                <div
+                  key={weekStart}
+                  className="flex min-w-0 flex-col items-center justify-end gap-2"
+                  role="img"
+                  aria-label={accessibleLabel}
+                >
+                  <span className="text-sm font-semibold">{count}</span>
+                  <div className="flex h-40 w-full items-end justify-center">
+                    <div
+                      className="min-h-1 w-full max-w-10 rounded-t bg-blue-600"
+                      style={{
+                        height: `${(count / maxWeeklyApplications) * 100}%`,
+                      }}
+                    />
+                  </div>
+                  <span className="text-center text-xs text-gray-600">
+                    {weekLabel}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </section>
 
         <section className="mt-10">
           <h2 className="text-2xl font-semibold">Candidatures par statut</h2>

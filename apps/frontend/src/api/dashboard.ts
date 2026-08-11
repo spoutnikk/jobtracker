@@ -6,6 +6,11 @@ export interface ApplicationsByStatus {
   count: number;
 }
 
+export interface WeeklyApplications {
+  weekStart: string;
+  count: number;
+}
+
 export interface DashboardStats {
   totalApplications: number;
   totalCompanies: number;
@@ -19,6 +24,7 @@ export interface DashboardStats {
   upcomingInterviews7Days: number;
   interviewRate: number;
   applicationsByStatus: ApplicationsByStatus[];
+  weeklyApplications: WeeklyApplications[];
 }
 
 export async function getDashboardStats(): Promise<DashboardStats> {

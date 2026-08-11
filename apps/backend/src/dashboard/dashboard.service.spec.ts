@@ -9,6 +9,7 @@ describe('DashboardService', () => {
     application: {
       count: jest.fn(),
       groupBy: jest.fn(),
+      findMany: jest.fn(),
     },
     company: {
       count: jest.fn(),
@@ -69,6 +70,11 @@ describe('DashboardService', () => {
         },
       },
     ]);
+    prismaServiceMock.application.findMany.mockResolvedValue([
+      { createdAt: new Date('2026-06-22T00:00:00.000Z') },
+      { createdAt: new Date('2026-08-10T12:00:00.000Z') },
+      { createdAt: new Date('2026-08-11T10:00:00.000Z') },
+    ]);
 
     await expect(service.getStats(7)).resolves.toEqual({
       totalApplications: 2,
@@ -89,6 +95,16 @@ describe('DashboardService', () => {
         { status: 'INTERVIEW', count: 0 },
         { status: 'ACCEPTED', count: 0 },
         { status: 'REJECTED', count: 0 },
+      ],
+      weeklyApplications: [
+        { weekStart: '2026-06-22T00:00:00.000Z', count: 1 },
+        { weekStart: '2026-06-29T00:00:00.000Z', count: 0 },
+        { weekStart: '2026-07-06T00:00:00.000Z', count: 0 },
+        { weekStart: '2026-07-13T00:00:00.000Z', count: 0 },
+        { weekStart: '2026-07-20T00:00:00.000Z', count: 0 },
+        { weekStart: '2026-07-27T00:00:00.000Z', count: 0 },
+        { weekStart: '2026-08-03T00:00:00.000Z', count: 0 },
+        { weekStart: '2026-08-10T00:00:00.000Z', count: 2 },
       ],
     });
 
@@ -180,6 +196,57 @@ describe('DashboardService', () => {
         status: true,
       },
     });
+    expect(prismaServiceMock.application.findMany).toHaveBeenCalledWith({
+      where: {
+        userId: 7,
+        createdAt: {
+          gte: new Date('2026-06-22T00:00:00.000Z'),
+          lt: new Date('2026-08-17T00:00:00.000Z'),
+        },
+      },
+      select: {
+        createdAt: true,
+      },
+    });
+  });
+
+  it('builds UTC weekly buckets across a month and year boundary', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-01-02T18:00:00.000Z'));
+
+    prismaServiceMock.application.count.mockResolvedValue(0);
+    prismaServiceMock.company.count.mockResolvedValue(0);
+    prismaServiceMock.jobOffer.count.mockResolvedValue(0);
+    prismaServiceMock.application.groupBy.mockResolvedValue([]);
+    prismaServiceMock.application.findMany.mockResolvedValue([
+      { createdAt: new Date('2025-11-10T00:00:00.000Z') },
+      { createdAt: new Date('2025-12-24T12:00:00.000Z') },
+      { createdAt: new Date('2025-12-29T00:00:00.000Z') },
+      { createdAt: new Date('2026-01-02T18:00:00.000Z') },
+    ]);
+
+    const result = await service.getStats(19);
+
+    expect(result.weeklyApplications).toEqual([
+      { weekStart: '2025-11-10T00:00:00.000Z', count: 1 },
+      { weekStart: '2025-11-17T00:00:00.000Z', count: 0 },
+      { weekStart: '2025-11-24T00:00:00.000Z', count: 0 },
+      { weekStart: '2025-12-01T00:00:00.000Z', count: 0 },
+      { weekStart: '2025-12-08T00:00:00.000Z', count: 0 },
+      { weekStart: '2025-12-15T00:00:00.000Z', count: 0 },
+      { weekStart: '2025-12-22T00:00:00.000Z', count: 1 },
+      { weekStart: '2025-12-29T00:00:00.000Z', count: 2 },
+    ]);
+    expect(prismaServiceMock.application.findMany).toHaveBeenCalledWith({
+      where: {
+        userId: 19,
+        createdAt: {
+          gte: new Date('2025-11-10T00:00:00.000Z'),
+          lt: new Date('2026-01-05T00:00:00.000Z'),
+        },
+      },
+      select: { createdAt: true },
+    });
   });
 
   it('returns a zero interview rate when there are no applications', async () => {
@@ -187,6 +254,7 @@ describe('DashboardService', () => {
     prismaServiceMock.company.count.mockResolvedValue(0);
     prismaServiceMock.jobOffer.count.mockResolvedValue(0);
     prismaServiceMock.application.groupBy.mockResolvedValue([]);
+    prismaServiceMock.application.findMany.mockResolvedValue([]);
 
     await expect(service.getStats(7)).resolves.toMatchObject({
       totalApplications: 0,

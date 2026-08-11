@@ -24,6 +24,16 @@ const dashboardStats: DashboardStats = {
     { status: "APPLIED", count: 7 },
     { status: "INTERVIEW", count: 2 },
   ],
+  weeklyApplications: [
+    { weekStart: "2026-06-22T00:00:00.000Z", count: 0 },
+    { weekStart: "2026-06-29T00:00:00.000Z", count: 1 },
+    { weekStart: "2026-07-06T00:00:00.000Z", count: 0 },
+    { weekStart: "2026-07-13T00:00:00.000Z", count: 3 },
+    { weekStart: "2026-07-20T00:00:00.000Z", count: 2 },
+    { weekStart: "2026-07-27T00:00:00.000Z", count: 0 },
+    { weekStart: "2026-08-03T00:00:00.000Z", count: 4 },
+    { weekStart: "2026-08-10T00:00:00.000Z", count: 1 },
+  ],
 };
 
 describe("DashboardPage", () => {
@@ -62,6 +72,37 @@ describe("DashboardPage", () => {
 
     expect(screen.getByText("APPLIED")).toBeInTheDocument();
     expect(screen.getByText("INTERVIEW")).toBeInTheDocument();
+
+    const weeklyChart = screen.getByRole("heading", {
+      name: "Candidatures des 8 dernières semaines",
+    }).parentElement;
+
+    expect(weeklyChart).not.toBeNull();
+    expect(within(weeklyChart!).getAllByRole("img")).toHaveLength(8);
+    expect(
+      within(weeklyChart!).getByRole("img", {
+        name: "Semaine du 22 juin : 0 candidature",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(weeklyChart!).getByRole("img", {
+        name: "Semaine du 13 juil. : 3 candidatures",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(weeklyChart!)
+        .getAllByRole("img")
+        .map((item) => item.ariaLabel),
+    ).toEqual([
+      "Semaine du 22 juin : 0 candidature",
+      "Semaine du 29 juin : 1 candidature",
+      "Semaine du 6 juil. : 0 candidature",
+      "Semaine du 13 juil. : 3 candidatures",
+      "Semaine du 20 juil. : 2 candidatures",
+      "Semaine du 27 juil. : 0 candidature",
+      "Semaine du 3 août : 4 candidatures",
+      "Semaine du 10 août : 1 candidature",
+    ]);
   });
 
   it("formats a zero interview rate", async () => {

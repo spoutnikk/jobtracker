@@ -43,7 +43,7 @@ interface FixtureOptions {
     status: 'DRAFT' | 'APPLIED' | 'INTERVIEW' | 'REJECTED';
     followUp: boolean;
     interview: boolean;
-    createdDaysAgo: number;
+    createdWeeksAgo: number;
   }>;
 }
 
@@ -131,6 +131,11 @@ describe('Dashboard and calendar HTTP ownership integration', () => {
     const applicationIds: number[] = [];
     const fixtureNow = Date.now();
     const dayInMilliseconds = 24 * 60 * 60 * 1000;
+    const currentWeekStart = new Date(fixtureNow);
+    currentWeekStart.setUTCHours(0, 0, 0, 0);
+    currentWeekStart.setUTCDate(
+      currentWeekStart.getUTCDate() - ((currentWeekStart.getUTCDay() + 6) % 7),
+    );
 
     for (const [index, applicationFixture] of options.applications.entries()) {
       const jobOfferId = jobOfferIds[index % jobOfferIds.length];
@@ -146,7 +151,9 @@ describe('Dashboard and calendar HTTP ownership integration', () => {
           status: applicationFixture.status,
           source: `dashboard-calendar:${label}:${index}:${marker}`,
           createdAt: new Date(
-            fixtureNow - applicationFixture.createdDaysAgo * dayInMilliseconds,
+            currentWeekStart.getTime() -
+              applicationFixture.createdWeeksAgo * 7 * dayInMilliseconds +
+              12 * 60 * 60 * 1000,
           ),
           followUpAt: applicationFixture.followUp
             ? new Date(fixtureNow + (index + 2) * dayInMilliseconds)
@@ -200,13 +207,13 @@ describe('Dashboard and calendar HTTP ownership integration', () => {
           status: 'DRAFT',
           followUp: true,
           interview: false,
-          createdDaysAgo: 1,
+          createdWeeksAgo: 0,
         },
         {
           status: 'APPLIED',
           followUp: false,
           interview: true,
-          createdDaysAgo: 10,
+          createdWeeksAgo: 1,
         },
       ],
     });
@@ -218,19 +225,19 @@ describe('Dashboard and calendar HTTP ownership integration', () => {
           status: 'INTERVIEW',
           followUp: true,
           interview: true,
-          createdDaysAgo: 2,
+          createdWeeksAgo: 0,
         },
         {
           status: 'INTERVIEW',
           followUp: false,
           interview: true,
-          createdDaysAgo: 20,
+          createdWeeksAgo: 3,
         },
         {
           status: 'REJECTED',
           followUp: true,
           interview: true,
-          createdDaysAgo: 40,
+          createdWeeksAgo: 7,
         },
       ],
     });
@@ -300,6 +307,14 @@ describe('Dashboard and calendar HTTP ownership integration', () => {
       { status: 'ACCEPTED', count: 0 },
       { status: 'REJECTED', count: 0 },
     ]);
+    const weeklyApplicationsA = statsA.weeklyApplications;
+    expect(Array.isArray(weeklyApplicationsA)).toBe(true);
+    expect(weeklyApplicationsA).toHaveLength(8);
+    expect(
+      (weeklyApplicationsA as Array<Record<string, unknown>>).map(
+        ({ count }) => count,
+      ),
+    ).toEqual([0, 0, 0, 0, 0, 0, 1, 1]);
 
     expect(statsB).toMatchObject({
       totalApplications: 3,
@@ -322,6 +337,15 @@ describe('Dashboard and calendar HTTP ownership integration', () => {
       { status: 'ACCEPTED', count: 0 },
       { status: 'REJECTED', count: 1 },
     ]);
+    const weeklyApplicationsB = statsB.weeklyApplications;
+    expect(Array.isArray(weeklyApplicationsB)).toBe(true);
+    expect(weeklyApplicationsB).toHaveLength(8);
+    const weeklyPointsB = weeklyApplicationsB as Array<Record<string, unknown>>;
+    expect(weeklyPointsB.map(({ count }) => count)).toEqual([
+      1, 0, 0, 0, 1, 0, 0, 1,
+    ]);
+    const weekStarts = weeklyPointsB.map(({ weekStart }) => weekStart);
+    expect(weekStarts).toEqual([...weekStarts].sort());
   });
 
   it('isolates follow-up and interview calendar endpoints for both users', async () => {
