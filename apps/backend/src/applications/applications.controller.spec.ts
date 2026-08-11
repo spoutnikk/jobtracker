@@ -5,6 +5,13 @@ import { ApplicationsService } from './applications.service';
 describe('ApplicationsController', () => {
   let controller: ApplicationsController;
 
+  const user = {
+    id: 7,
+    email: 'user@example.com',
+    firstName: 'Ada',
+    lastName: 'Lovelace',
+  };
+
   const applicationsServiceMock = {
     create: jest.fn(),
     findAll: jest.fn(),
@@ -37,7 +44,6 @@ describe('ApplicationsController', () => {
 
   it('should create an application', async () => {
     const dto = {
-      userId: 1,
       jobOfferId: 1,
     };
 
@@ -48,9 +54,9 @@ describe('ApplicationsController', () => {
 
     applicationsServiceMock.create.mockResolvedValue(application);
 
-    await expect(controller.create(dto)).resolves.toEqual(application);
+    await expect(controller.create(user, dto)).resolves.toEqual(application);
 
-    expect(applicationsServiceMock.create).toHaveBeenCalledWith(dto);
+    expect(applicationsServiceMock.create).toHaveBeenCalledWith(user.id, dto);
   });
 
   it('should return all applications', async () => {
@@ -58,9 +64,9 @@ describe('ApplicationsController', () => {
 
     applicationsServiceMock.findAll.mockResolvedValue(applications);
 
-    await expect(controller.findAll()).resolves.toEqual(applications);
+    await expect(controller.findAll(user)).resolves.toEqual(applications);
 
-    expect(applicationsServiceMock.findAll).toHaveBeenCalledTimes(1);
+    expect(applicationsServiceMock.findAll).toHaveBeenCalledWith(user.id);
   });
 
   it('should return one application', async () => {
@@ -68,9 +74,9 @@ describe('ApplicationsController', () => {
 
     applicationsServiceMock.findOne.mockResolvedValue(application);
 
-    await expect(controller.findOne(1)).resolves.toEqual(application);
+    await expect(controller.findOne(user, 1)).resolves.toEqual(application);
 
-    expect(applicationsServiceMock.findOne).toHaveBeenCalledWith(1);
+    expect(applicationsServiceMock.findOne).toHaveBeenCalledWith(user.id, 1);
   });
 
   it('should update an application', async () => {
@@ -85,9 +91,13 @@ describe('ApplicationsController', () => {
 
     applicationsServiceMock.update.mockResolvedValue(application);
 
-    await expect(controller.update(1, dto)).resolves.toEqual(application);
+    await expect(controller.update(user, 1, dto)).resolves.toEqual(application);
 
-    expect(applicationsServiceMock.update).toHaveBeenCalledWith(1, dto);
+    expect(applicationsServiceMock.update).toHaveBeenCalledWith(
+      user.id,
+      1,
+      dto,
+    );
   });
 
   it('should remove an application', async () => {
@@ -97,9 +107,9 @@ describe('ApplicationsController', () => {
 
     applicationsServiceMock.remove.mockResolvedValue(application);
 
-    await expect(controller.remove(1)).resolves.toEqual(application);
+    await expect(controller.remove(user, 1)).resolves.toEqual(application);
 
-    expect(applicationsServiceMock.remove).toHaveBeenCalledWith(1);
+    expect(applicationsServiceMock.remove).toHaveBeenCalledWith(user.id, 1);
   });
 
   it('should return upcoming follow-ups', async () => {
@@ -112,9 +122,9 @@ describe('ApplicationsController', () => {
 
     applicationsServiceMock.findFollowUps.mockResolvedValue(applications);
 
-    await expect(controller.findFollowUps()).resolves.toEqual(applications);
+    await expect(controller.findFollowUps(user)).resolves.toEqual(applications);
 
-    expect(applicationsServiceMock.findFollowUps).toHaveBeenCalledTimes(1);
+    expect(applicationsServiceMock.findFollowUps).toHaveBeenCalledWith(user.id);
   });
 
   it('should return upcoming interviews', async () => {
@@ -127,8 +137,12 @@ describe('ApplicationsController', () => {
 
     applicationsServiceMock.findInterviews.mockResolvedValue(applications);
 
-    await expect(controller.findInterviews()).resolves.toEqual(applications);
+    await expect(controller.findInterviews(user)).resolves.toEqual(
+      applications,
+    );
 
-    expect(applicationsServiceMock.findInterviews).toHaveBeenCalledTimes(1);
+    expect(applicationsServiceMock.findInterviews).toHaveBeenCalledWith(
+      user.id,
+    );
   });
 });

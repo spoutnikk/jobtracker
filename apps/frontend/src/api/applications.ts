@@ -54,7 +54,6 @@ export async function getApplications(): Promise<Application[]> {
 }
 
 export interface CreateApplicationInput {
-  userId: number;
   jobOfferId: number;
   status?: ApplicationStatus;
   appliedAt?: string;
@@ -75,7 +74,7 @@ export async function createApplication(
 }
 
 export type UpdateApplicationInput = Partial<
-  Omit<CreateApplicationInput, "userId" | "jobOfferId">
+  Omit<CreateApplicationInput, "jobOfferId">
 >;
 
 export async function updateApplication(

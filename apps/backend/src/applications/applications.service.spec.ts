@@ -7,23 +7,25 @@ describe('ApplicationsService', () => {
   let service: ApplicationsService;
 
   interface ApplicationUpdateArguments {
+    where: {
+      id: number;
+      userId: number;
+    };
     data: {
+      jobOfferId?: number;
       status?: string;
       appliedAt?: Date;
     };
   }
 
   const transactionClientMock = {
-    user: {
-      findUnique: jest.fn(),
-    },
     jobOffer: {
-      findUnique: jest.fn(),
+      findFirst: jest.fn(),
     },
     application: {
       create: jest.fn(),
       findMany: jest.fn(),
-      findUnique: jest.fn(),
+      findFirst: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
     },
@@ -44,6 +46,7 @@ describe('ApplicationsService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    transactionClientMock.jobOffer.findFirst.mockResolvedValue({ id: 1 });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -72,9 +75,12 @@ describe('ApplicationsService', () => {
 
     prismaServiceMock.application.findMany.mockResolvedValue(applications);
 
-    await expect(service.findAll()).resolves.toEqual(applications);
+    await expect(service.findAll(7)).resolves.toEqual(applications);
 
     expect(prismaServiceMock.application.findMany).toHaveBeenCalledWith({
+      where: {
+        userId: 7,
+      },
       include: {
         jobOffer: {
           include: {
@@ -94,13 +100,14 @@ describe('ApplicationsService', () => {
       status: 'APPLIED',
     };
 
-    prismaServiceMock.application.findUnique.mockResolvedValue(application);
+    prismaServiceMock.application.findFirst.mockResolvedValue(application);
 
-    await expect(service.findOne(1)).resolves.toEqual(application);
+    await expect(service.findOne(7, 1)).resolves.toEqual(application);
 
-    expect(prismaServiceMock.application.findUnique).toHaveBeenCalledWith({
+    expect(prismaServiceMock.application.findFirst).toHaveBeenCalledWith({
       where: {
         id: 1,
+        userId: 7,
       },
       include: {
         jobOffer: {
@@ -113,9 +120,9 @@ describe('ApplicationsService', () => {
   });
 
   it('should throw NotFoundException when application does not exist', async () => {
-    prismaServiceMock.application.findUnique.mockResolvedValue(null);
+    prismaServiceMock.application.findFirst.mockResolvedValue(null);
 
-    await expect(service.findOne(9999)).rejects.toThrow(
+    await expect(service.findOne(7, 9999)).rejects.toThrow(
       'Application with id 9999 not found',
     );
   });
@@ -129,18 +136,28 @@ describe('ApplicationsService', () => {
     prismaServiceMock.application.create.mockResolvedValue(createdApplication);
 
     const dto = {
-      userId: 1,
       jobOfferId: 1,
       status: 'APPLIED' as const,
       source: 'France Travail',
       appliedAt: '2026-08-09T10:00:00.000Z',
     };
 
-    await expect(service.create(dto)).resolves.toEqual(createdApplication);
+    await expect(service.create(7, dto)).resolves.toEqual(createdApplication);
 
+    expect(prismaServiceMock.jobOffer.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: 1,
+        company: {
+          userId: 7,
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
     expect(prismaServiceMock.application.create).toHaveBeenCalledWith({
       data: {
-        userId: 1,
+        userId: 7,
         jobOfferId: 1,
         status: 'APPLIED',
         appliedAt: new Date('2026-08-09T10:00:00.000Z'),
@@ -183,6 +200,91 @@ describe('ApplicationsService', () => {
     );
   });
 
+  it('should allow changing to a job offer owned by the authenticated user', async () => {
+    prismaServiceMock.application.findFirst.mockResolvedValue({
+      status: 'DRAFT',
+      appliedAt: null,
+      followUpAt: null,
+      interviewAt: null,
+    });
+    prismaServiceMock.jobOffer.findFirst.mockResolvedValueOnce({ id: 2 });
+    prismaServiceMock.application.update.mockResolvedValue({
+      id: 1,
+      jobOfferId: 2,
+    });
+
+    await expect(service.update(7, 1, { jobOfferId: 2 })).resolves.toEqual({
+      id: 1,
+      jobOfferId: 2,
+    });
+
+    expect(prismaServiceMock.jobOffer.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: 2,
+        company: {
+          userId: 7,
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+    const [updateArguments] = prismaServiceMock.application.update.mock
+      .calls[0] as [ApplicationUpdateArguments];
+    expect(updateArguments.where).toEqual({ id: 1, userId: 7 });
+    expect(updateArguments.data.jobOfferId).toBe(2);
+  });
+
+  it('should translate P2003 when a selected job offer disappears concurrently', async () => {
+    const prismaError = new Prisma.PrismaClientKnownRequestError(
+      'Foreign key constraint failed',
+      {
+        code: 'P2003',
+        clientVersion: '7.9.1',
+      },
+    );
+    prismaServiceMock.application.findFirst.mockResolvedValue({
+      status: 'DRAFT',
+      appliedAt: null,
+      followUpAt: null,
+      interviewAt: null,
+    });
+    prismaServiceMock.jobOffer.findFirst
+      .mockResolvedValueOnce({ id: 2 })
+      .mockResolvedValueOnce(null);
+    prismaServiceMock.application.update.mockRejectedValueOnce(prismaError);
+
+    await expect(service.update(7, 1, { jobOfferId: 2 })).rejects.toThrow(
+      'Job offer with id 2 not found',
+    );
+
+    expect(prismaServiceMock.jobOffer.findFirst).toHaveBeenCalledTimes(2);
+  });
+
+  it('should propagate unexpected P2003 when the selected job offer still belongs to the user', async () => {
+    const prismaError = new Prisma.PrismaClientKnownRequestError(
+      'Foreign key constraint failed',
+      {
+        code: 'P2003',
+        clientVersion: '7.9.1',
+      },
+    );
+    prismaServiceMock.application.findFirst.mockResolvedValue({
+      status: 'DRAFT',
+      appliedAt: null,
+      followUpAt: null,
+      interviewAt: null,
+    });
+    prismaServiceMock.jobOffer.findFirst.mockResolvedValue({ id: 2 });
+    prismaServiceMock.application.update.mockRejectedValueOnce(prismaError);
+
+    await expect(service.update(7, 1, { jobOfferId: 2 })).rejects.toBe(
+      prismaError,
+    );
+
+    expect(prismaServiceMock.jobOffer.findFirst).toHaveBeenCalledTimes(2);
+  });
+
   it('should use the current date when creating an applied application without appliedAt', async () => {
     jest.useFakeTimers();
     jest.setSystemTime(new Date('2026-08-11T09:30:00.000Z'));
@@ -193,7 +295,6 @@ describe('ApplicationsService', () => {
         status: 'APPLIED',
       };
       const dto = {
-        userId: 1,
         jobOfferId: 1,
         status: 'APPLIED' as const,
       };
@@ -202,11 +303,11 @@ describe('ApplicationsService', () => {
         createdApplication,
       );
 
-      await expect(service.create(dto)).resolves.toEqual(createdApplication);
+      await expect(service.create(7, dto)).resolves.toEqual(createdApplication);
 
       expect(prismaServiceMock.application.create).toHaveBeenCalledWith({
         data: {
-          userId: 1,
+          userId: 7,
           jobOfferId: 1,
           status: 'APPLIED',
           appliedAt: new Date('2026-08-11T09:30:00.000Z'),
@@ -247,18 +348,17 @@ describe('ApplicationsService', () => {
       status: 'DRAFT',
     };
     const dto = {
-      userId: 1,
       jobOfferId: 1,
       status: 'DRAFT' as const,
     };
 
     prismaServiceMock.application.create.mockResolvedValue(createdApplication);
 
-    await expect(service.create(dto)).resolves.toEqual(createdApplication);
+    await expect(service.create(7, dto)).resolves.toEqual(createdApplication);
 
     expect(prismaServiceMock.application.create).toHaveBeenCalledWith({
       data: {
-        userId: 1,
+        userId: 7,
         jobOfferId: 1,
         status: 'DRAFT',
         appliedAt: undefined,
@@ -294,7 +394,6 @@ describe('ApplicationsService', () => {
     };
     const transactionError = new Error('Application event creation failed');
     const dto = {
-      userId: 1,
       jobOfferId: 1,
       status: 'APPLIED' as const,
       source: 'France Travail',
@@ -306,12 +405,12 @@ describe('ApplicationsService', () => {
       transactionError,
     );
 
-    await expect(service.create(dto)).rejects.toBe(transactionError);
+    await expect(service.create(7, dto)).rejects.toBe(transactionError);
 
     expect(prismaServiceMock.$transaction).toHaveBeenCalledTimes(1);
     expect(prismaServiceMock.application.create).toHaveBeenCalledWith({
       data: {
-        userId: 1,
+        userId: 7,
         jobOfferId: 1,
         status: 'APPLIED',
         appliedAt: new Date('2026-08-09T10:00:00.000Z'),
@@ -339,76 +438,31 @@ describe('ApplicationsService', () => {
     });
   });
 
-  it('should throw NotFoundException when creating with an unknown user', async () => {
-    const prismaError = new Prisma.PrismaClientKnownRequestError(
-      'Foreign key constraint failed',
-      {
-        code: 'P2003',
-        clientVersion: '7.9.1',
-      },
-    );
+  it('should throw NotFoundException before creating with an unavailable job offer', async () => {
     const dto = {
-      userId: 9999,
-      jobOfferId: 1,
-      status: 'DRAFT' as const,
-    };
-
-    prismaServiceMock.application.create.mockRejectedValueOnce(prismaError);
-    prismaServiceMock.user.findUnique.mockResolvedValueOnce(null);
-
-    await expect(service.create(dto)).rejects.toThrow(
-      'User with id 9999 not found',
-    );
-
-    expect(prismaServiceMock.user.findUnique).toHaveBeenCalledWith({
-      where: {
-        id: 9999,
-      },
-      select: {
-        id: true,
-      },
-    });
-    expect(prismaServiceMock.jobOffer.findUnique).not.toHaveBeenCalled();
-  });
-
-  it('should throw NotFoundException when creating with an unknown job offer', async () => {
-    const prismaError = new Prisma.PrismaClientKnownRequestError(
-      'Foreign key constraint failed',
-      {
-        code: 'P2003',
-        clientVersion: '7.9.1',
-      },
-    );
-    const dto = {
-      userId: 1,
       jobOfferId: 9999,
       status: 'DRAFT' as const,
     };
 
-    prismaServiceMock.application.create.mockRejectedValueOnce(prismaError);
-    prismaServiceMock.user.findUnique.mockResolvedValueOnce({ id: 1 });
-    prismaServiceMock.jobOffer.findUnique.mockResolvedValueOnce(null);
+    prismaServiceMock.jobOffer.findFirst.mockResolvedValueOnce(null);
 
-    await expect(service.create(dto)).rejects.toThrow(
+    await expect(service.create(7, dto)).rejects.toThrow(
       'Job offer with id 9999 not found',
     );
 
-    expect(prismaServiceMock.user.findUnique).toHaveBeenCalledWith({
-      where: {
-        id: 1,
-      },
-      select: {
-        id: true,
-      },
-    });
-    expect(prismaServiceMock.jobOffer.findUnique).toHaveBeenCalledWith({
+    expect(prismaServiceMock.jobOffer.findFirst).toHaveBeenCalledWith({
       where: {
         id: 9999,
+        company: {
+          userId: 7,
+        },
       },
       select: {
         id: true,
       },
     });
+    expect(prismaServiceMock.application.create).not.toHaveBeenCalled();
+    expect(prismaServiceMock.applicationEvent.create).not.toHaveBeenCalled();
   });
 
   it('should propagate an unexpected P2003 when application relations exist', async () => {
@@ -420,25 +474,21 @@ describe('ApplicationsService', () => {
       },
     );
     const dto = {
-      userId: 1,
       jobOfferId: 2,
       status: 'DRAFT' as const,
     };
 
     prismaServiceMock.application.create.mockRejectedValueOnce(prismaError);
-    prismaServiceMock.user.findUnique.mockResolvedValueOnce({ id: 1 });
-    prismaServiceMock.jobOffer.findUnique.mockResolvedValueOnce({ id: 2 });
+    prismaServiceMock.jobOffer.findFirst.mockResolvedValue({ id: 2 });
 
-    await expect(service.create(dto)).rejects.toBe(prismaError);
+    await expect(service.create(7, dto)).rejects.toBe(prismaError);
 
-    expect(prismaServiceMock.user.findUnique).toHaveBeenCalledTimes(1);
-    expect(prismaServiceMock.jobOffer.findUnique).toHaveBeenCalledTimes(1);
+    expect(prismaServiceMock.jobOffer.findFirst).toHaveBeenCalledTimes(2);
   });
 
   it('should propagate a non-P2003 error without checking application relations', async () => {
     const transactionError = new Error('Unexpected transaction error');
     const dto = {
-      userId: 1,
       jobOfferId: 2,
       status: 'DRAFT' as const,
     };
@@ -447,10 +497,9 @@ describe('ApplicationsService', () => {
       transactionError,
     );
 
-    await expect(service.create(dto)).rejects.toBe(transactionError);
+    await expect(service.create(7, dto)).rejects.toBe(transactionError);
 
-    expect(prismaServiceMock.user.findUnique).not.toHaveBeenCalled();
-    expect(prismaServiceMock.jobOffer.findUnique).not.toHaveBeenCalled();
+    expect(prismaServiceMock.jobOffer.findFirst).toHaveBeenCalledTimes(1);
   });
 
   it('should update an application', async () => {
@@ -464,7 +513,7 @@ describe('ApplicationsService', () => {
       status: 'INTERVIEW',
     };
 
-    prismaServiceMock.application.findUnique.mockResolvedValue(
+    prismaServiceMock.application.findFirst.mockResolvedValue(
       existingApplication,
     );
     prismaServiceMock.application.update.mockResolvedValue(updatedApplication);
@@ -475,13 +524,16 @@ describe('ApplicationsService', () => {
       interviewAt: '2026-08-20T14:00:00.000Z',
     };
 
-    await expect(service.update(1, dto)).resolves.toEqual(updatedApplication);
+    await expect(service.update(7, 1, dto)).resolves.toEqual(
+      updatedApplication,
+    );
 
     expect(prismaServiceMock.$transaction).toHaveBeenCalledTimes(1);
 
-    expect(prismaServiceMock.application.findUnique).toHaveBeenCalledWith({
+    expect(prismaServiceMock.application.findFirst).toHaveBeenCalledWith({
       where: {
         id: 1,
+        userId: 7,
       },
       select: {
         status: true,
@@ -494,9 +546,9 @@ describe('ApplicationsService', () => {
     expect(prismaServiceMock.application.update).toHaveBeenCalledWith({
       where: {
         id: 1,
+        userId: 7,
       },
       data: {
-        userId: undefined,
         jobOfferId: undefined,
         status: 'INTERVIEW',
         appliedAt: undefined,
@@ -542,13 +594,13 @@ describe('ApplicationsService', () => {
   });
 
   it('should throw NotFoundException when updating an unknown application', async () => {
-    prismaServiceMock.application.findUnique.mockResolvedValue(null);
+    prismaServiceMock.application.findFirst.mockResolvedValue(null);
 
     const dto = {
       status: 'INTERVIEW' as const,
     };
 
-    await expect(service.update(9999, dto)).rejects.toThrow(
+    await expect(service.update(7, 9999, dto)).rejects.toThrow(
       'Application with id 9999 not found',
     );
 
@@ -557,70 +609,32 @@ describe('ApplicationsService', () => {
     expect(prismaServiceMock.applicationEvent.create).not.toHaveBeenCalled();
   });
 
-  it('should throw NotFoundException when updating with an unknown user', async () => {
-    const prismaError = new Prisma.PrismaClientKnownRequestError(
-      'Foreign key constraint failed',
-      {
-        code: 'P2003',
-        clientVersion: '7.9.1',
-      },
-    );
-
-    prismaServiceMock.application.findUnique.mockResolvedValue({
-      status: 'DRAFT',
-      appliedAt: null,
-      followUpAt: null,
-      interviewAt: null,
-    });
-    prismaServiceMock.application.update.mockRejectedValueOnce(prismaError);
-    prismaServiceMock.user.findUnique.mockResolvedValueOnce(null);
-
-    await expect(service.update(1, { userId: 9999 })).rejects.toThrow(
-      'User with id 9999 not found',
-    );
-
-    expect(prismaServiceMock.user.findUnique).toHaveBeenCalledWith({
-      where: {
-        id: 9999,
-      },
-      select: {
-        id: true,
-      },
-    });
-    expect(prismaServiceMock.jobOffer.findUnique).not.toHaveBeenCalled();
-  });
-
   it('should throw NotFoundException when updating with an unknown job offer', async () => {
-    const prismaError = new Prisma.PrismaClientKnownRequestError(
-      'Foreign key constraint failed',
-      {
-        code: 'P2003',
-        clientVersion: '7.9.1',
-      },
-    );
-
-    prismaServiceMock.application.findUnique.mockResolvedValue({
+    prismaServiceMock.application.findFirst.mockResolvedValue({
       status: 'DRAFT',
       appliedAt: null,
       followUpAt: null,
       interviewAt: null,
     });
-    prismaServiceMock.application.update.mockRejectedValueOnce(prismaError);
-    prismaServiceMock.jobOffer.findUnique.mockResolvedValueOnce(null);
+    prismaServiceMock.jobOffer.findFirst.mockResolvedValueOnce(null);
 
-    await expect(service.update(1, { jobOfferId: 9999 })).rejects.toThrow(
+    await expect(service.update(7, 1, { jobOfferId: 9999 })).rejects.toThrow(
       'Job offer with id 9999 not found',
     );
 
-    expect(prismaServiceMock.user.findUnique).not.toHaveBeenCalled();
-    expect(prismaServiceMock.jobOffer.findUnique).toHaveBeenCalledWith({
+    expect(prismaServiceMock.jobOffer.findFirst).toHaveBeenCalledWith({
       where: {
         id: 9999,
+        company: {
+          userId: 7,
+        },
       },
       select: {
         id: true,
       },
     });
+    expect(prismaServiceMock.application.update).not.toHaveBeenCalled();
+    expect(prismaServiceMock.applicationEvent.create).not.toHaveBeenCalled();
   });
 
   it('should propagate the application event error when updating an application', async () => {
@@ -633,7 +647,7 @@ describe('ApplicationsService', () => {
       status: 'INTERVIEW' as const,
     };
 
-    prismaServiceMock.application.findUnique.mockResolvedValue({
+    prismaServiceMock.application.findFirst.mockResolvedValue({
       status: 'APPLIED',
       followUpAt: null,
       interviewAt: null,
@@ -643,12 +657,13 @@ describe('ApplicationsService', () => {
       transactionError,
     );
 
-    await expect(service.update(1, dto)).rejects.toBe(transactionError);
+    await expect(service.update(7, 1, dto)).rejects.toBe(transactionError);
 
     expect(prismaServiceMock.$transaction).toHaveBeenCalledTimes(1);
-    expect(prismaServiceMock.application.findUnique).toHaveBeenCalledWith({
+    expect(prismaServiceMock.application.findFirst).toHaveBeenCalledWith({
       where: {
         id: 1,
+        userId: 7,
       },
       select: {
         status: true,
@@ -660,9 +675,9 @@ describe('ApplicationsService', () => {
     expect(prismaServiceMock.application.update).toHaveBeenCalledWith({
       where: {
         id: 1,
+        userId: 7,
       },
       data: {
-        userId: undefined,
         jobOfferId: undefined,
         status: 'INTERVIEW',
         appliedAt: undefined,
@@ -695,7 +710,7 @@ describe('ApplicationsService', () => {
     const appliedAt = '2026-08-12T10:00:00.000Z';
     const updatedApplication = { id: 1, status: 'APPLIED' };
 
-    prismaServiceMock.application.findUnique.mockResolvedValue({
+    prismaServiceMock.application.findFirst.mockResolvedValue({
       status: 'DRAFT',
       appliedAt: null,
       followUpAt: null,
@@ -705,7 +720,7 @@ describe('ApplicationsService', () => {
     prismaServiceMock.application.update.mockResolvedValue(updatedApplication);
 
     await expect(
-      service.update(1, { status: 'APPLIED', appliedAt }),
+      service.update(7, 1, { status: 'APPLIED', appliedAt }),
     ).resolves.toEqual(updatedApplication);
 
     expect(prismaServiceMock.applicationEvent.findFirst).toHaveBeenCalledWith({
@@ -753,7 +768,7 @@ describe('ApplicationsService', () => {
     try {
       const updatedApplication = { id: 1, status: 'APPLIED' };
 
-      prismaServiceMock.application.findUnique.mockResolvedValue({
+      prismaServiceMock.application.findFirst.mockResolvedValue({
         status: 'DRAFT',
         appliedAt: null,
         followUpAt: null,
@@ -764,9 +779,9 @@ describe('ApplicationsService', () => {
         updatedApplication,
       );
 
-      await expect(service.update(1, { status: 'APPLIED' })).resolves.toEqual(
-        updatedApplication,
-      );
+      await expect(
+        service.update(7, 1, { status: 'APPLIED' }),
+      ).resolves.toEqual(updatedApplication);
 
       const [updateArguments] = prismaServiceMock.application.update.mock
         .calls[0] as [ApplicationUpdateArguments];
@@ -794,7 +809,7 @@ describe('ApplicationsService', () => {
     const previousAppliedAt = new Date('2026-08-10T09:00:00.000Z');
     const updatedApplication = { id: 1, status: 'APPLIED' };
 
-    prismaServiceMock.application.findUnique.mockResolvedValue({
+    prismaServiceMock.application.findFirst.mockResolvedValue({
       status: 'DRAFT',
       appliedAt: previousAppliedAt,
       followUpAt: null,
@@ -803,7 +818,7 @@ describe('ApplicationsService', () => {
     prismaServiceMock.applicationEvent.findFirst.mockResolvedValueOnce(null);
     prismaServiceMock.application.update.mockResolvedValue(updatedApplication);
 
-    await expect(service.update(1, { status: 'APPLIED' })).resolves.toEqual(
+    await expect(service.update(7, 1, { status: 'APPLIED' })).resolves.toEqual(
       updatedApplication,
     );
 
@@ -828,7 +843,7 @@ describe('ApplicationsService', () => {
     const previousAppliedAt = new Date('2026-08-10T09:00:00.000Z');
     const updatedApplication = { id: 1, status: 'APPLIED' };
 
-    prismaServiceMock.application.findUnique.mockResolvedValue({
+    prismaServiceMock.application.findFirst.mockResolvedValue({
       status: 'REJECTED',
       appliedAt: previousAppliedAt,
       followUpAt: null,
@@ -839,7 +854,7 @@ describe('ApplicationsService', () => {
     });
     prismaServiceMock.application.update.mockResolvedValue(updatedApplication);
 
-    await expect(service.update(1, { status: 'APPLIED' })).resolves.toEqual(
+    await expect(service.update(7, 1, { status: 'APPLIED' })).resolves.toEqual(
       updatedApplication,
     );
 
@@ -864,7 +879,7 @@ describe('ApplicationsService', () => {
   it('should preserve appliedAt without looking for an application sent event when leaving applied', async () => {
     const updatedApplication = { id: 1, status: 'INTERVIEW' };
 
-    prismaServiceMock.application.findUnique.mockResolvedValue({
+    prismaServiceMock.application.findFirst.mockResolvedValue({
       status: 'APPLIED',
       appliedAt: new Date('2026-08-10T09:00:00.000Z'),
       followUpAt: null,
@@ -872,9 +887,9 @@ describe('ApplicationsService', () => {
     });
     prismaServiceMock.application.update.mockResolvedValue(updatedApplication);
 
-    await expect(service.update(1, { status: 'INTERVIEW' })).resolves.toEqual(
-      updatedApplication,
-    );
+    await expect(
+      service.update(7, 1, { status: 'INTERVIEW' }),
+    ).resolves.toEqual(updatedApplication);
 
     expect(prismaServiceMock.applicationEvent.findFirst).not.toHaveBeenCalled();
     const [updateArguments] = prismaServiceMock.application.update.mock
@@ -895,7 +910,7 @@ describe('ApplicationsService', () => {
   it('should not create or look for an application sent event when status remains applied', async () => {
     const updatedApplication = { id: 1, status: 'APPLIED' };
 
-    prismaServiceMock.application.findUnique.mockResolvedValue({
+    prismaServiceMock.application.findFirst.mockResolvedValue({
       status: 'APPLIED',
       appliedAt: new Date('2026-08-10T09:00:00.000Z'),
       followUpAt: null,
@@ -903,7 +918,7 @@ describe('ApplicationsService', () => {
     });
     prismaServiceMock.application.update.mockResolvedValue(updatedApplication);
 
-    await expect(service.update(1, { status: 'APPLIED' })).resolves.toEqual(
+    await expect(service.update(7, 1, { status: 'APPLIED' })).resolves.toEqual(
       updatedApplication,
     );
 
@@ -923,14 +938,14 @@ describe('ApplicationsService', () => {
       followUpAt: new Date(followUpAt),
     };
 
-    prismaServiceMock.application.findUnique.mockResolvedValue({
+    prismaServiceMock.application.findFirst.mockResolvedValue({
       status: 'APPLIED',
       followUpAt: null,
       interviewAt: null,
     });
     prismaServiceMock.application.update.mockResolvedValue(updatedApplication);
 
-    await expect(service.update(1, { followUpAt })).resolves.toEqual(
+    await expect(service.update(7, 1, { followUpAt })).resolves.toEqual(
       updatedApplication,
     );
 
@@ -953,14 +968,14 @@ describe('ApplicationsService', () => {
       followUpAt: new Date(followUpAt),
     };
 
-    prismaServiceMock.application.findUnique.mockResolvedValue({
+    prismaServiceMock.application.findFirst.mockResolvedValue({
       status: 'APPLIED',
       followUpAt: new Date(previousFollowUpAt),
       interviewAt: null,
     });
     prismaServiceMock.application.update.mockResolvedValue(application);
 
-    await expect(service.update(1, { followUpAt })).resolves.toEqual(
+    await expect(service.update(7, 1, { followUpAt })).resolves.toEqual(
       application,
     );
 
@@ -976,14 +991,14 @@ describe('ApplicationsService', () => {
       interviewAt: new Date(interviewAt),
     };
 
-    prismaServiceMock.application.findUnique.mockResolvedValue({
+    prismaServiceMock.application.findFirst.mockResolvedValue({
       status: 'INTERVIEW',
       followUpAt: null,
       interviewAt: new Date(previousInterviewAt),
     });
     prismaServiceMock.application.update.mockResolvedValue(application);
 
-    await expect(service.update(1, { interviewAt })).resolves.toEqual(
+    await expect(service.update(7, 1, { interviewAt })).resolves.toEqual(
       application,
     );
 
@@ -997,7 +1012,7 @@ describe('ApplicationsService', () => {
       contactName: 'Marie Dupont',
     };
 
-    prismaServiceMock.application.findUnique.mockResolvedValue({
+    prismaServiceMock.application.findFirst.mockResolvedValue({
       status: 'APPLIED',
       followUpAt: null,
       interviewAt: null,
@@ -1005,10 +1020,11 @@ describe('ApplicationsService', () => {
     prismaServiceMock.application.update.mockResolvedValue(application);
 
     await expect(
-      service.update(1, { contactName: 'Marie Dupont' }),
+      service.update(7, 1, { contactName: 'Marie Dupont' }),
     ).resolves.toEqual(application);
 
     expect(prismaServiceMock.applicationEvent.create).not.toHaveBeenCalled();
+    expect(prismaServiceMock.jobOffer.findFirst).not.toHaveBeenCalled();
   });
 
   it('should remove an application', async () => {
@@ -1017,26 +1033,50 @@ describe('ApplicationsService', () => {
       status: 'INTERVIEW',
     };
 
-    prismaServiceMock.application.findUnique.mockResolvedValue(application);
+    prismaServiceMock.application.findFirst.mockResolvedValue(application);
     prismaServiceMock.application.delete.mockResolvedValue(application);
 
-    await expect(service.remove(1)).resolves.toEqual(application);
+    await expect(service.remove(7, 1)).resolves.toEqual(application);
 
     expect(prismaServiceMock.application.delete).toHaveBeenCalledWith({
       where: {
         id: 1,
+        userId: 7,
       },
     });
   });
 
   it('should throw NotFoundException when removing an unknown application', async () => {
-    prismaServiceMock.application.findUnique.mockResolvedValue(null);
+    prismaServiceMock.application.findFirst.mockResolvedValue(null);
 
-    await expect(service.remove(9999)).rejects.toThrow(
+    await expect(service.remove(7, 9999)).rejects.toThrow(
       'Application with id 9999 not found',
     );
 
     expect(prismaServiceMock.application.delete).not.toHaveBeenCalled();
+  });
+
+  it('should translate P2025 from a concurrent removal to the same NotFoundException', async () => {
+    const prismaError = new Prisma.PrismaClientKnownRequestError(
+      'Record to delete does not exist',
+      {
+        code: 'P2025',
+        clientVersion: '7.9.1',
+      },
+    );
+    prismaServiceMock.application.findFirst.mockResolvedValue({ id: 1 });
+    prismaServiceMock.application.delete.mockRejectedValueOnce(prismaError);
+
+    await expect(service.remove(7, 1)).rejects.toThrow(
+      'Application with id 1 not found',
+    );
+
+    expect(prismaServiceMock.application.delete).toHaveBeenCalledWith({
+      where: {
+        id: 1,
+        userId: 7,
+      },
+    });
   });
 
   it('should return upcoming follow-ups ordered by date', async () => {
@@ -1052,10 +1092,11 @@ describe('ApplicationsService', () => {
 
     prismaServiceMock.application.findMany.mockResolvedValue(applications);
 
-    await expect(service.findFollowUps()).resolves.toEqual(applications);
+    await expect(service.findFollowUps(7)).resolves.toEqual(applications);
 
     expect(prismaServiceMock.application.findMany).toHaveBeenCalledWith({
       where: {
+        userId: 7,
         followUpAt: {
           gte: new Date('2026-08-10T10:00:00.000Z'),
         },
@@ -1086,10 +1127,11 @@ describe('ApplicationsService', () => {
 
     prismaServiceMock.application.findMany.mockResolvedValue(applications);
 
-    await expect(service.findInterviews()).resolves.toEqual(applications);
+    await expect(service.findInterviews(7)).resolves.toEqual(applications);
 
     expect(prismaServiceMock.application.findMany).toHaveBeenCalledWith({
       where: {
+        userId: 7,
         interviewAt: {
           gte: new Date('2026-08-10T10:00:00.000Z'),
         },

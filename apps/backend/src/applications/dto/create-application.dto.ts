@@ -13,10 +13,6 @@ import { ApplicationStatus as ApplicationStatusEnum } from '../../../generated/p
 export class CreateApplicationDto {
   @IsInt()
   @IsPositive()
-  userId!: number;
-
-  @IsInt()
-  @IsPositive()
   jobOfferId!: number;
 
   @IsOptional()

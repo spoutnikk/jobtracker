@@ -8,9 +8,27 @@ import { UpdateApplicationDto } from './dto/update-application.dto';
 export class ApplicationsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createApplicationDto: CreateApplicationDto) {
+  async create(userId: number, createApplicationDto: CreateApplicationDto) {
     try {
       return await this.prisma.$transaction(async (tx) => {
+        const jobOffer = await tx.jobOffer.findFirst({
+          where: {
+            id: createApplicationDto.jobOfferId,
+            company: {
+              userId,
+            },
+          },
+          select: {
+            id: true,
+          },
+        });
+
+        if (!jobOffer) {
+          throw new NotFoundException(
+            `Job offer with id ${createApplicationDto.jobOfferId} not found`,
+          );
+        }
+
         const appliedAt = createApplicationDto.appliedAt
           ? new Date(createApplicationDto.appliedAt)
           : createApplicationDto.status === 'APPLIED'
@@ -19,7 +37,7 @@ export class ApplicationsService {
 
         const application = await tx.application.create({
           data: {
-            userId: createApplicationDto.userId,
+            userId,
             jobOfferId: createApplicationDto.jobOfferId,
             status: createApplicationDto.status,
             appliedAt,
@@ -67,14 +85,17 @@ export class ApplicationsService {
     } catch (error: unknown) {
       return this.rethrowApplicationRelationError(
         error,
-        createApplicationDto.userId,
+        userId,
         createApplicationDto.jobOfferId,
       );
     }
   }
 
-  findAll() {
+  findAll(userId: number) {
     return this.prisma.application.findMany({
+      where: {
+        userId,
+      },
       include: {
         jobOffer: {
           include: {
@@ -88,10 +109,11 @@ export class ApplicationsService {
     });
   }
 
-  async findOne(id: number) {
-    const application = await this.prisma.application.findUnique({
+  async findOne(userId: number, id: number) {
+    const application = await this.prisma.application.findFirst({
       where: {
         id,
+        userId,
       },
       include: {
         jobOffer: {
@@ -109,12 +131,17 @@ export class ApplicationsService {
     return application;
   }
 
-  async update(id: number, updateApplicationDto: UpdateApplicationDto) {
+  async update(
+    userId: number,
+    id: number,
+    updateApplicationDto: UpdateApplicationDto,
+  ) {
     try {
       return await this.prisma.$transaction(async (tx) => {
-        const previousApplication = await tx.application.findUnique({
+        const previousApplication = await tx.application.findFirst({
           where: {
             id,
+            userId,
           },
           select: {
             status: true,
@@ -126,6 +153,26 @@ export class ApplicationsService {
 
         if (!previousApplication) {
           throw new NotFoundException(`Application with id ${id} not found`);
+        }
+
+        if (updateApplicationDto.jobOfferId !== undefined) {
+          const jobOffer = await tx.jobOffer.findFirst({
+            where: {
+              id: updateApplicationDto.jobOfferId,
+              company: {
+                userId,
+              },
+            },
+            select: {
+              id: true,
+            },
+          });
+
+          if (!jobOffer) {
+            throw new NotFoundException(
+              `Job offer with id ${updateApplicationDto.jobOfferId} not found`,
+            );
+          }
         }
 
         const isTransitioningToApplied =
@@ -160,9 +207,9 @@ export class ApplicationsService {
         const application = await tx.application.update({
           where: {
             id,
+            userId,
           },
           data: {
-            userId: updateApplicationDto.userId,
             jobOfferId: updateApplicationDto.jobOfferId,
             status: updateApplicationDto.status,
             appliedAt,
@@ -240,7 +287,7 @@ export class ApplicationsService {
     } catch (error: unknown) {
       return this.rethrowApplicationRelationError(
         error,
-        updateApplicationDto.userId,
+        userId,
         updateApplicationDto.jobOfferId,
       );
     }
@@ -248,7 +295,7 @@ export class ApplicationsService {
 
   private async rethrowApplicationRelationError(
     error: unknown,
-    userId: number | undefined,
+    userId: number,
     jobOfferId: number | undefined,
   ): Promise<never> {
     if (
@@ -258,25 +305,13 @@ export class ApplicationsService {
       throw error;
     }
 
-    if (userId !== undefined) {
-      const user = await this.prisma.user.findUnique({
-        where: {
-          id: userId,
-        },
-        select: {
-          id: true,
-        },
-      });
-
-      if (!user) {
-        throw new NotFoundException(`User with id ${userId} not found`);
-      }
-    }
-
     if (jobOfferId !== undefined) {
-      const jobOffer = await this.prisma.jobOffer.findUnique({
+      const jobOffer = await this.prisma.jobOffer.findFirst({
         where: {
           id: jobOfferId,
+          company: {
+            userId,
+          },
         },
         select: {
           id: true,
@@ -293,19 +328,32 @@ export class ApplicationsService {
     throw error;
   }
 
-  async remove(id: number) {
-    await this.findOne(id);
+  async remove(userId: number, id: number) {
+    await this.findOne(userId, id);
 
-    return this.prisma.application.delete({
-      where: {
-        id,
-      },
-    });
+    try {
+      return await this.prisma.application.delete({
+        where: {
+          id,
+          userId,
+        },
+      });
+    } catch (error: unknown) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        throw new NotFoundException(`Application with id ${id} not found`);
+      }
+
+      throw error;
+    }
   }
 
-  findFollowUps() {
+  findFollowUps(userId: number) {
     return this.prisma.application.findMany({
       where: {
+        userId,
         followUpAt: {
           gte: new Date(),
         },
@@ -323,9 +371,10 @@ export class ApplicationsService {
     });
   }
 
-  findInterviews() {
+  findInterviews(userId: number) {
     return this.prisma.application.findMany({
       where: {
+        userId,
         interviewAt: {
           gte: new Date(),
         },

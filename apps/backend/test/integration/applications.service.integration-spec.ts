@@ -227,8 +227,7 @@ describe('ApplicationsService PostgreSQL integration', () => {
     }
 
     await expect(
-      service.create({
-        userId,
+      service.create(userId, {
         jobOfferId,
         status: 'APPLIED',
         source: applicationSource,

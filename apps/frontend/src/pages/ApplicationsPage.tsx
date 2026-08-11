@@ -134,7 +134,6 @@ function ApplicationsPage() {
     }
 
     createApplicationMutation.mutate({
-      userId: 1,
       jobOfferId,
       status,
       source: source || undefined,

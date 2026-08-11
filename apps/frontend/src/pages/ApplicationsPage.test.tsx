@@ -169,7 +169,6 @@ describe("ApplicationsPage", () => {
     const [createInput] = vi.mocked(createApplication).mock.calls[0];
 
     expect(createInput).toEqual({
-      userId: 1,
       jobOfferId: jobOffer.id,
       status: "APPLIED",
       source: "LinkedIn",
