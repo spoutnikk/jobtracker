@@ -224,7 +224,6 @@ function CompaniesPage() {
 
                       if (confirmed) {
                         deleteCompanyMutation.mutate(company.id);
-                        deleteCompanyMutation.mutate(company.id);
                       }
                     }}
                     disabled={deleteCompanyMutation.isPending}
