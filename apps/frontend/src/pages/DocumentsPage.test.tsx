@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getApplications, type Application } from "../api/applications";
+import { getAllApplications, type Application } from "../api/applications";
 import {
   deleteDocument,
   getDocumentDownloadUrl,
@@ -20,7 +20,7 @@ vi.mock("../api/documents", () => ({
 }));
 
 vi.mock("../api/applications", () => ({
-  getApplications: vi.fn(),
+  getAllApplications: vi.fn(),
 }));
 
 const application: Application = {
@@ -60,6 +60,17 @@ const application: Application = {
   },
 };
 
+const applicationFromNextPage: Application = {
+  ...application,
+  id: 151,
+  jobOfferId: 11,
+  jobOffer: {
+    ...application.jobOffer,
+    id: 11,
+    title: "Développeur TypeScript",
+  },
+};
+
 const document: Document = {
   id: 1,
   name: "CV principal",
@@ -87,7 +98,7 @@ const document: Document = {
 describe("DocumentsPage", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    vi.mocked(getApplications).mockResolvedValue([application]);
+    vi.mocked(getAllApplications).mockResolvedValue([application]);
     vi.mocked(getDocuments).mockResolvedValue([document]);
     vi.mocked(uploadDocument).mockResolvedValue(document);
     vi.mocked(deleteDocument).mockResolvedValue(document);
@@ -135,6 +146,31 @@ describe("DocumentsPage", () => {
     expect(
       await screen.findByText("Aucun document enregistré."),
     ).toBeInTheDocument();
+  });
+
+  it("offers applications collected from every page", async () => {
+    vi.mocked(getAllApplications).mockResolvedValue([
+      application,
+      applicationFromNextPage,
+    ]);
+
+    renderWithProviders(<DocumentsPage />);
+
+    const applicationSelect = await screen.findByLabelText(
+      "Candidature associée",
+    );
+
+    expect(
+      within(applicationSelect).getByRole("option", {
+        name: `${application.jobOffer.title} — ${application.jobOffer.company.name}`,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(applicationSelect).getByRole("option", {
+        name: `${applicationFromNextPage.jobOffer.title} — ${applicationFromNextPage.jobOffer.company.name}`,
+      }),
+    ).toBeInTheDocument();
+    expect(getAllApplications).toHaveBeenCalledTimes(1);
   });
 
   it("uploads a document associated with an application", async () => {

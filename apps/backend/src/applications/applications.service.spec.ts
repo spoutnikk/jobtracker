@@ -24,6 +24,7 @@ describe('ApplicationsService', () => {
     },
     application: {
       create: jest.fn(),
+      count: jest.fn(),
       findMany: jest.fn(),
       findFirst: jest.fn(),
       update: jest.fn(),
@@ -39,8 +40,13 @@ describe('ApplicationsService', () => {
     ...transactionClientMock,
     $transaction: jest.fn(
       <T>(
-        callback: (tx: typeof transactionClientMock) => Promise<T>,
-      ): Promise<T> => callback(transactionClientMock),
+        operation:
+          | ((tx: typeof transactionClientMock) => Promise<T>)
+          | Promise<unknown>[],
+      ): Promise<T | unknown[]> =>
+        Array.isArray(operation)
+          ? Promise.all(operation)
+          : operation(transactionClientMock),
     ),
   };
 
@@ -74,8 +80,15 @@ describe('ApplicationsService', () => {
     ];
 
     prismaServiceMock.application.findMany.mockResolvedValue(applications);
+    prismaServiceMock.application.count.mockResolvedValue(1);
 
-    await expect(service.findAll(7)).resolves.toEqual(applications);
+    await expect(service.findAll(7)).resolves.toEqual({
+      items: applications,
+      page: 1,
+      pageSize: 10,
+      total: 1,
+      totalPages: 1,
+    });
 
     expect(prismaServiceMock.application.findMany).toHaveBeenCalledWith({
       where: {
@@ -88,20 +101,36 @@ describe('ApplicationsService', () => {
           },
         },
       },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      skip: 0,
+      take: 10,
+    });
+    expect(prismaServiceMock.application.count).toHaveBeenCalledWith({
+      where: { userId: 7 },
     });
   });
 
   it('should combine application filters without weakening ownership', async () => {
     prismaServiceMock.application.findMany.mockResolvedValue([]);
+    prismaServiceMock.application.count.mockResolvedValue(21);
 
-    await service.findAll(7, {
-      status: 'INTERVIEW',
-      companyId: 2,
-      jobOfferId: 3,
-      search: '  ignored by DTO boundary  ',
+    await expect(
+      service.findAll(7, {
+        status: 'INTERVIEW',
+        companyId: 2,
+        jobOfferId: 3,
+        search: '  ignored by DTO boundary  ',
+        page: 3,
+        pageSize: 5,
+        sortBy: 'status',
+        sortOrder: 'asc',
+      }),
+    ).resolves.toEqual({
+      items: [],
+      page: 3,
+      pageSize: 5,
+      total: 21,
+      totalPages: 5,
     });
 
     expect(prismaServiceMock.application.findMany).toHaveBeenCalledWith({
@@ -136,9 +165,48 @@ describe('ApplicationsService', () => {
           },
         },
       },
-      orderBy: {
-        createdAt: 'desc',
+      orderBy: [{ status: 'asc' }, { id: 'asc' }],
+      skip: 10,
+      take: 5,
+    });
+    expect(prismaServiceMock.application.count).toHaveBeenCalledWith({
+      where: {
+        userId: 7,
+        status: 'INTERVIEW',
+        jobOfferId: 3,
+        jobOffer: {
+          companyId: 2,
+          OR: [
+            {
+              title: {
+                contains: '  ignored by DTO boundary  ',
+                mode: 'insensitive',
+              },
+            },
+            {
+              company: {
+                name: {
+                  contains: '  ignored by DTO boundary  ',
+                  mode: 'insensitive',
+                },
+              },
+            },
+          ],
+        },
       },
+    });
+  });
+
+  it('returns zero total pages for an empty result', async () => {
+    prismaServiceMock.application.findMany.mockResolvedValue([]);
+    prismaServiceMock.application.count.mockResolvedValue(0);
+
+    await expect(service.findAll(7)).resolves.toEqual({
+      items: [],
+      page: 1,
+      pageSize: 10,
+      total: 0,
+      totalPages: 0,
     });
   });
 

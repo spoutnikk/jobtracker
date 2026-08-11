@@ -5,7 +5,9 @@ import {
   updateApplication,
   deleteApplication,
   type ApplicationFilters,
+  type ApplicationSortBy,
   type ApplicationStatus,
+  type SortOrder,
 } from "../api/applications";
 import { getJobOffers } from "../api/job-offers";
 import {
@@ -32,6 +34,10 @@ function ApplicationsPage() {
   const [filterStatus, setFilterStatus] = useState<ApplicationStatus | "">("");
   const [filterCompanyId, setFilterCompanyId] = useState<number | null>(null);
   const [filterJobOfferId, setFilterJobOfferId] = useState<number | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [sortBy, setSortBy] = useState<ApplicationSortBy>("createdAt");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [editingApplicationId, setEditingApplicationId] = useState<
     number | null
   >(null);
@@ -159,6 +165,10 @@ function ApplicationsPage() {
     companyId: filterCompanyId ?? undefined,
     jobOfferId: filterJobOfferId ?? undefined,
     search: filterSearch || undefined,
+    page,
+    pageSize,
+    sortBy,
+    sortOrder,
   };
   const hasActiveFilters =
     applicationFilters.status !== undefined ||
@@ -176,8 +186,7 @@ function ApplicationsPage() {
 
   const applicationsQuery = useQuery({
     queryKey: ["applications", applicationFilters],
-    queryFn: () =>
-      getApplications(hasActiveFilters ? applicationFilters : undefined),
+    queryFn: () => getApplications(applicationFilters),
   });
 
   if (applicationsQuery.isPending) {
@@ -205,6 +214,7 @@ function ApplicationsPage() {
           onSubmit={(event) => {
             event.preventDefault();
             setFilterSearch(filterSearchInput.trim());
+            setPage(1);
           }}
         >
           <h2 className="text-lg font-semibold">Filtrer les candidatures</h2>
@@ -226,9 +236,10 @@ function ApplicationsPage() {
               </span>
               <select
                 value={filterStatus}
-                onChange={(event) =>
-                  setFilterStatus(event.target.value as ApplicationStatus | "")
-                }
+                onChange={(event) => {
+                  setFilterStatus(event.target.value as ApplicationStatus | "");
+                  setPage(1);
+                }}
                 className="rounded-md border border-gray-300 px-3 py-2"
               >
                 <option value="">Tous les statuts</option>
@@ -246,11 +257,12 @@ function ApplicationsPage() {
               </span>
               <select
                 value={filterCompanyId ?? ""}
-                onChange={(event) =>
+                onChange={(event) => {
                   setFilterCompanyId(
                     event.target.value ? Number(event.target.value) : null,
-                  )
-                }
+                  );
+                  setPage(1);
+                }}
                 className="rounded-md border border-gray-300 px-3 py-2"
               >
                 <option value="">Toutes les sociétés</option>
@@ -267,11 +279,12 @@ function ApplicationsPage() {
               </span>
               <select
                 value={filterJobOfferId ?? ""}
-                onChange={(event) =>
+                onChange={(event) => {
                   setFilterJobOfferId(
                     event.target.value ? Number(event.target.value) : null,
-                  )
-                }
+                  );
+                  setPage(1);
+                }}
                 className="rounded-md border border-gray-300 px-3 py-2"
               >
                 <option value="">Toutes les offres</option>
@@ -298,11 +311,67 @@ function ApplicationsPage() {
                 setFilterStatus("");
                 setFilterCompanyId(null);
                 setFilterJobOfferId(null);
+                setPage(1);
+                setPageSize(10);
+                setSortBy("createdAt");
+                setSortOrder("desc");
               }}
               className="rounded-md border border-gray-300 px-4 py-2 font-medium"
             >
               Réinitialiser
             </button>
+          </div>
+          <div className="mt-4 grid gap-4 md:grid-cols-3">
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-medium text-gray-700">
+                Trier par
+              </span>
+              <select
+                value={sortBy}
+                onChange={(event) => {
+                  setSortBy(event.target.value as ApplicationSortBy);
+                  setPage(1);
+                }}
+                className="rounded-md border border-gray-300 px-3 py-2"
+              >
+                <option value="createdAt">Date de création</option>
+                <option value="appliedAt">Date de candidature</option>
+                <option value="followUpAt">Relance</option>
+                <option value="interviewAt">Entretien</option>
+                <option value="status">Statut</option>
+              </select>
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-medium text-gray-700">Ordre</span>
+              <select
+                value={sortOrder}
+                onChange={(event) => {
+                  setSortOrder(event.target.value as SortOrder);
+                  setPage(1);
+                }}
+                className="rounded-md border border-gray-300 px-3 py-2"
+              >
+                <option value="desc">Décroissant</option>
+                <option value="asc">Croissant</option>
+              </select>
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-medium text-gray-700">
+                Par page
+              </span>
+              <select
+                value={pageSize}
+                onChange={(event) => {
+                  setPageSize(Number(event.target.value));
+                  setPage(1);
+                }}
+                className="rounded-md border border-gray-300 px-3 py-2"
+              >
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="50">50</option>
+              </select>
+            </label>
           </div>
         </form>
         <form
@@ -457,7 +526,14 @@ function ApplicationsPage() {
             </p>
           )}
         </form>
-        {applicationsQuery.data.length === 0 ? (
+        <div className="mt-6 flex items-center justify-between text-sm text-gray-600">
+          <p>{applicationsQuery.data.total} candidatures</p>
+          <p>
+            Page {applicationsQuery.data.page} sur{" "}
+            {applicationsQuery.data.totalPages}
+          </p>
+        </div>
+        {applicationsQuery.data.items.length === 0 ? (
           <p className="mt-6 text-gray-600">
             {hasActiveFilters
               ? "Aucun résultat pour ces filtres."
@@ -465,7 +541,7 @@ function ApplicationsPage() {
           </p>
         ) : (
           <div className="mt-6 space-y-4">
-            {applicationsQuery.data.map((application) => (
+            {applicationsQuery.data.items.map((application) => (
               <article
                 key={application.id}
                 className="rounded-lg border border-gray-200 p-5 shadow-sm"
@@ -802,6 +878,27 @@ function ApplicationsPage() {
             ))}
           </div>
         )}
+        <div className="mt-6 flex justify-end gap-2">
+          <button
+            type="button"
+            disabled={page <= 1}
+            onClick={() => setPage((current) => current - 1)}
+            className="rounded-md border border-gray-300 px-4 py-2 disabled:opacity-50"
+          >
+            Précédent
+          </button>
+          <button
+            type="button"
+            disabled={
+              applicationsQuery.data.totalPages === 0 ||
+              page >= applicationsQuery.data.totalPages
+            }
+            onClick={() => setPage((current) => current + 1)}
+            className="rounded-md border border-gray-300 px-4 py-2 disabled:opacity-50"
+          >
+            Suivant
+          </button>
+        </div>
       </div>
     </main>
   );

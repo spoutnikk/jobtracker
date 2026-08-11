@@ -92,7 +92,10 @@ export class ApplicationsService {
     }
   }
 
-  findAll(userId: number, filters: FindApplicationsQueryDto = {}) {
+  async findAll(
+    userId: number,
+    filters: FindApplicationsQueryDto = new FindApplicationsQueryDto(),
+  ) {
     const jobOfferFilter: Prisma.JobOfferWhereInput = {
       ...(filters.companyId !== undefined && {
         companyId: filters.companyId,
@@ -117,27 +120,64 @@ export class ApplicationsService {
       }),
     };
     const hasJobOfferFilter = Object.keys(jobOfferFilter).length > 0;
+    const page = filters.page ?? 1;
+    const pageSize = filters.pageSize ?? 10;
+    const sortBy = filters.sortBy ?? 'createdAt';
+    const sortOrder = filters.sortOrder ?? 'desc';
+    const where: Prisma.ApplicationWhereInput = {
+      userId,
+      ...(filters.status !== undefined && { status: filters.status }),
+      ...(filters.jobOfferId !== undefined && {
+        jobOfferId: filters.jobOfferId,
+      }),
+      ...(hasJobOfferFilter && { jobOffer: jobOfferFilter }),
+    };
+    const orderBy = this.buildApplicationOrderBy(sortBy, sortOrder);
 
-    return this.prisma.application.findMany({
-      where: {
-        userId,
-        ...(filters.status !== undefined && { status: filters.status }),
-        ...(filters.jobOfferId !== undefined && {
-          jobOfferId: filters.jobOfferId,
-        }),
-        ...(hasJobOfferFilter && { jobOffer: jobOfferFilter }),
-      },
-      include: {
-        jobOffer: {
-          include: {
-            company: true,
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.application.findMany({
+        where,
+        include: {
+          jobOffer: {
+            include: {
+              company: true,
+            },
           },
         },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+        orderBy,
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.application.count({ where }),
+    ]);
+
+    return {
+      items,
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+    };
+  }
+
+  private buildApplicationOrderBy(
+    sortBy: NonNullable<FindApplicationsQueryDto['sortBy']>,
+    sortOrder: NonNullable<FindApplicationsQueryDto['sortOrder']>,
+  ): Prisma.ApplicationOrderByWithRelationInput[] {
+    switch (sortBy) {
+      case 'updatedAt':
+        return [{ updatedAt: sortOrder }, { id: sortOrder }];
+      case 'appliedAt':
+        return [{ appliedAt: sortOrder }, { id: sortOrder }];
+      case 'followUpAt':
+        return [{ followUpAt: sortOrder }, { id: sortOrder }];
+      case 'interviewAt':
+        return [{ interviewAt: sortOrder }, { id: sortOrder }];
+      case 'status':
+        return [{ status: sortOrder }, { id: sortOrder }];
+      case 'createdAt':
+        return [{ createdAt: sortOrder }, { id: sortOrder }];
+    }
   }
 
   async findOne(userId: number, id: number) {

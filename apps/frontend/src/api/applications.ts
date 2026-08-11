@@ -52,16 +52,54 @@ export interface ApplicationFilters {
   companyId?: number;
   jobOfferId?: number;
   search?: string;
+  page?: number;
+  pageSize?: number;
+  sortBy?: ApplicationSortBy;
+  sortOrder?: SortOrder;
+}
+
+export type ApplicationSortBy =
+  | "createdAt"
+  | "updatedAt"
+  | "appliedAt"
+  | "followUpAt"
+  | "interviewAt"
+  | "status";
+
+export type SortOrder = "asc" | "desc";
+
+export interface PaginatedApplications {
+  items: Application[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
 }
 
 export async function getApplications(
   filters?: ApplicationFilters,
-): Promise<Application[]> {
-  const response = await apiClient.get<Application[]>("/applications", {
+): Promise<PaginatedApplications> {
+  const response = await apiClient.get<PaginatedApplications>("/applications", {
     params: filters,
   });
 
   return response.data;
+}
+
+export async function getAllApplications(): Promise<Application[]> {
+  const firstPage = await getApplications({ page: 1, pageSize: 50 });
+
+  if (firstPage.totalPages <= 1) {
+    return firstPage.items;
+  }
+
+  const remainingPages = await Promise.all(
+    Array.from({ length: firstPage.totalPages - 1 }, (_, index) =>
+      getApplications({ page: index + 2, pageSize: 50 }),
+    ),
+  );
+
+  return [...firstPage.items, ...remainingPages.flatMap((page) => page.items)];
 }
 
 export interface CreateApplicationInput {

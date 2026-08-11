@@ -5,6 +5,8 @@ import {
   IsOptional,
   IsPositive,
   IsString,
+  IsIn,
+  Max,
 } from 'class-validator';
 import type { ApplicationStatus } from '../../../generated/prisma/enums';
 import { ApplicationStatus as ApplicationStatusEnum } from '../../../generated/prisma/enums';
@@ -32,4 +34,38 @@ export class FindApplicationsQueryDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @IsPositive()
+  page: number = 1;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @IsPositive()
+  @Max(50)
+  pageSize: number = 10;
+
+  @IsOptional()
+  @IsIn([
+    'createdAt',
+    'updatedAt',
+    'appliedAt',
+    'followUpAt',
+    'interviewAt',
+    'status',
+  ])
+  sortBy:
+    | 'createdAt'
+    | 'updatedAt'
+    | 'appliedAt'
+    | 'followUpAt'
+    | 'interviewAt'
+    | 'status' = 'createdAt';
+
+  @IsOptional()
+  @IsIn(['asc', 'desc'])
+  sortOrder: 'asc' | 'desc' = 'desc';
 }

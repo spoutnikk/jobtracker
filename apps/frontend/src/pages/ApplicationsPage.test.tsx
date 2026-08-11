@@ -6,6 +6,7 @@ import {
   deleteApplication,
   getApplications,
   type Application,
+  type PaginatedApplications,
   updateApplication,
 } from "../api/applications";
 import {
@@ -73,10 +74,37 @@ const application: Application = {
   jobOffer,
 };
 
+function paginatedApplications(
+  items: Application[],
+  overrides: Partial<PaginatedApplications> = {},
+): PaginatedApplications {
+  return {
+    items,
+    page: 1,
+    pageSize: 10,
+    total: items.length,
+    totalPages: items.length === 0 ? 0 : 1,
+    ...overrides,
+  };
+}
+
+const defaultApplicationParams = {
+  status: undefined,
+  companyId: undefined,
+  jobOfferId: undefined,
+  search: undefined,
+  page: 1,
+  pageSize: 10,
+  sortBy: "createdAt",
+  sortOrder: "desc",
+};
+
 describe("ApplicationsPage", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    vi.mocked(getApplications).mockResolvedValue([application]);
+    vi.mocked(getApplications).mockResolvedValue(
+      paginatedApplications([application]),
+    );
     vi.mocked(getJobOffers).mockResolvedValue([jobOffer]);
     vi.mocked(getApplicationEvents).mockResolvedValue([]);
     vi.mocked(createApplication).mockResolvedValue(application);
@@ -123,10 +151,12 @@ describe("ApplicationsPage", () => {
     expect(
       card.getByText(`Contact : ${application.contactName}`),
     ).toBeInTheDocument();
+    expect(screen.getByText("1 candidatures")).toBeInTheDocument();
+    expect(screen.getByText("Page 1 sur 1")).toBeInTheDocument();
   });
 
   it("renders an empty state", async () => {
-    vi.mocked(getApplications).mockResolvedValue([]);
+    vi.mocked(getApplications).mockResolvedValue(paginatedApplications([]));
 
     renderWithProviders(<ApplicationsPage />);
 
@@ -166,6 +196,131 @@ describe("ApplicationsPage", () => {
     },
   );
 
+  it("requests and navigates through paginated applications", async () => {
+    vi.mocked(getApplications).mockImplementation(async (filters) =>
+      paginatedApplications([application], {
+        page: filters?.page ?? 1,
+        total: 21,
+        totalPages: 3,
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<ApplicationsPage />);
+
+    expect(await screen.findByText("21 candidatures")).toBeInTheDocument();
+    expect(screen.getByText("Page 1 sur 3")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Précédent" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Suivant" })).toBeEnabled();
+    expect(getApplications).toHaveBeenLastCalledWith(defaultApplicationParams);
+
+    await user.click(screen.getByRole("button", { name: "Suivant" }));
+
+    await waitFor(() => {
+      expect(getApplications).toHaveBeenLastCalledWith({
+        ...defaultApplicationParams,
+        page: 2,
+      });
+      expect(screen.getByText("Page 2 sur 3")).toBeInTheDocument();
+    });
+    await user.click(screen.getByRole("button", { name: "Précédent" }));
+
+    await waitFor(() => {
+      expect(getApplications).toHaveBeenLastCalledWith(
+        defaultApplicationParams,
+      );
+    });
+  });
+
+  it("disables next on the last page", async () => {
+    vi.mocked(getApplications).mockResolvedValue(
+      paginatedApplications([application], {
+        page: 1,
+        total: 1,
+        totalPages: 1,
+      }),
+    );
+
+    renderWithProviders(<ApplicationsPage />);
+
+    await screen.findByRole("heading", { name: jobOffer.title });
+    expect(screen.getByRole("button", { name: "Suivant" })).toBeDisabled();
+  });
+
+  it("resets pagination when sorting or filtering changes", async () => {
+    vi.mocked(getApplications).mockImplementation(async (filters) =>
+      paginatedApplications([application], {
+        page: filters?.page ?? 1,
+        total: 21,
+        totalPages: 3,
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<ApplicationsPage />);
+
+    await screen.findByRole("heading", { name: jobOffer.title });
+    await user.click(screen.getByRole("button", { name: "Suivant" }));
+    await waitFor(() => {
+      expect(getApplications).toHaveBeenLastCalledWith({
+        ...defaultApplicationParams,
+        page: 2,
+      });
+    });
+
+    await user.selectOptions(screen.getByLabelText("Trier par"), "status");
+    await user.selectOptions(screen.getByLabelText("Ordre"), "asc");
+
+    await waitFor(() => {
+      expect(getApplications).toHaveBeenLastCalledWith({
+        ...defaultApplicationParams,
+        sortBy: "status",
+        sortOrder: "asc",
+      });
+    });
+
+    await user.click(screen.getByRole("button", { name: "Suivant" }));
+    await user.selectOptions(
+      screen.getByLabelText("Filtrer par statut"),
+      "APPLIED",
+    );
+
+    await waitFor(() => {
+      expect(getApplications).toHaveBeenLastCalledWith({
+        ...defaultApplicationParams,
+        status: "APPLIED",
+        sortBy: "status",
+        sortOrder: "asc",
+      });
+    });
+  });
+
+  it("resets sorting, page size, and page to their defaults", async () => {
+    vi.mocked(getApplications).mockImplementation(async (filters) =>
+      paginatedApplications([application], {
+        page: filters?.page ?? 1,
+        pageSize: filters?.pageSize ?? 10,
+        total: 21,
+        totalPages: 3,
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<ApplicationsPage />);
+
+    await screen.findByRole("heading", { name: jobOffer.title });
+    await user.selectOptions(screen.getByLabelText("Trier par"), "status");
+    await user.selectOptions(screen.getByLabelText("Ordre"), "asc");
+    await user.selectOptions(screen.getByLabelText("Par page"), "20");
+    await user.click(screen.getByRole("button", { name: "Réinitialiser" }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Trier par")).toHaveValue("createdAt");
+      expect(screen.getByLabelText("Ordre")).toHaveValue("desc");
+      expect(screen.getByLabelText("Par page")).toHaveValue("10");
+      expect(getApplications).toHaveBeenLastCalledWith(
+        defaultApplicationParams,
+      );
+    });
+  });
+
   it("submits trimmed search text without querying on every character", async () => {
     const user = userEvent.setup();
     renderWithProviders(<ApplicationsPage />);
@@ -178,9 +333,7 @@ describe("ApplicationsPage", () => {
 
     await waitFor(() => {
       expect(getApplications).toHaveBeenLastCalledWith({
-        status: undefined,
-        companyId: undefined,
-        jobOfferId: undefined,
+        ...defaultApplicationParams,
         search: "React",
       });
     });
@@ -208,6 +361,7 @@ describe("ApplicationsPage", () => {
 
     await waitFor(() => {
       expect(getApplications).toHaveBeenLastCalledWith({
+        ...defaultApplicationParams,
         status: "APPLIED",
         companyId: company.id,
         jobOfferId: jobOffer.id,
@@ -220,12 +374,14 @@ describe("ApplicationsPage", () => {
     await user.click(screen.getByRole("button", { name: "Réinitialiser" }));
 
     await waitFor(() => {
-      expect(getApplications).toHaveBeenLastCalledWith(undefined);
+      expect(getApplications).toHaveBeenLastCalledWith(
+        defaultApplicationParams,
+      );
     });
   });
 
   it("distinguishes an empty filtered result", async () => {
-    vi.mocked(getApplications).mockResolvedValue([]);
+    vi.mocked(getApplications).mockResolvedValue(paginatedApplications([]));
     const user = userEvent.setup();
     renderWithProviders(<ApplicationsPage />);
 
@@ -241,7 +397,7 @@ describe("ApplicationsPage", () => {
   });
 
   it("creates an application with the selected job offer", async () => {
-    vi.mocked(getApplications).mockResolvedValue([]);
+    vi.mocked(getApplications).mockResolvedValue(paginatedApplications([]));
     const user = userEvent.setup();
     const { queryClient } = renderWithProviders(<ApplicationsPage />);
     const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");

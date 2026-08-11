@@ -7,7 +7,7 @@ import {
   uploadDocument,
   type DocumentType,
 } from "../api/documents";
-import { getApplications } from "../api/applications";
+import { getAllApplications } from "../api/applications";
 
 function DocumentsPage() {
   const queryClient = useQueryClient();
@@ -20,7 +20,7 @@ function DocumentsPage() {
 
   const applicationsQuery = useQuery({
     queryKey: ["applications"],
-    queryFn: () => getApplications(),
+    queryFn: getAllApplications,
   });
 
   const documentsQuery = useQuery({
