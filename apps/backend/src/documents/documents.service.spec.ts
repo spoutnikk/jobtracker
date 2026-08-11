@@ -95,6 +95,47 @@ describe('DocumentsService', () => {
     });
   });
 
+  it('should create a document without an application event when applicationId is missing', async () => {
+    const dto = {
+      name: 'CV générique',
+      type: 'CV' as const,
+    };
+
+    const file = {
+      originalname: 'cv.pdf',
+      mimetype: 'application/pdf',
+      size: 1234,
+      path: 'uploads/cv.pdf',
+    };
+
+    const document = {
+      id: 1,
+      ...dto,
+      applicationId: null,
+      originalName: file.originalname,
+      mimeType: file.mimetype,
+      size: file.size,
+      path: file.path,
+    };
+
+    prismaServiceMock.document.create.mockResolvedValue(document);
+
+    await expect(service.create(dto, file)).resolves.toEqual(document);
+
+    expect(prismaServiceMock.document.create).toHaveBeenCalledWith({
+      data: {
+        name: 'CV générique',
+        originalName: 'cv.pdf',
+        mimeType: 'application/pdf',
+        size: 1234,
+        path: 'uploads/cv.pdf',
+        type: 'CV',
+        applicationId: undefined,
+      },
+    });
+    expect(prismaServiceMock.applicationEvent.create).not.toHaveBeenCalled();
+  });
+
   it('should return all documents', async () => {
     const documents = [
       {

@@ -257,6 +257,100 @@ describe('ApplicationsService', () => {
     expect(prismaServiceMock.applicationEvent.create).not.toHaveBeenCalled();
   });
 
+  it('should create a follow-up event when followUpAt changes', async () => {
+    const followUpAt = '2026-08-25T10:00:00.000Z';
+    const updatedApplication = {
+      id: 1,
+      status: 'APPLIED',
+      followUpAt: new Date(followUpAt),
+    };
+
+    prismaServiceMock.application.findUnique.mockResolvedValue({
+      status: 'APPLIED',
+      followUpAt: null,
+      interviewAt: null,
+    });
+    prismaServiceMock.application.update.mockResolvedValue(updatedApplication);
+
+    await expect(service.update(1, { followUpAt })).resolves.toEqual(
+      updatedApplication,
+    );
+
+    expect(prismaServiceMock.applicationEvent.create).toHaveBeenCalledWith({
+      data: {
+        applicationId: 1,
+        type: 'FOLLOW_UP',
+        title: 'Relance planifiée',
+        occurredAt: new Date(followUpAt),
+      },
+    });
+  });
+
+  it('should not create an event when followUpAt remains unchanged', async () => {
+    const followUpAt = '2026-08-25T10:00:00.000Z';
+    const application = {
+      id: 1,
+      status: 'APPLIED',
+      followUpAt: new Date(followUpAt),
+    };
+
+    prismaServiceMock.application.findUnique.mockResolvedValue({
+      status: 'APPLIED',
+      followUpAt: new Date(followUpAt),
+      interviewAt: null,
+    });
+    prismaServiceMock.application.update.mockResolvedValue(application);
+
+    await expect(service.update(1, { followUpAt })).resolves.toEqual(
+      application,
+    );
+
+    expect(prismaServiceMock.applicationEvent.create).not.toHaveBeenCalled();
+  });
+
+  it('should not create an event when interviewAt remains unchanged', async () => {
+    const interviewAt = '2026-08-20T14:00:00.000Z';
+    const application = {
+      id: 1,
+      status: 'INTERVIEW',
+      interviewAt: new Date(interviewAt),
+    };
+
+    prismaServiceMock.application.findUnique.mockResolvedValue({
+      status: 'INTERVIEW',
+      followUpAt: null,
+      interviewAt: new Date(interviewAt),
+    });
+    prismaServiceMock.application.update.mockResolvedValue(application);
+
+    await expect(service.update(1, { interviewAt })).resolves.toEqual(
+      application,
+    );
+
+    expect(prismaServiceMock.applicationEvent.create).not.toHaveBeenCalled();
+  });
+
+  it('should not create an event when updating a non-event field', async () => {
+    const application = {
+      id: 1,
+      status: 'APPLIED',
+      contactName: 'Marie Dupont',
+    };
+
+    prismaServiceMock.application.findUnique.mockResolvedValue({
+      status: 'APPLIED',
+      followUpAt: null,
+      interviewAt: null,
+    });
+    prismaServiceMock.application.update.mockResolvedValue(application);
+
+    await expect(
+      service.update(1, { contactName: 'Marie Dupont' }),
+    ).resolves.toEqual(application);
+
+    expect(prismaServiceMock.applicationEvent.create).not.toHaveBeenCalled();
+  });
+
   it('should remove an application', async () => {
     const application = {
       id: 1,
