@@ -52,9 +52,17 @@ describe('CompaniesController', () => {
 
     companiesServiceMock.findAll.mockResolvedValue(companies);
 
-    await expect(controller.findAll(user)).resolves.toEqual(companies);
+    const filters = {
+      search: 'Acme',
+      page: 2,
+      pageSize: 5,
+      sortBy: 'name' as const,
+      sortOrder: 'asc' as const,
+    };
 
-    expect(companiesServiceMock.findAll).toHaveBeenCalledWith(user.id);
+    await expect(controller.findAll(user, filters)).resolves.toEqual(companies);
+
+    expect(companiesServiceMock.findAll).toHaveBeenCalledWith(user.id, filters);
   });
 
   it('should return one company', async () => {

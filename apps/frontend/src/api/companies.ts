@@ -19,10 +19,49 @@ export interface CreateCompanyInput {
 
 export type UpdateCompanyInput = Partial<CreateCompanyInput>;
 
-export async function getCompanies(): Promise<Company[]> {
-  const response = await apiClient.get<Company[]>("/companies");
+export type CompanySortBy = "name" | "createdAt" | "updatedAt";
+export type CompanySortOrder = "asc" | "desc";
+
+export interface CompanyFilters {
+  search?: string;
+  page?: number;
+  pageSize?: number;
+  sortBy?: CompanySortBy;
+  sortOrder?: CompanySortOrder;
+}
+
+export interface PaginatedCompanies {
+  items: Company[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
+export async function getCompanies(
+  filters?: CompanyFilters,
+): Promise<PaginatedCompanies> {
+  const response = await apiClient.get<PaginatedCompanies>("/companies", {
+    params: filters,
+  });
 
   return response.data;
+}
+
+export async function getAllCompanies(): Promise<Company[]> {
+  const firstPage = await getCompanies({ page: 1, pageSize: 50 });
+
+  if (firstPage.totalPages <= 1) {
+    return firstPage.items;
+  }
+
+  const remainingPages = await Promise.all(
+    Array.from({ length: firstPage.totalPages - 1 }, (_, index) =>
+      getCompanies({ page: index + 2, pageSize: 50 }),
+    ),
+  );
+
+  return [...firstPage.items, ...remainingPages.flatMap((page) => page.items)];
 }
 
 export async function createCompany(

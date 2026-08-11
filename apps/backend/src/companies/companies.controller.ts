@@ -7,20 +7,25 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { CompaniesService } from './companies.service';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/authenticated-user';
+import { FindCompaniesQueryDto } from './dto/find-companies-query.dto';
 
 @Controller('companies')
 export class CompaniesController {
   constructor(private readonly companiesService: CompaniesService) {}
 
   @Get()
-  findAll(@CurrentUser() user: AuthenticatedUser) {
-    return this.companiesService.findAll(user.id);
+  findAll(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() filters: FindCompaniesQueryDto,
+  ) {
+    return this.companiesService.findAll(user.id, filters);
   }
 
   @Get(':id')

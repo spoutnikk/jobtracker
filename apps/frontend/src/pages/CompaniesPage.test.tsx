@@ -7,6 +7,7 @@ import {
   deleteCompany,
   getCompanies,
   type Company,
+  type PaginatedCompanies,
   updateCompany,
 } from "../api/companies";
 import { renderWithProviders } from "../test/renderWithProviders";
@@ -27,6 +28,28 @@ const company: Company = {
   createdAt: "2026-08-11T08:00:00.000Z",
   updatedAt: "2026-08-11T08:00:00.000Z",
   jobOffers: [],
+};
+
+function paginatedCompanies(
+  items: Company[],
+  overrides: Partial<PaginatedCompanies> = {},
+): PaginatedCompanies {
+  return {
+    items,
+    page: 1,
+    pageSize: 10,
+    total: items.length,
+    totalPages: items.length === 0 ? 0 : 1,
+    ...overrides,
+  };
+}
+
+const defaultCompanyParams = {
+  search: undefined,
+  page: 1,
+  pageSize: 10,
+  sortBy: "createdAt",
+  sortOrder: "desc",
 };
 
 function createAxiosError(status: number) {
@@ -50,7 +73,7 @@ function createAxiosError(status: number) {
 describe("CompaniesPage", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    vi.mocked(getCompanies).mockResolvedValue([company]);
+    vi.mocked(getCompanies).mockResolvedValue(paginatedCompanies([company]));
     vi.mocked(createCompany).mockResolvedValue(company);
     vi.mocked(updateCompany).mockResolvedValue(company);
     vi.mocked(deleteCompany).mockResolvedValue(company);
@@ -81,10 +104,115 @@ describe("CompaniesPage", () => {
       company.website,
     );
     expect(card.getByText("0 offre d'emploi")).toBeInTheDocument();
+    expect(screen.getByText("1 entreprises")).toBeInTheDocument();
+    expect(screen.getByText("Page 1 sur 1")).toBeInTheDocument();
+  });
+
+  it("navigates through paginated companies with correct boundaries", async () => {
+    vi.mocked(getCompanies).mockImplementation(async (filters) =>
+      paginatedCompanies([company], {
+        page: filters?.page ?? 1,
+        total: 21,
+        totalPages: 3,
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<CompaniesPage />);
+
+    expect(await screen.findByText("21 entreprises")).toBeInTheDocument();
+    expect(screen.getByText("Page 1 sur 3")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Précédent" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Suivant" })).toBeEnabled();
+    expect(getCompanies).toHaveBeenLastCalledWith(defaultCompanyParams);
+
+    await user.click(screen.getByRole("button", { name: "Suivant" }));
+
+    await waitFor(() => {
+      expect(getCompanies).toHaveBeenLastCalledWith({
+        ...defaultCompanyParams,
+        page: 2,
+      });
+      expect(screen.getByText("Page 2 sur 3")).toBeInTheDocument();
+    });
+    await user.click(screen.getByRole("button", { name: "Précédent" }));
+
+    await waitFor(() => {
+      expect(getCompanies).toHaveBeenLastCalledWith(defaultCompanyParams);
+    });
+  });
+
+  it("resets to page one after search and sorting changes", async () => {
+    vi.mocked(getCompanies).mockImplementation(async (filters) =>
+      paginatedCompanies([company], {
+        page: filters?.page ?? 1,
+        total: 21,
+        totalPages: 3,
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<CompaniesPage />);
+
+    await screen.findByRole("heading", { name: company.name });
+    await user.click(screen.getByRole("button", { name: "Suivant" }));
+    await user.type(screen.getByLabelText("Recherche"), "  Acme  ");
+    await user.click(screen.getByRole("button", { name: "Rechercher" }));
+
+    await waitFor(() => {
+      expect(getCompanies).toHaveBeenLastCalledWith({
+        ...defaultCompanyParams,
+        search: "Acme",
+      });
+    });
+    const [filters] = vi.mocked(getCompanies).mock.calls.at(-1) ?? [];
+    expect(filters).not.toHaveProperty("userId");
+
+    await user.click(screen.getByRole("button", { name: "Suivant" }));
+    await user.selectOptions(screen.getByLabelText("Trier par"), "name");
+    await user.selectOptions(screen.getByLabelText("Ordre"), "asc");
+
+    await waitFor(() => {
+      expect(getCompanies).toHaveBeenLastCalledWith({
+        ...defaultCompanyParams,
+        search: "Acme",
+        sortBy: "name",
+        sortOrder: "asc",
+      });
+    });
+  });
+
+  it("resets search, sorting, page size, and current page", async () => {
+    vi.mocked(getCompanies).mockImplementation(async (filters) =>
+      paginatedCompanies([company], {
+        page: filters?.page ?? 1,
+        pageSize: filters?.pageSize ?? 10,
+        total: 21,
+        totalPages: 3,
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<CompaniesPage />);
+
+    await screen.findByRole("heading", { name: company.name });
+    await user.click(screen.getByRole("button", { name: "Suivant" }));
+    await user.type(screen.getByLabelText("Recherche"), "Acme");
+    await user.click(screen.getByRole("button", { name: "Rechercher" }));
+    await user.click(screen.getByRole("button", { name: "Suivant" }));
+    await user.selectOptions(screen.getByLabelText("Trier par"), "name");
+    await user.selectOptions(screen.getByLabelText("Ordre"), "asc");
+    await user.selectOptions(screen.getByLabelText("Par page"), "20");
+    await user.click(screen.getByRole("button", { name: "Réinitialiser" }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Recherche")).toHaveValue("");
+      expect(screen.getByLabelText("Trier par")).toHaveValue("createdAt");
+      expect(screen.getByLabelText("Ordre")).toHaveValue("desc");
+      expect(screen.getByLabelText("Par page")).toHaveValue("10");
+      expect(getCompanies).toHaveBeenLastCalledWith(defaultCompanyParams);
+    });
   });
 
   it("creates a company and resets the form", async () => {
-    vi.mocked(getCompanies).mockResolvedValue([]);
+    vi.mocked(getCompanies).mockResolvedValue(paginatedCompanies([]));
     const user = userEvent.setup();
     const { queryClient } = renderWithProviders(<CompaniesPage />);
     const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
@@ -124,7 +252,7 @@ describe("CompaniesPage", () => {
   });
 
   it("shows a generic message when company creation fails", async () => {
-    vi.mocked(getCompanies).mockResolvedValue([]);
+    vi.mocked(getCompanies).mockResolvedValue(paginatedCompanies([]));
     vi.mocked(createCompany).mockRejectedValue(new Error("Unexpected error"));
     const user = userEvent.setup();
 

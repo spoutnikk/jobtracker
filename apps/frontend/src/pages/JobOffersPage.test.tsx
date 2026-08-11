@@ -2,7 +2,7 @@ import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AxiosError, AxiosHeaders } from "axios";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getCompanies } from "../api/companies";
+import { getAllCompanies } from "../api/companies";
 import {
   createJobOffer,
   deleteJobOffer,
@@ -21,7 +21,7 @@ vi.mock("../api/job-offers", () => ({
 }));
 
 vi.mock("../api/companies", () => ({
-  getCompanies: vi.fn(),
+  getAllCompanies: vi.fn(),
 }));
 
 const company = {
@@ -106,7 +106,7 @@ describe("JobOffersPage", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.mocked(getJobOffers).mockResolvedValue([]);
-    vi.mocked(getCompanies).mockResolvedValue([company, secondCompany]);
+    vi.mocked(getAllCompanies).mockResolvedValue([company, secondCompany]);
     vi.mocked(createJobOffer).mockResolvedValue(jobOffer);
     vi.mocked(updateJobOffer).mockResolvedValue(updatedJobOffer);
     vi.mocked(deleteJobOffer).mockResolvedValue(jobOffer);

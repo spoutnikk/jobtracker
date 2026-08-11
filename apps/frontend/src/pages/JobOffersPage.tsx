@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { useState } from "react";
-import { getCompanies } from "../api/companies";
+import { getAllCompanies } from "../api/companies";
 import {
   createJobOffer,
   deleteJobOffer,
@@ -71,8 +71,8 @@ function JobOffersPage() {
   });
 
   const companiesQuery = useQuery({
-    queryKey: ["companies"],
-    queryFn: getCompanies,
+    queryKey: ["companies", "all"],
+    queryFn: getAllCompanies,
   });
 
   const createJobOfferMutation = useMutation({

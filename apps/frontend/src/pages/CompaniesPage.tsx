@@ -4,13 +4,29 @@ import {
   getCompanies,
   updateCompany,
   deleteCompany,
+  type CompanyFilters,
+  type CompanySortBy,
+  type CompanySortOrder,
 } from "../api/companies";
 import { useState } from "react";
 
 function CompaniesPage() {
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [sortBy, setSortBy] = useState<CompanySortBy>("createdAt");
+  const [sortOrder, setSortOrder] = useState<CompanySortOrder>("desc");
+  const companyFilters: CompanyFilters = {
+    search: search || undefined,
+    page,
+    pageSize,
+    sortBy,
+    sortOrder,
+  };
   const companiesQuery = useQuery({
-    queryKey: ["companies"],
-    queryFn: getCompanies,
+    queryKey: ["companies", companyFilters],
+    queryFn: () => getCompanies(companyFilters),
   });
   const queryClient = useQueryClient();
 
@@ -108,6 +124,99 @@ function CompaniesPage() {
       <div className="mx-auto max-w-5xl">
         <h1 className="text-3xl font-bold">Entreprises</h1>
         <form
+          className="mt-6 rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
+          onSubmit={(event) => {
+            event.preventDefault();
+            setSearch(searchInput.trim());
+            setPage(1);
+          }}
+        >
+          <h2 className="text-lg font-semibold">Filtrer les entreprises</h2>
+          <div className="mt-4 grid gap-4 md:grid-cols-4">
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-medium text-gray-700">
+                Recherche
+              </span>
+              <input
+                type="search"
+                value={searchInput}
+                onChange={(event) => setSearchInput(event.target.value)}
+                className="rounded-md border border-gray-300 px-3 py-2"
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-medium text-gray-700">
+                Trier par
+              </span>
+              <select
+                value={sortBy}
+                onChange={(event) => {
+                  setSortBy(event.target.value as CompanySortBy);
+                  setPage(1);
+                }}
+                className="rounded-md border border-gray-300 px-3 py-2"
+              >
+                <option value="name">Nom</option>
+                <option value="createdAt">Date de création</option>
+                <option value="updatedAt">Date de modification</option>
+              </select>
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-medium text-gray-700">Ordre</span>
+              <select
+                value={sortOrder}
+                onChange={(event) => {
+                  setSortOrder(event.target.value as CompanySortOrder);
+                  setPage(1);
+                }}
+                className="rounded-md border border-gray-300 px-3 py-2"
+              >
+                <option value="desc">Décroissant</option>
+                <option value="asc">Croissant</option>
+              </select>
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-medium text-gray-700">
+                Par page
+              </span>
+              <select
+                value={pageSize}
+                onChange={(event) => {
+                  setPageSize(Number(event.target.value));
+                  setPage(1);
+                }}
+                className="rounded-md border border-gray-300 px-3 py-2"
+              >
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="50">50</option>
+              </select>
+            </label>
+          </div>
+          <div className="mt-4 flex gap-2">
+            <button
+              type="submit"
+              className="rounded-md bg-blue-600 px-4 py-2 font-medium text-white"
+            >
+              Rechercher
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSearchInput("");
+                setSearch("");
+                setPage(1);
+                setPageSize(10);
+                setSortBy("createdAt");
+                setSortOrder("desc");
+              }}
+              className="rounded-md border border-gray-300 px-4 py-2 font-medium"
+            >
+              Réinitialiser
+            </button>
+          </div>
+        </form>
+        <form
           onSubmit={handleSubmit}
           className="mt-6 rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
         >
@@ -169,11 +278,21 @@ function CompaniesPage() {
           )}
         </form>
 
-        {companiesQuery.data.length === 0 ? (
-          <p className="mt-6 text-gray-600">Aucune entreprise enregistrée.</p>
+        <div className="mt-6 flex items-center justify-between text-sm text-gray-600">
+          <p>{companiesQuery.data.total} entreprises</p>
+          <p>
+            Page {companiesQuery.data.page} sur {companiesQuery.data.totalPages}
+          </p>
+        </div>
+        {companiesQuery.data.items.length === 0 ? (
+          <p className="mt-6 text-gray-600">
+            {search
+              ? "Aucun résultat pour cette recherche."
+              : "Aucune entreprise enregistrée."}
+          </p>
         ) : (
           <div className="mt-6 space-y-4">
-            {companiesQuery.data.map((company) => (
+            {companiesQuery.data.items.map((company) => (
               <article
                 key={company.id}
                 className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
@@ -315,6 +434,27 @@ function CompaniesPage() {
             ))}
           </div>
         )}
+        <div className="mt-6 flex justify-end gap-2">
+          <button
+            type="button"
+            disabled={page <= 1}
+            onClick={() => setPage((current) => current - 1)}
+            className="rounded-md border border-gray-300 px-4 py-2 disabled:opacity-50"
+          >
+            Précédent
+          </button>
+          <button
+            type="button"
+            disabled={
+              companiesQuery.data.totalPages === 0 ||
+              page >= companiesQuery.data.totalPages
+            }
+            onClick={() => setPage((current) => current + 1)}
+            className="rounded-md border border-gray-300 px-4 py-2 disabled:opacity-50"
+          >
+            Suivant
+          </button>
+        </div>
       </div>
     </main>
   );

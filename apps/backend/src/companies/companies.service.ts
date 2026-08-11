@@ -6,6 +6,7 @@ import {
 import { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCompanyDto } from './dto/create-company.dto';
+import { FindCompaniesQueryDto } from './dto/find-companies-query.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
 
 @Injectable()
@@ -27,16 +28,57 @@ export class CompaniesService {
     return company;
   }
 
-  findAll(userId: number) {
-    return this.prisma.company.findMany({
-      where: { userId },
-      include: {
-        jobOffers: true,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+  async findAll(
+    userId: number,
+    filters: FindCompaniesQueryDto = new FindCompaniesQueryDto(),
+  ) {
+    const page = filters.page;
+    const pageSize = filters.pageSize;
+    const where: Prisma.CompanyWhereInput = {
+      userId,
+      ...(filters.search !== undefined && {
+        name: {
+          contains: filters.search,
+          mode: 'insensitive',
+        },
+      }),
+    };
+    const orderBy = this.buildCompanyOrderBy(filters.sortBy, filters.sortOrder);
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.company.findMany({
+        where,
+        include: {
+          jobOffers: true,
+        },
+        orderBy,
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.company.count({ where }),
+    ]);
+
+    return {
+      items,
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+    };
+  }
+
+  private buildCompanyOrderBy(
+    sortBy: FindCompaniesQueryDto['sortBy'],
+    sortOrder: FindCompaniesQueryDto['sortOrder'],
+  ): Prisma.CompanyOrderByWithRelationInput[] {
+    switch (sortBy) {
+      case 'name':
+        return [{ name: sortOrder }, { id: sortOrder }];
+      case 'updatedAt':
+        return [{ updatedAt: sortOrder }, { id: sortOrder }];
+      case 'createdAt':
+        return [{ createdAt: sortOrder }, { id: sortOrder }];
+    }
   }
 
   create(userId: number, createCompanyDto: CreateCompanyDto) {

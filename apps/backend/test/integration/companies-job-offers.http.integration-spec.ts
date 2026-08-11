@@ -56,6 +56,23 @@ function readIds(body: unknown): number[] {
   });
 }
 
+function readPaginatedItems(body: unknown): unknown {
+  if (typeof body !== 'object' || body === null) {
+    return undefined;
+  }
+
+  return (body as Record<string, unknown>).items;
+}
+
+function readNumber(body: unknown, property: string): number | undefined {
+  if (typeof body !== 'object' || body === null) {
+    return undefined;
+  }
+
+  const value = (body as Record<string, unknown>)[property];
+  return typeof value === 'number' ? value : undefined;
+}
+
 function readMessage(body: unknown): unknown {
   if (typeof body !== 'object' || body === null) {
     return undefined;
@@ -183,8 +200,12 @@ describe('Companies and JobOffers HTTP ownership integration', () => {
       .set('Cookie', userB.cookie)
       .expect(200);
 
-    expect(readIds(companiesA.body)).toEqual([userA.companyId]);
-    expect(readIds(companiesB.body)).toEqual([userB.companyId]);
+    expect(readIds(readPaginatedItems(companiesA.body))).toEqual([
+      userA.companyId,
+    ]);
+    expect(readIds(readPaginatedItems(companiesB.body))).toEqual([
+      userB.companyId,
+    ]);
 
     const foreign = await request(app.getHttpServer())
       .get(`/companies/${userB.companyId}`)
@@ -213,6 +234,82 @@ describe('Companies and JobOffers HTTP ownership integration', () => {
       .set('Origin', DEFAULT_FRONTEND_ORIGIN)
       .set('Cookie', userA.cookie)
       .expect(404);
+  });
+
+  it('paginates and searches companies without exposing another user', async () => {
+    if (!app || !prisma || !userA || !userB) {
+      throw new Error('Integration fixtures are unavailable');
+    }
+
+    const prismaClient = prisma;
+    const ownerId = userA.userId;
+    const additionalCompanies = await Promise.all(
+      ['Alpha', 'Beta', 'Gamma'].map((name) =>
+        prismaClient.company.create({
+          data: {
+            name: `${name} ${marker}`,
+            userId: ownerId,
+          },
+          select: { id: true },
+        }),
+      ),
+    );
+    const ownedIds = new Set([
+      userA.companyId,
+      ...additionalCompanies.map(({ id }) => id),
+    ]);
+
+    const firstPage = await request(app.getHttpServer())
+      .get('/companies')
+      .query({
+        search: marker,
+        page: 1,
+        pageSize: 2,
+        sortBy: 'name',
+        sortOrder: 'asc',
+      })
+      .set('Cookie', userA.cookie)
+      .expect(200);
+    const secondPage = await request(app.getHttpServer())
+      .get('/companies')
+      .query({
+        search: marker,
+        page: 2,
+        pageSize: 2,
+        sortBy: 'name',
+        sortOrder: 'asc',
+      })
+      .set('Cookie', userA.cookie)
+      .expect(200);
+    const returnedIds = [
+      ...readIds(readPaginatedItems(firstPage.body)),
+      ...readIds(readPaginatedItems(secondPage.body)),
+    ];
+
+    expect(readNumber(firstPage.body, 'total')).toBe(4);
+    expect(readNumber(firstPage.body, 'totalPages')).toBe(2);
+    expect(readNumber(firstPage.body, 'page')).toBe(1);
+    expect(readNumber(secondPage.body, 'page')).toBe(2);
+    expect(returnedIds).toHaveLength(4);
+    expect(returnedIds.every((id) => ownedIds.has(id))).toBe(true);
+    expect(returnedIds).not.toContain(userB.companyId);
+
+    await request(app.getHttpServer())
+      .get('/companies?page=0')
+      .set('Cookie', userA.cookie)
+      .expect(400);
+    await request(app.getHttpServer())
+      .get('/companies?pageSize=51')
+      .set('Cookie', userA.cookie)
+      .expect(400);
+    await request(app.getHttpServer())
+      .get('/companies?sortBy=userId')
+      .set('Cookie', userA.cookie)
+      .expect(400);
+    await request(app.getHttpServer())
+      .get(`/companies?userId=${userB.userId}`)
+      .set('Cookie', userA.cookie)
+      .expect(400);
   });
 
   it('isolates job offers and rejects foreign company associations', async () => {
