@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ApplicationsService } from './applications.service';
 
@@ -13,6 +14,12 @@ describe('ApplicationsService', () => {
   }
 
   const transactionClientMock = {
+    user: {
+      findUnique: jest.fn(),
+    },
+    jobOffer: {
+      findUnique: jest.fn(),
+    },
     application: {
       create: jest.fn(),
       findMany: jest.fn(),
@@ -332,6 +339,120 @@ describe('ApplicationsService', () => {
     });
   });
 
+  it('should throw NotFoundException when creating with an unknown user', async () => {
+    const prismaError = new Prisma.PrismaClientKnownRequestError(
+      'Foreign key constraint failed',
+      {
+        code: 'P2003',
+        clientVersion: '7.9.1',
+      },
+    );
+    const dto = {
+      userId: 9999,
+      jobOfferId: 1,
+      status: 'DRAFT' as const,
+    };
+
+    prismaServiceMock.application.create.mockRejectedValueOnce(prismaError);
+    prismaServiceMock.user.findUnique.mockResolvedValueOnce(null);
+
+    await expect(service.create(dto)).rejects.toThrow(
+      'User with id 9999 not found',
+    );
+
+    expect(prismaServiceMock.user.findUnique).toHaveBeenCalledWith({
+      where: {
+        id: 9999,
+      },
+      select: {
+        id: true,
+      },
+    });
+    expect(prismaServiceMock.jobOffer.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('should throw NotFoundException when creating with an unknown job offer', async () => {
+    const prismaError = new Prisma.PrismaClientKnownRequestError(
+      'Foreign key constraint failed',
+      {
+        code: 'P2003',
+        clientVersion: '7.9.1',
+      },
+    );
+    const dto = {
+      userId: 1,
+      jobOfferId: 9999,
+      status: 'DRAFT' as const,
+    };
+
+    prismaServiceMock.application.create.mockRejectedValueOnce(prismaError);
+    prismaServiceMock.user.findUnique.mockResolvedValueOnce({ id: 1 });
+    prismaServiceMock.jobOffer.findUnique.mockResolvedValueOnce(null);
+
+    await expect(service.create(dto)).rejects.toThrow(
+      'Job offer with id 9999 not found',
+    );
+
+    expect(prismaServiceMock.user.findUnique).toHaveBeenCalledWith({
+      where: {
+        id: 1,
+      },
+      select: {
+        id: true,
+      },
+    });
+    expect(prismaServiceMock.jobOffer.findUnique).toHaveBeenCalledWith({
+      where: {
+        id: 9999,
+      },
+      select: {
+        id: true,
+      },
+    });
+  });
+
+  it('should propagate an unexpected P2003 when application relations exist', async () => {
+    const prismaError = new Prisma.PrismaClientKnownRequestError(
+      'Foreign key constraint failed',
+      {
+        code: 'P2003',
+        clientVersion: '7.9.1',
+      },
+    );
+    const dto = {
+      userId: 1,
+      jobOfferId: 2,
+      status: 'DRAFT' as const,
+    };
+
+    prismaServiceMock.application.create.mockRejectedValueOnce(prismaError);
+    prismaServiceMock.user.findUnique.mockResolvedValueOnce({ id: 1 });
+    prismaServiceMock.jobOffer.findUnique.mockResolvedValueOnce({ id: 2 });
+
+    await expect(service.create(dto)).rejects.toBe(prismaError);
+
+    expect(prismaServiceMock.user.findUnique).toHaveBeenCalledTimes(1);
+    expect(prismaServiceMock.jobOffer.findUnique).toHaveBeenCalledTimes(1);
+  });
+
+  it('should propagate a non-P2003 error without checking application relations', async () => {
+    const transactionError = new Error('Unexpected transaction error');
+    const dto = {
+      userId: 1,
+      jobOfferId: 2,
+      status: 'DRAFT' as const,
+    };
+
+    prismaServiceMock.application.create.mockRejectedValueOnce(
+      transactionError,
+    );
+
+    await expect(service.create(dto)).rejects.toBe(transactionError);
+
+    expect(prismaServiceMock.user.findUnique).not.toHaveBeenCalled();
+    expect(prismaServiceMock.jobOffer.findUnique).not.toHaveBeenCalled();
+  });
+
   it('should update an application', async () => {
     const existingApplication = {
       id: 1,
@@ -434,6 +555,72 @@ describe('ApplicationsService', () => {
     expect(prismaServiceMock.$transaction).toHaveBeenCalledTimes(1);
     expect(prismaServiceMock.application.update).not.toHaveBeenCalled();
     expect(prismaServiceMock.applicationEvent.create).not.toHaveBeenCalled();
+  });
+
+  it('should throw NotFoundException when updating with an unknown user', async () => {
+    const prismaError = new Prisma.PrismaClientKnownRequestError(
+      'Foreign key constraint failed',
+      {
+        code: 'P2003',
+        clientVersion: '7.9.1',
+      },
+    );
+
+    prismaServiceMock.application.findUnique.mockResolvedValue({
+      status: 'DRAFT',
+      appliedAt: null,
+      followUpAt: null,
+      interviewAt: null,
+    });
+    prismaServiceMock.application.update.mockRejectedValueOnce(prismaError);
+    prismaServiceMock.user.findUnique.mockResolvedValueOnce(null);
+
+    await expect(service.update(1, { userId: 9999 })).rejects.toThrow(
+      'User with id 9999 not found',
+    );
+
+    expect(prismaServiceMock.user.findUnique).toHaveBeenCalledWith({
+      where: {
+        id: 9999,
+      },
+      select: {
+        id: true,
+      },
+    });
+    expect(prismaServiceMock.jobOffer.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('should throw NotFoundException when updating with an unknown job offer', async () => {
+    const prismaError = new Prisma.PrismaClientKnownRequestError(
+      'Foreign key constraint failed',
+      {
+        code: 'P2003',
+        clientVersion: '7.9.1',
+      },
+    );
+
+    prismaServiceMock.application.findUnique.mockResolvedValue({
+      status: 'DRAFT',
+      appliedAt: null,
+      followUpAt: null,
+      interviewAt: null,
+    });
+    prismaServiceMock.application.update.mockRejectedValueOnce(prismaError);
+    prismaServiceMock.jobOffer.findUnique.mockResolvedValueOnce(null);
+
+    await expect(service.update(1, { jobOfferId: 9999 })).rejects.toThrow(
+      'Job offer with id 9999 not found',
+    );
+
+    expect(prismaServiceMock.user.findUnique).not.toHaveBeenCalled();
+    expect(prismaServiceMock.jobOffer.findUnique).toHaveBeenCalledWith({
+      where: {
+        id: 9999,
+      },
+      select: {
+        id: true,
+      },
+    });
   });
 
   it('should propagate the application event error when updating an application', async () => {
