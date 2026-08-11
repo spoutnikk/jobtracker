@@ -145,6 +145,124 @@ describe('ApplicationsService', () => {
       },
     });
 
+    expect(prismaServiceMock.applicationEvent.create).toHaveBeenNthCalledWith(
+      1,
+      {
+        data: {
+          applicationId: 1,
+          type: 'CREATED',
+          title: 'Candidature créée',
+        },
+      },
+    );
+    expect(prismaServiceMock.applicationEvent.create).toHaveBeenNthCalledWith(
+      2,
+      {
+        data: {
+          applicationId: 1,
+          type: 'APPLICATION_SENT',
+          title: 'Candidature envoyée',
+          occurredAt: new Date('2026-08-09T10:00:00.000Z'),
+        },
+      },
+    );
+  });
+
+  it('should use the current date when creating an applied application without appliedAt', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-08-11T09:30:00.000Z'));
+
+    try {
+      const createdApplication = {
+        id: 1,
+        status: 'APPLIED',
+      };
+      const dto = {
+        userId: 1,
+        jobOfferId: 1,
+        status: 'APPLIED' as const,
+      };
+
+      prismaServiceMock.application.create.mockResolvedValue(
+        createdApplication,
+      );
+
+      await expect(service.create(dto)).resolves.toEqual(createdApplication);
+
+      expect(prismaServiceMock.application.create).toHaveBeenCalledWith({
+        data: {
+          userId: 1,
+          jobOfferId: 1,
+          status: 'APPLIED',
+          appliedAt: new Date('2026-08-11T09:30:00.000Z'),
+          source: undefined,
+          notes: undefined,
+          contactName: undefined,
+          contactEmail: undefined,
+          followUpAt: undefined,
+          interviewAt: undefined,
+        },
+        include: {
+          jobOffer: {
+            include: {
+              company: true,
+            },
+          },
+        },
+      });
+      expect(prismaServiceMock.applicationEvent.create).toHaveBeenNthCalledWith(
+        2,
+        {
+          data: {
+            applicationId: 1,
+            type: 'APPLICATION_SENT',
+            title: 'Candidature envoyée',
+            occurredAt: new Date('2026-08-11T09:30:00.000Z'),
+          },
+        },
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('should not set appliedAt or create an application sent event for a draft', async () => {
+    const createdApplication = {
+      id: 1,
+      status: 'DRAFT',
+    };
+    const dto = {
+      userId: 1,
+      jobOfferId: 1,
+      status: 'DRAFT' as const,
+    };
+
+    prismaServiceMock.application.create.mockResolvedValue(createdApplication);
+
+    await expect(service.create(dto)).resolves.toEqual(createdApplication);
+
+    expect(prismaServiceMock.application.create).toHaveBeenCalledWith({
+      data: {
+        userId: 1,
+        jobOfferId: 1,
+        status: 'DRAFT',
+        appliedAt: undefined,
+        source: undefined,
+        notes: undefined,
+        contactName: undefined,
+        contactEmail: undefined,
+        followUpAt: undefined,
+        interviewAt: undefined,
+      },
+      include: {
+        jobOffer: {
+          include: {
+            company: true,
+          },
+        },
+      },
+    });
+    expect(prismaServiceMock.applicationEvent.create).toHaveBeenCalledTimes(1);
     expect(prismaServiceMock.applicationEvent.create).toHaveBeenCalledWith({
       data: {
         applicationId: 1,

@@ -9,14 +9,18 @@ export class ApplicationsService {
 
   async create(createApplicationDto: CreateApplicationDto) {
     return this.prisma.$transaction(async (tx) => {
+      const appliedAt = createApplicationDto.appliedAt
+        ? new Date(createApplicationDto.appliedAt)
+        : createApplicationDto.status === 'APPLIED'
+          ? new Date()
+          : undefined;
+
       const application = await tx.application.create({
         data: {
           userId: createApplicationDto.userId,
           jobOfferId: createApplicationDto.jobOfferId,
           status: createApplicationDto.status,
-          appliedAt: createApplicationDto.appliedAt
-            ? new Date(createApplicationDto.appliedAt)
-            : undefined,
+          appliedAt,
           source: createApplicationDto.source,
           notes: createApplicationDto.notes,
           contactName: createApplicationDto.contactName,
@@ -44,6 +48,17 @@ export class ApplicationsService {
           title: 'Candidature créée',
         },
       });
+
+      if (createApplicationDto.status === 'APPLIED') {
+        await tx.applicationEvent.create({
+          data: {
+            applicationId: application.id,
+            type: 'APPLICATION_SENT',
+            title: 'Candidature envoyée',
+            occurredAt: appliedAt,
+          },
+        });
+      }
 
       return application;
     });
