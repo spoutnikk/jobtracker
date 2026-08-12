@@ -7,6 +7,7 @@ import {
   type Application,
 } from "../api/applications";
 import { renderWithProviders } from "../test/renderWithProviders";
+import userEvent from "@testing-library/user-event";
 import CalendarPage from "./CalendarPage";
 
 vi.mock("../api/applications", () => ({
@@ -210,6 +211,56 @@ describe("CalendarPage", () => {
 
     expect(
       screen.getByRole("heading", { name: "Développeur NestJS" }),
+    ).toBeInTheDocument();
+  });
+
+  it("renders a monthly calendar grid and navigates between months", async () => {
+    const user = userEvent.setup();
+
+    renderCalendar();
+
+    expect(
+      await screen.findByRole("heading", {
+        name: /^août 2026$/i,
+      }),
+    ).toBeInTheDocument();
+
+    expect(screen.getAllByRole("gridcell")).toHaveLength(42);
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Mois suivant",
+      }),
+    );
+
+    expect(
+      screen.getByRole("heading", {
+        name: /^septembre 2026$/i,
+      }),
+    ).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Mois précédent",
+      }),
+    );
+
+    expect(
+      screen.getByRole("heading", {
+        name: /^août 2026$/i,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("renders calendar events on their corresponding day", async () => {
+    renderCalendar();
+
+    const august20 = await screen.findByRole("gridcell", {
+      name: /20 août 2026/i,
+    });
+
+    expect(
+      within(august20).getByText("Relance · Développeur React"),
     ).toBeInTheDocument();
   });
 });
