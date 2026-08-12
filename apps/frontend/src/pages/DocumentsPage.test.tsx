@@ -7,6 +7,7 @@ import {
   getDocumentDownloadUrl,
   getDocuments,
   type Document,
+  type PaginatedDocuments,
   uploadDocument,
 } from "../api/documents";
 import { renderWithProviders } from "../test/renderWithProviders";
@@ -95,11 +96,25 @@ const document: Document = {
   },
 };
 
+function paginatedDocuments(
+  items: Document[],
+  overrides: Partial<PaginatedDocuments> = {},
+): PaginatedDocuments {
+  return {
+    items,
+    page: 1,
+    pageSize: 10,
+    total: items.length,
+    totalPages: items.length === 0 ? 0 : 1,
+    ...overrides,
+  };
+}
+
 describe("DocumentsPage", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.mocked(getAllApplications).mockResolvedValue([application]);
-    vi.mocked(getDocuments).mockResolvedValue([document]);
+    vi.mocked(getDocuments).mockResolvedValue(paginatedDocuments([document]));
     vi.mocked(uploadDocument).mockResolvedValue(document);
     vi.mocked(deleteDocument).mockResolvedValue(document);
     vi.mocked(getDocumentDownloadUrl).mockImplementation(
@@ -139,7 +154,7 @@ describe("DocumentsPage", () => {
   });
 
   it("renders an empty state", async () => {
-    vi.mocked(getDocuments).mockResolvedValue([]);
+    vi.mocked(getDocuments).mockResolvedValue(paginatedDocuments([]));
 
     renderWithProviders(<DocumentsPage />);
 
@@ -189,7 +204,7 @@ describe("DocumentsPage", () => {
   });
 
   it("uploads a document associated with an application", async () => {
-    vi.mocked(getDocuments).mockResolvedValue([]);
+    vi.mocked(getDocuments).mockResolvedValue(paginatedDocuments([]));
 
     const user = userEvent.setup();
     const file = new File(["PDF content"], "cv.pdf", {
@@ -286,7 +301,7 @@ describe("DocumentsPage", () => {
   });
 
   it("does not invalidate application events when uploading without an application", async () => {
-    vi.mocked(getDocuments).mockResolvedValue([]);
+    vi.mocked(getDocuments).mockResolvedValue(paginatedDocuments([]));
 
     const documentWithoutApplication: Document = {
       ...document,
@@ -362,7 +377,7 @@ describe("DocumentsPage", () => {
   });
 
   it("shows an error when upload fails", async () => {
-    vi.mocked(getDocuments).mockResolvedValue([]);
+    vi.mocked(getDocuments).mockResolvedValue(paginatedDocuments([]));
     vi.mocked(uploadDocument).mockRejectedValue(new Error("Upload failed"));
 
     const user = userEvent.setup();
@@ -475,6 +490,198 @@ describe("DocumentsPage", () => {
 
     expect(invalidateQueriesSpy).not.toHaveBeenCalledWith({
       queryKey: ["documents"],
+    });
+  });
+  it("sends default pagination and sorting parameters", async () => {
+    renderWithProviders(<DocumentsPage />);
+
+    await screen.findByRole("heading", {
+      name: document.name,
+    });
+
+    expect(getDocuments).toHaveBeenCalledWith({
+      search: undefined,
+      type: undefined,
+      applicationId: undefined,
+      page: 1,
+      pageSize: 10,
+      sortBy: "createdAt",
+      sortOrder: "desc",
+    });
+  });
+
+  it("updates search, type and application filters and resets pagination", async () => {
+    vi.mocked(getAllApplications).mockResolvedValue([
+      application,
+      applicationFromNextPage,
+    ]);
+
+    vi.mocked(getDocuments).mockResolvedValue(
+      paginatedDocuments([document], {
+        page: 2,
+        pageSize: 10,
+        total: 20,
+        totalPages: 2,
+      }),
+    );
+
+    const user = userEvent.setup();
+
+    renderWithProviders(<DocumentsPage />);
+
+    await screen.findByRole("heading", {
+      name: document.name,
+    });
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Suivant",
+      }),
+    );
+
+    fireEvent.change(screen.getByLabelText("Recherche"), {
+      target: {
+        value: "react",
+      },
+    });
+
+    await user.selectOptions(screen.getByLabelText("Filtrer par type"), "CV");
+
+    await user.selectOptions(
+      screen.getByLabelText("Filtrer par candidature"),
+      String(application.id),
+    );
+
+    await waitFor(() => {
+      expect(getDocuments).toHaveBeenCalledWith({
+        search: "react",
+        type: "CV",
+        applicationId: application.id,
+        page: 1,
+        pageSize: 10,
+        sortBy: "createdAt",
+        sortOrder: "desc",
+      });
+    });
+  });
+
+  it("updates sorting, page size and pagination boundaries", async () => {
+    vi.mocked(getDocuments).mockImplementation(async (filters) => {
+      const page = filters?.page ?? 1;
+      const pageSize = filters?.pageSize ?? 10;
+
+      return paginatedDocuments([document], {
+        page,
+        pageSize,
+        total: 51,
+        totalPages: Math.ceil(51 / pageSize),
+      });
+    });
+
+    const user = userEvent.setup();
+
+    renderWithProviders(<DocumentsPage />);
+
+    const previousButton = await screen.findByRole("button", {
+      name: "Précédent",
+    });
+
+    const nextButton = screen.getByRole("button", {
+      name: "Suivant",
+    });
+
+    expect(previousButton).toBeDisabled();
+    expect(nextButton).toBeEnabled();
+
+    await user.selectOptions(screen.getByLabelText("Trier par"), "name");
+    await user.selectOptions(screen.getByLabelText("Ordre"), "asc");
+    await user.selectOptions(screen.getByLabelText("Documents par page"), "25");
+
+    await waitFor(() => {
+      expect(getDocuments).toHaveBeenLastCalledWith({
+        search: undefined,
+        type: undefined,
+        applicationId: undefined,
+        page: 1,
+        pageSize: 25,
+        sortBy: "name",
+        sortOrder: "asc",
+      });
+    });
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Suivant",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(getDocuments).toHaveBeenCalledWith({
+        search: undefined,
+        type: undefined,
+        applicationId: undefined,
+        page: 2,
+        pageSize: 25,
+        sortBy: "name",
+        sortOrder: "asc",
+      });
+    });
+
+    expect(
+      screen.getByRole("button", {
+        name: "Précédent",
+      }),
+    ).toBeEnabled();
+  });
+
+  it("resets all document filters to their default values", async () => {
+    vi.mocked(getAllApplications).mockResolvedValue([application]);
+
+    const user = userEvent.setup();
+
+    renderWithProviders(<DocumentsPage />);
+
+    await screen.findByRole("heading", {
+      name: document.name,
+    });
+
+    await user.type(screen.getByLabelText("Recherche"), "react");
+
+    await user.selectOptions(screen.getByLabelText("Filtrer par type"), "CV");
+
+    await user.selectOptions(
+      screen.getByLabelText("Filtrer par candidature"),
+      String(application.id),
+    );
+
+    await user.selectOptions(screen.getByLabelText("Trier par"), "name");
+    await user.selectOptions(screen.getByLabelText("Ordre"), "asc");
+
+    await user.selectOptions(screen.getByLabelText("Documents par page"), "25");
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Réinitialiser les filtres",
+      }),
+    );
+
+    expect(screen.getByLabelText("Recherche")).toHaveValue("");
+    expect(screen.getByLabelText("Filtrer par type")).toHaveValue("");
+    expect(screen.getByLabelText("Filtrer par candidature")).toHaveValue("");
+    expect(screen.getByLabelText("Trier par")).toHaveValue("createdAt");
+    expect(screen.getByLabelText("Ordre")).toHaveValue("desc");
+    expect(screen.getByLabelText("Documents par page")).toHaveValue("10");
+
+    await waitFor(() => {
+      expect(getDocuments).toHaveBeenCalledWith({
+        search: undefined,
+        type: undefined,
+        applicationId: undefined,
+        page: 1,
+        pageSize: 10,
+        sortBy: "createdAt",
+        sortOrder: "desc",
+      });
     });
   });
 });

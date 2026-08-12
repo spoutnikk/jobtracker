@@ -62,6 +62,40 @@ function readIds(body: unknown): number[] {
   });
 }
 
+interface PaginatedDocumentsBody {
+  items: unknown[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
+function readPaginatedDocuments(body: unknown): PaginatedDocumentsBody {
+  if (typeof body !== 'object' || body === null) {
+    throw new Error('Expected a paginated documents response');
+  }
+
+  const value = body as Record<string, unknown>;
+
+  if (
+    !Array.isArray(value.items) ||
+    typeof value.page !== 'number' ||
+    typeof value.pageSize !== 'number' ||
+    typeof value.total !== 'number' ||
+    typeof value.totalPages !== 'number'
+  ) {
+    throw new Error('Expected a paginated documents response');
+  }
+
+  return {
+    items: value.items,
+    page: value.page,
+    pageSize: value.pageSize,
+    total: value.total,
+    totalPages: value.totalPages,
+  };
+}
+
 function readMessage(body: unknown): unknown {
   if (typeof body !== 'object' || body === null) {
     return undefined;
@@ -274,47 +308,175 @@ describe('ApplicationEvents and Documents HTTP ownership integration', () => {
     await expect(prisma.applicationEvent.count()).resolves.toBe(eventCount);
   });
 
-  it('isolates document listing, metadata, download, and removal', async () => {
+  it('isolates document listing, filtering, metadata, download, and removal', async () => {
     if (!app || !prisma || !userA || !userB) {
       throw new Error('Integration fixtures are unavailable');
     }
+
+    const secondDocumentPath = join(
+      temporaryDirectory!,
+      'user-a-second-document.txt',
+    );
+    await writeFile(secondDocumentPath, 'user-a second document');
+
+    const secondDocument = await prisma.document.create({
+      data: {
+        name: `React CV ${marker}`,
+        originalName: `react-cv-${marker}.txt`,
+        mimeType: 'text/plain',
+        size: Buffer.byteLength('user-a second document'),
+        path: secondDocumentPath,
+        type: 'CV',
+        applicationId: userA.applicationId,
+        userId: userA.userId,
+      },
+      select: { id: true },
+    });
 
     const documents = await request(app.getHttpServer())
       .get('/documents')
       .set('Cookie', userA.cookie)
       .expect(200);
-    expect(readIds(documents.body)).toEqual([userA.documentId]);
+
+    const documentsBody = readPaginatedDocuments(documents.body);
+
+    expect(readIds(documentsBody.items)).toEqual(
+      expect.arrayContaining([userA.documentId, secondDocument.id]),
+    );
+    expect(readIds(documentsBody.items)).not.toContain(userB.documentId);
+    expect(documentsBody).toMatchObject({
+      page: 1,
+      pageSize: 10,
+      total: 2,
+      totalPages: 1,
+    });
 
     const applicationDocuments = await request(app.getHttpServer())
       .get(`/documents?applicationId=${userA.applicationId}`)
       .set('Cookie', userA.cookie)
       .expect(200);
-    expect(readIds(applicationDocuments.body)).toEqual([userA.documentId]);
+
+    const applicationDocumentsBody = readPaginatedDocuments(
+      applicationDocuments.body,
+    );
+
+    expect(readIds(applicationDocumentsBody.items)).toEqual(
+      expect.arrayContaining([userA.documentId, secondDocument.id]),
+    );
+    expect(applicationDocumentsBody.total).toBe(2);
 
     const foreignApplicationDocuments = await request(app.getHttpServer())
       .get(`/documents?applicationId=${userB.applicationId}`)
       .set('Cookie', userA.cookie)
       .expect(200);
-    expect(foreignApplicationDocuments.body).toEqual([]);
+
+    expect(readPaginatedDocuments(foreignApplicationDocuments.body)).toEqual({
+      items: [],
+      page: 1,
+      pageSize: 10,
+      total: 0,
+      totalPages: 0,
+    });
+
+    const typeFilteredDocuments = await request(app.getHttpServer())
+      .get('/documents?type=CV')
+      .set('Cookie', userA.cookie)
+      .expect(200);
+
+    const typeFilteredBody = readPaginatedDocuments(typeFilteredDocuments.body);
+
+    expect(readIds(typeFilteredBody.items)).toEqual([secondDocument.id]);
+    expect(typeFilteredBody.total).toBe(1);
+
+    const searchDocuments = await request(app.getHttpServer())
+      .get(`/documents?search=${encodeURIComponent(`React CV ${marker}`)}`)
+      .set('Cookie', userA.cookie)
+      .expect(200);
+
+    const searchBody = readPaginatedDocuments(searchDocuments.body);
+
+    expect(readIds(searchBody.items)).toEqual([secondDocument.id]);
+    expect(searchBody.total).toBe(1);
+
+    const firstPage = await request(app.getHttpServer())
+      .get('/documents?page=1&pageSize=1&sortBy=name&sortOrder=asc')
+      .set('Cookie', userA.cookie)
+      .expect(200);
+
+    const secondPage = await request(app.getHttpServer())
+      .get('/documents?page=2&pageSize=1&sortBy=name&sortOrder=asc')
+      .set('Cookie', userA.cookie)
+      .expect(200);
+
+    const firstPageBody = readPaginatedDocuments(firstPage.body);
+    const secondPageBody = readPaginatedDocuments(secondPage.body);
+
+    expect(firstPageBody).toMatchObject({
+      page: 1,
+      pageSize: 1,
+      total: 2,
+      totalPages: 2,
+    });
+    expect(secondPageBody).toMatchObject({
+      page: 2,
+      pageSize: 1,
+      total: 2,
+      totalPages: 2,
+    });
+
+    expect(readIds(firstPageBody.items)).toHaveLength(1);
+    expect(readIds(secondPageBody.items)).toHaveLength(1);
+    expect(readIds(firstPageBody.items)[0]).not.toBe(
+      readIds(secondPageBody.items)[0],
+    );
 
     await request(app.getHttpServer())
       .get('/documents?applicationId=0')
       .set('Cookie', userA.cookie)
       .expect(400);
+
+    await request(app.getHttpServer())
+      .get('/documents?page=0')
+      .set('Cookie', userA.cookie)
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .get('/documents?pageSize=51')
+      .set('Cookie', userA.cookie)
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .get('/documents?type=INVALID')
+      .set('Cookie', userA.cookie)
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .get('/documents?sortBy=id')
+      .set('Cookie', userA.cookie)
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .get('/documents?sortOrder=ascending')
+      .set('Cookie', userA.cookie)
+      .expect(400);
+
     await request(app.getHttpServer())
       .get(`/documents?userId=${userB.userId}`)
       .set('Cookie', userA.cookie)
       .expect(400);
 
     const documentCount = await prisma.document.count();
+
     await request(app.getHttpServer())
       .get(`/documents/${userB.documentId}`)
       .set('Cookie', userA.cookie)
       .expect(404);
+
     await request(app.getHttpServer())
       .get(`/documents/${userB.documentId}/download`)
       .set('Cookie', userA.cookie)
       .expect(404);
+
     await request(app.getHttpServer())
       .delete(`/documents/${userB.documentId}`)
       .set('Origin', DEFAULT_FRONTEND_ORIGIN)

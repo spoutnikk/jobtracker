@@ -106,33 +106,104 @@ export class DocumentsService {
     }
   }
 
-  findAll(
+  async findAll(
     userId: number,
     filters: FindDocumentsQueryDto = new FindDocumentsQueryDto(),
   ) {
-    return this.prisma.document.findMany({
-      where: {
-        userId,
-        ...(filters.applicationId !== undefined
-          ? { applicationId: filters.applicationId }
-          : {}),
+    const search = filters.search?.trim();
+
+    const where: Prisma.DocumentWhereInput = {
+      userId,
+      ...(filters.applicationId !== undefined
+        ? { applicationId: filters.applicationId }
+        : {}),
+      ...(filters.type !== undefined ? { type: filters.type } : {}),
+      ...(search
+        ? {
+            OR: [
+              {
+                name: {
+                  contains: search,
+                  mode: 'insensitive',
+                },
+              },
+              {
+                originalName: {
+                  contains: search,
+                  mode: 'insensitive',
+                },
+              },
+              {
+                application: {
+                  jobOffer: {
+                    title: {
+                      contains: search,
+                      mode: 'insensitive',
+                    },
+                  },
+                },
+              },
+              {
+                application: {
+                  jobOffer: {
+                    company: {
+                      name: {
+                        contains: search,
+                        mode: 'insensitive',
+                      },
+                    },
+                  },
+                },
+              },
+            ],
+          }
+        : {}),
+    };
+
+    const orderBy: Prisma.DocumentOrderByWithRelationInput[] = [
+      {
+        [filters.sortBy]: filters.sortOrder,
       },
-      include: {
-        application: {
-          include: {
-            jobOffer: {
-              include: {
-                company: true,
+      {
+        id: filters.sortOrder,
+      },
+    ];
+
+    const skip = (filters.page - 1) * filters.pageSize;
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.document.findMany({
+        where,
+        include: {
+          application: {
+            include: {
+              jobOffer: {
+                include: {
+                  company: true,
+                },
               },
             },
           },
         },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+        orderBy,
+        skip,
+        take: filters.pageSize,
+      }),
+
+      this.prisma.document.count({
+        where,
+      }),
+    ]);
+
+    return {
+      items,
+      page: filters.page,
+      pageSize: filters.pageSize,
+      total,
+      totalPages: total === 0 ? 0 : Math.ceil(total / filters.pageSize),
+    };
   }
+
   async findOne(userId: number, id: number) {
     const document = await this.prisma.document.findFirst({
       where: {

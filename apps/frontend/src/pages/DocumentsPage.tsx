@@ -19,14 +19,37 @@ function DocumentsPage() {
 
   const [applicationId, setApplicationId] = useState<number | null>(null);
 
+  const [search, setSearch] = useState("");
+  const [documentType, setDocumentType] = useState<DocumentType | "">("");
+  const [filterApplicationId, setFilterApplicationId] = useState<number | null>(
+    null,
+  );
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [sortBy, setSortBy] = useState<
+    "createdAt" | "updatedAt" | "name" | "type"
+  >("createdAt");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+
   const applicationsQuery = useQuery({
     queryKey: ["applications"],
     queryFn: getAllApplications,
   });
 
+  const documentFilters = {
+    search: search.trim() || undefined,
+    type: documentType || undefined,
+    applicationId: filterApplicationId ?? undefined,
+    page,
+    pageSize,
+    sortBy,
+    sortOrder,
+  };
+
   const documentsQuery = useQuery({
-    queryKey: ["documents"],
-    queryFn: () => getDocuments(),
+    queryKey: ["documents", documentFilters],
+    queryFn: () => getDocuments(documentFilters),
+    placeholderData: (previousData) => previousData,
   });
 
   const uploadDocumentMutation = useMutation({
@@ -73,7 +96,7 @@ function DocumentsPage() {
     });
   }
 
-  if (documentsQuery.isPending) {
+  if (documentsQuery.isPending && !documentsQuery.data) {
     return (
       <main className="min-h-screen p-8">
         <p>Chargement des documents...</p>
@@ -183,11 +206,150 @@ function DocumentsPage() {
           </form>
         </CollapsibleSection>
 
-        {documentsQuery.data.length === 0 ? (
+        <div className="mt-6 rounded-lg border border-gray-200 bg-white p-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-medium text-gray-700">
+                Recherche
+              </span>
+              <input
+                type="search"
+                value={search}
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                  setPage(1);
+                }}
+                className="rounded-md border border-gray-300 px-3 py-2"
+              />
+            </label>
+
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-medium text-gray-700">
+                Filtrer par type
+              </span>
+              <select
+                value={documentType}
+                onChange={(event) => {
+                  setDocumentType(event.target.value as DocumentType | "");
+                  setPage(1);
+                }}
+                className="rounded-md border border-gray-300 px-3 py-2"
+              >
+                <option value="">Tous les types</option>
+                <option value="CV">CV</option>
+                <option value="COVER_LETTER">Lettre de motivation</option>
+                <option value="JOB_OFFER">Offre d'emploi</option>
+                <option value="OTHER">Autre</option>
+              </select>
+            </label>
+
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-medium text-gray-700">
+                Filtrer par candidature
+              </span>
+              <select
+                value={filterApplicationId ?? ""}
+                onChange={(event) => {
+                  setFilterApplicationId(
+                    event.target.value ? Number(event.target.value) : null,
+                  );
+                  setPage(1);
+                }}
+                className="rounded-md border border-gray-300 px-3 py-2"
+              >
+                <option value="">Toutes les candidatures</option>
+
+                {applicationsQuery.data?.map((application) => (
+                  <option key={application.id} value={application.id}>
+                    {application.jobOffer.title} —{" "}
+                    {application.jobOffer.company.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-medium text-gray-700">
+                Trier par
+              </span>
+              <select
+                value={sortBy}
+                onChange={(event) => {
+                  setSortBy(
+                    event.target.value as
+                      "createdAt" | "updatedAt" | "name" | "type",
+                  );
+                  setPage(1);
+                }}
+                className="rounded-md border border-gray-300 px-3 py-2"
+              >
+                <option value="createdAt">Date de création</option>
+                <option value="updatedAt">Date de modification</option>
+                <option value="name">Nom</option>
+                <option value="type">Type</option>
+              </select>
+            </label>
+
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-medium text-gray-700">Ordre</span>
+              <select
+                value={sortOrder}
+                onChange={(event) => {
+                  setSortOrder(event.target.value as "asc" | "desc");
+                  setPage(1);
+                }}
+                className="rounded-md border border-gray-300 px-3 py-2"
+              >
+                <option value="desc">Décroissant</option>
+                <option value="asc">Croissant</option>
+              </select>
+            </label>
+
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-medium text-gray-700">
+                Documents par page
+              </span>
+              <select
+                value={pageSize}
+                onChange={(event) => {
+                  setPageSize(Number(event.target.value));
+                  setPage(1);
+                }}
+                className="rounded-md border border-gray-300 px-3 py-2"
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+              </select>
+            </label>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setSearch("");
+              setDocumentType("");
+              setFilterApplicationId(null);
+              setPage(1);
+              setPageSize(10);
+              setSortBy("createdAt");
+              setSortOrder("desc");
+            }}
+            className="mt-4 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            Réinitialiser les filtres
+          </button>
+        </div>
+        {documentsQuery.isFetching && (
+          <p className="mt-4 text-sm text-gray-600">
+            Mise à jour des documents...
+          </p>
+        )}
+        {documentsQuery.data.items.length === 0 ? (
           <p className="mt-6 text-gray-600">Aucun document enregistré.</p>
         ) : (
           <div className="mt-6 space-y-4">
-            {documentsQuery.data.map((document) => (
+            {documentsQuery.data.items.map((document) => (
               <article
                 key={document.id}
                 className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
@@ -244,6 +406,40 @@ function DocumentsPage() {
                 </div>
               </article>
             ))}
+          </div>
+        )}
+        {documentsQuery.data.total > 0 && (
+          <div className="mt-6 flex items-center justify-between gap-4">
+            <button
+              type="button"
+              onClick={() =>
+                setPage((currentPage) => Math.max(1, currentPage - 1))
+              }
+              disabled={page <= 1}
+              className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium disabled:opacity-50"
+            >
+              Précédent
+            </button>
+
+            <p className="text-sm text-gray-600">
+              Page {documentsQuery.data.page} sur{" "}
+              {documentsQuery.data.totalPages} — {documentsQuery.data.total}{" "}
+              document
+              {documentsQuery.data.total > 1 ? "s" : ""}
+            </p>
+
+            <button
+              type="button"
+              onClick={() =>
+                setPage((currentPage) =>
+                  Math.min(documentsQuery.data.totalPages, currentPage + 1),
+                )
+              }
+              disabled={page >= documentsQuery.data.totalPages}
+              className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium disabled:opacity-50"
+            >
+              Suivant
+            </button>
           </div>
         )}
       </div>

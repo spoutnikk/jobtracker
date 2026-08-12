@@ -9,7 +9,7 @@ import {
 } from "../api/application-events";
 import {
   getDocumentDownloadUrl,
-  getDocuments,
+  getAllDocuments,
   type Document,
 } from "../api/documents";
 import { renderWithProviders } from "../test/renderWithProviders";
@@ -24,8 +24,8 @@ vi.mock("../api/application-events", () => ({
 }));
 
 vi.mock("../api/documents", () => ({
-  getDocumentDownloadUrl: vi.fn(),
-  getDocuments: vi.fn(),
+  getAllDocuments: vi.fn(),
+  getDocumentDownloadUrl: vi.fn((id: number) => `/documents/${id}/download`),
 }));
 
 const events: ApplicationEvent[] = [
@@ -138,7 +138,7 @@ describe("ApplicationDetailPage", () => {
     vi.restoreAllMocks();
     vi.mocked(getApplication).mockResolvedValue(application);
     vi.mocked(getApplicationEvents).mockResolvedValue([]);
-    vi.mocked(getDocuments).mockResolvedValue([]);
+    vi.mocked(getAllDocuments).mockResolvedValue([]);
     vi.mocked(getDocumentDownloadUrl).mockImplementation(
       (documentId) => `http://localhost:3000/documents/${documentId}/download`,
     );
@@ -313,7 +313,7 @@ describe("ApplicationDetailPage", () => {
     ).toBeInTheDocument();
     expect(getApplication).not.toHaveBeenCalled();
     expect(getApplicationEvents).not.toHaveBeenCalled();
-    expect(getDocuments).not.toHaveBeenCalled();
+    expect(getAllDocuments).not.toHaveBeenCalled();
   });
 
   it("renders the detail while the history is loading", async () => {
@@ -406,7 +406,7 @@ describe("ApplicationDetailPage", () => {
 
   it("renders the detail and history while documents are loading", async () => {
     vi.mocked(getApplicationEvents).mockResolvedValue(events);
-    vi.mocked(getDocuments).mockImplementation(
+    vi.mocked(getAllDocuments).mockImplementation(
       () => new Promise<Document[]>(() => undefined),
     );
 
@@ -422,7 +422,7 @@ describe("ApplicationDetailPage", () => {
   });
 
   it("renders associated documents and their download links", async () => {
-    vi.mocked(getDocuments).mockResolvedValue([document]);
+    vi.mocked(getAllDocuments).mockResolvedValue([document]);
 
     renderDetail();
 
@@ -445,7 +445,7 @@ describe("ApplicationDetailPage", () => {
       "href",
       `http://localhost:3000/documents/${document.id}/download`,
     );
-    expect(getDocuments).toHaveBeenCalledWith({ applicationId: 42 });
+    expect(getAllDocuments).toHaveBeenCalledWith({ applicationId: 42 });
     expect(getDocumentDownloadUrl).toHaveBeenCalledWith(document.id);
     expect(screen.queryByText(foreignDocument.name)).not.toBeInTheDocument();
   });
@@ -460,7 +460,7 @@ describe("ApplicationDetailPage", () => {
 
   it("keeps the detail and history visible when documents loading fails", async () => {
     vi.mocked(getApplicationEvents).mockResolvedValue(events);
-    vi.mocked(getDocuments).mockRejectedValue(
+    vi.mocked(getAllDocuments).mockRejectedValue(
       new Error("Documents request failed"),
     );
 

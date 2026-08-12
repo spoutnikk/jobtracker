@@ -4,10 +4,12 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { FindDocumentsQueryDto } from './dto/find-documents-query.dto';
 import { DocumentsService } from './documents.service';
 
 describe('DocumentsService', () => {
   let service: DocumentsService;
+
   const failedUploadPath = join(
     tmpdir(),
     'jobtracker-documents-service-tests',
@@ -25,6 +27,7 @@ describe('DocumentsService', () => {
     document: {
       create: jest.fn(),
       findMany: jest.fn(),
+      count: jest.fn(),
       findFirst: jest.fn(),
       delete: jest.fn(),
     },
@@ -33,18 +36,31 @@ describe('DocumentsService', () => {
     },
   };
 
+  type TransactionCallback<T> = (
+    tx: typeof transactionClientMock,
+  ) => Promise<T>;
+
   const prismaServiceMock = {
     ...transactionClientMock,
     $transaction: jest.fn(
       <T>(
-        callback: (tx: typeof transactionClientMock) => Promise<T>,
-      ): Promise<T> => callback(transactionClientMock),
+        input: TransactionCallback<T> | Promise<unknown>[],
+      ): Promise<T | unknown[]> => {
+        if (Array.isArray(input)) {
+          return Promise.all(input);
+        }
+
+        return input(transactionClientMock);
+      },
     ),
   };
 
   beforeEach(async () => {
     jest.clearAllMocks();
-    transactionClientMock.application.findFirst.mockResolvedValue({ id: 1 });
+
+    transactionClientMock.application.findFirst.mockResolvedValue({
+      id: 1,
+    });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -99,6 +115,7 @@ describe('DocumentsService', () => {
         id: true,
       },
     });
+
     expect(prismaServiceMock.document.create).toHaveBeenCalledWith({
       data: {
         name: 'CV principal',
@@ -128,6 +145,7 @@ describe('DocumentsService', () => {
       type: 'CV' as const,
       applicationId: 9999,
     };
+
     const file = {
       originalname: 'cv.pdf',
       mimetype: 'application/pdf',
@@ -136,6 +154,7 @@ describe('DocumentsService', () => {
     };
 
     expectSafeFailurePath(file.path);
+
     prismaServiceMock.application.findFirst.mockResolvedValueOnce(null);
 
     const error: unknown = await service
@@ -160,6 +179,7 @@ describe('DocumentsService', () => {
         id: true,
       },
     });
+
     expect(prismaServiceMock.document.create).not.toHaveBeenCalled();
     expect(prismaServiceMock.applicationEvent.create).not.toHaveBeenCalled();
   });
@@ -172,11 +192,13 @@ describe('DocumentsService', () => {
         clientVersion: '7.9.1',
       },
     );
+
     const dto = {
       name: 'CV principal',
       type: 'CV' as const,
       applicationId: 1,
     };
+
     const file = {
       originalname: 'cv.pdf',
       mimetype: 'application/pdf',
@@ -185,8 +207,11 @@ describe('DocumentsService', () => {
     };
 
     expectSafeFailurePath(file.path);
+
     prismaServiceMock.document.create.mockRejectedValueOnce(prismaError);
-    prismaServiceMock.application.findFirst.mockResolvedValue({ id: 1 });
+    prismaServiceMock.application.findFirst.mockResolvedValue({
+      id: 1,
+    });
 
     await expect(service.create(7, dto, file)).rejects.toBe(prismaError);
 
@@ -209,10 +234,12 @@ describe('DocumentsService', () => {
         clientVersion: '7.9.1',
       },
     );
+
     const dto = {
       name: 'CV générique',
       type: 'CV' as const,
     };
+
     const file = {
       originalname: 'cv.pdf',
       mimetype: 'application/pdf',
@@ -221,6 +248,7 @@ describe('DocumentsService', () => {
     };
 
     expectSafeFailurePath(file.path);
+
     prismaServiceMock.document.create.mockRejectedValueOnce(prismaError);
 
     await expect(service.create(7, dto, file)).rejects.toBe(prismaError);
@@ -230,17 +258,20 @@ describe('DocumentsService', () => {
 
   it('should propagate the application event error when creating a document', async () => {
     const transactionError = new Error('Document event creation failed');
+
     const dto = {
       name: 'CV principal',
       type: 'CV' as const,
       applicationId: 1,
     };
+
     const file = {
       originalname: 'cv.pdf',
       mimetype: 'application/pdf',
       size: 1234,
       path: failedUploadPath,
     };
+
     const document = {
       id: 1,
       ...dto,
@@ -251,6 +282,7 @@ describe('DocumentsService', () => {
     };
 
     expectSafeFailurePath(file.path);
+
     prismaServiceMock.document.create.mockResolvedValue(document);
     prismaServiceMock.applicationEvent.create.mockRejectedValueOnce(
       transactionError,
@@ -259,6 +291,7 @@ describe('DocumentsService', () => {
     await expect(service.create(7, dto, file)).rejects.toBe(transactionError);
 
     expect(prismaServiceMock.$transaction).toHaveBeenCalledTimes(1);
+
     expect(prismaServiceMock.document.create).toHaveBeenCalledWith({
       data: {
         name: 'CV principal',
@@ -271,6 +304,7 @@ describe('DocumentsService', () => {
         userId: 7,
       },
     });
+
     expect(prismaServiceMock.applicationEvent.create).toHaveBeenCalledWith({
       data: {
         applicationId: 1,
@@ -279,6 +313,7 @@ describe('DocumentsService', () => {
         description: 'CV principal',
       },
     });
+
     expect(prismaServiceMock.application.findFirst).toHaveBeenCalledTimes(1);
   });
 
@@ -321,10 +356,11 @@ describe('DocumentsService', () => {
         userId: 7,
       },
     });
+
     expect(prismaServiceMock.applicationEvent.create).not.toHaveBeenCalled();
   });
 
-  it('should return all documents', async () => {
+  it('should return paginated documents with default sorting', async () => {
     const documents = [
       {
         id: 1,
@@ -334,8 +370,15 @@ describe('DocumentsService', () => {
     ];
 
     prismaServiceMock.document.findMany.mockResolvedValue(documents);
+    prismaServiceMock.document.count.mockResolvedValue(1);
 
-    await expect(service.findAll(7)).resolves.toEqual(documents);
+    await expect(service.findAll(7)).resolves.toEqual({
+      items: documents,
+      page: 1,
+      pageSize: 10,
+      total: 1,
+      totalPages: 1,
+    });
 
     expect(prismaServiceMock.document.findMany).toHaveBeenCalledWith({
       where: {
@@ -352,23 +395,94 @@ describe('DocumentsService', () => {
           },
         },
       },
-      orderBy: {
-        createdAt: 'desc',
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      skip: 0,
+      take: 10,
+    });
+
+    expect(prismaServiceMock.document.count).toHaveBeenCalledWith({
+      where: {
+        userId: 7,
       },
     });
+
+    expect(prismaServiceMock.$transaction).toHaveBeenCalledTimes(1);
   });
-  it('should filter documents by application without weakening ownership', async () => {
-    prismaServiceMock.document.findMany.mockResolvedValue([]);
 
-    await expect(service.findAll(7, { applicationId: 9999 })).resolves.toEqual(
-      [],
-    );
+  it('should combine search, type and application filters without weakening ownership', async () => {
+    const filters = createFilters({
+      search: '  react  ',
+      type: 'CV',
+      applicationId: 42,
+      page: 2,
+      pageSize: 25,
+      sortBy: 'name',
+      sortOrder: 'asc',
+    });
+
+    const documents = [
+      {
+        id: 1,
+        name: 'CV React',
+        type: 'CV',
+      },
+    ];
+
+    prismaServiceMock.document.findMany.mockResolvedValue(documents);
+    prismaServiceMock.document.count.mockResolvedValue(26);
+
+    await expect(service.findAll(7, filters)).resolves.toEqual({
+      items: documents,
+      page: 2,
+      pageSize: 25,
+      total: 26,
+      totalPages: 2,
+    });
+
+    const expectedWhere: Prisma.DocumentWhereInput = {
+      userId: 7,
+      applicationId: 42,
+      type: 'CV',
+      OR: [
+        {
+          name: {
+            contains: 'react',
+            mode: 'insensitive',
+          },
+        },
+        {
+          originalName: {
+            contains: 'react',
+            mode: 'insensitive',
+          },
+        },
+        {
+          application: {
+            jobOffer: {
+              title: {
+                contains: 'react',
+                mode: 'insensitive',
+              },
+            },
+          },
+        },
+        {
+          application: {
+            jobOffer: {
+              company: {
+                name: {
+                  contains: 'react',
+                  mode: 'insensitive',
+                },
+              },
+            },
+          },
+        },
+      ],
+    };
 
     expect(prismaServiceMock.document.findMany).toHaveBeenCalledWith({
-      where: {
-        userId: 7,
-        applicationId: 9999,
-      },
+      where: expectedWhere,
       include: {
         application: {
           include: {
@@ -380,12 +494,93 @@ describe('DocumentsService', () => {
           },
         },
       },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
+      skip: 25,
+      take: 25,
     });
+
+    expect(prismaServiceMock.document.count).toHaveBeenCalledWith({
+      where: expectedWhere,
+    });
+
     expect(prismaServiceMock.application.findFirst).not.toHaveBeenCalled();
   });
+
+  it('should share the exact same where object between findMany and count', async () => {
+    const filters = createFilters({
+      search: 'typescript',
+      type: 'COVER_LETTER',
+      applicationId: 99,
+    });
+
+    let findManyWhere: Prisma.DocumentWhereInput | undefined;
+    let countWhere: Prisma.DocumentWhereInput | undefined;
+
+    prismaServiceMock.document.findMany.mockImplementation(
+      (args: Prisma.DocumentFindManyArgs) => {
+        findManyWhere = args.where;
+        return Promise.resolve([]);
+      },
+    );
+
+    prismaServiceMock.document.count.mockImplementation(
+      (args: Prisma.DocumentCountArgs) => {
+        countWhere = args.where;
+        return Promise.resolve(0);
+      },
+    );
+
+    await service.findAll(7, filters);
+
+    expect(findManyWhere).toBeDefined();
+    expect(countWhere).toBeDefined();
+    expect(findManyWhere).toBe(countWhere);
+  });
+
+  it('should ignore an empty trimmed search', async () => {
+    const filters = createFilters({
+      search: '   ',
+    });
+
+    prismaServiceMock.document.findMany.mockResolvedValue([]);
+    prismaServiceMock.document.count.mockResolvedValue(0);
+
+    await service.findAll(7, filters);
+
+    expect(prismaServiceMock.document.findMany).toHaveBeenCalledWith({
+      where: {
+        userId: 7,
+      },
+      include: {
+        application: {
+          include: {
+            jobOffer: {
+              include: {
+                company: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      skip: 0,
+      take: 10,
+    });
+  });
+
+  it('should return zero total pages when no documents match', async () => {
+    prismaServiceMock.document.findMany.mockResolvedValue([]);
+    prismaServiceMock.document.count.mockResolvedValue(0);
+
+    await expect(service.findAll(7)).resolves.toEqual({
+      items: [],
+      page: 1,
+      pageSize: 10,
+      total: 0,
+      totalPages: 0,
+    });
+  });
+
   it('should return one document', async () => {
     const document = {
       id: 1,
@@ -469,6 +664,7 @@ describe('DocumentsService', () => {
         },
       },
     });
+
     expect(prismaServiceMock.document.delete).not.toHaveBeenCalled();
   });
 
@@ -479,9 +675,13 @@ describe('DocumentsService', () => {
       path: 'uploads/file-that-does-not-exist.txt',
       application: null,
     };
+
     const prismaError = new Prisma.PrismaClientKnownRequestError(
       'Record not found',
-      { code: 'P2025', clientVersion: '7.9.1' },
+      {
+        code: 'P2025',
+        clientVersion: '7.9.1',
+      },
     );
 
     prismaServiceMock.document.findFirst.mockResolvedValue(document);
@@ -492,3 +692,9 @@ describe('DocumentsService', () => {
     );
   });
 });
+
+function createFilters(
+  overrides: Partial<FindDocumentsQueryDto>,
+): FindDocumentsQueryDto {
+  return Object.assign(new FindDocumentsQueryDto(), overrides);
+}

@@ -89,20 +89,57 @@ describe('DocumentsController', () => {
     ).toThrow(BadRequestException);
   });
 
-  it('should return all documents', async () => {
-    const documents = [
-      {
-        id: 1,
-        name: 'CV principal',
-        type: 'CV',
-      },
-    ];
+  it('should return paginated documents with query filters', async () => {
+    const result = {
+      items: [
+        {
+          id: 1,
+          name: 'CV principal',
+          type: 'CV',
+        },
+      ],
+      page: 2,
+      pageSize: 25,
+      total: 26,
+      totalPages: 2,
+    };
 
-    documentsServiceMock.findAll.mockResolvedValue(documents);
+    const filters = {
+      search: 'react',
+      type: 'CV' as const,
+      applicationId: 42,
+      page: 2,
+      pageSize: 25,
+      sortBy: 'name' as const,
+      sortOrder: 'asc' as const,
+    };
 
-    const filters = { applicationId: 42 };
+    documentsServiceMock.findAll.mockResolvedValue(result);
 
-    await expect(controller.findAll(user, filters)).resolves.toEqual(documents);
+    await expect(controller.findAll(user, filters)).resolves.toEqual(result);
+
+    expect(documentsServiceMock.findAll).toHaveBeenCalledWith(user.id, filters);
+  });
+
+  it('should pass default query values to the service', async () => {
+    const result = {
+      items: [],
+      page: 1,
+      pageSize: 10,
+      total: 0,
+      totalPages: 0,
+    };
+
+    const filters = {
+      page: 1,
+      pageSize: 10,
+      sortBy: 'createdAt' as const,
+      sortOrder: 'desc' as const,
+    };
+
+    documentsServiceMock.findAll.mockResolvedValue(result);
+
+    await expect(controller.findAll(user, filters)).resolves.toEqual(result);
 
     expect(documentsServiceMock.findAll).toHaveBeenCalledWith(user.id, filters);
   });

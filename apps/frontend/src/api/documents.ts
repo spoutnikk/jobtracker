@@ -2,6 +2,9 @@ import { apiClient } from "./client";
 
 export type DocumentType = "CV" | "COVER_LETTER" | "JOB_OFFER" | "OTHER";
 
+export type DocumentSortField = "createdAt" | "updatedAt" | "name" | "type";
+export type SortOrder = "asc" | "desc";
+
 export interface DocumentApplication {
   id: number;
   jobOffer: {
@@ -36,17 +39,59 @@ export interface CreateDocumentInput {
 }
 
 export interface DocumentFilters {
+  search?: string;
+  type?: DocumentType;
   applicationId?: number;
+  page?: number;
+  pageSize?: number;
+  sortBy?: DocumentSortField;
+  sortOrder?: SortOrder;
+}
+
+export interface PaginatedDocuments {
+  items: Document[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
 }
 
 export async function getDocuments(
   filters?: DocumentFilters,
-): Promise<Document[]> {
+): Promise<PaginatedDocuments> {
   const response = filters
-    ? await apiClient.get<Document[]>("/documents", { params: filters })
-    : await apiClient.get<Document[]>("/documents");
+    ? await apiClient.get<PaginatedDocuments>("/documents", {
+        params: filters,
+      })
+    : await apiClient.get<PaginatedDocuments>("/documents");
 
   return response.data;
+}
+
+export async function getAllDocuments(
+  filters: Omit<DocumentFilters, "page" | "pageSize"> = {},
+): Promise<Document[]> {
+  const firstPage = await getDocuments({
+    ...filters,
+    page: 1,
+    pageSize: 50,
+  });
+
+  if (firstPage.totalPages <= 1) {
+    return firstPage.items;
+  }
+
+  const remainingPages = await Promise.all(
+    Array.from({ length: firstPage.totalPages - 1 }, (_, index) =>
+      getDocuments({
+        ...filters,
+        page: index + 2,
+        pageSize: 50,
+      }),
+    ),
+  );
+
+  return [...firstPage.items, ...remainingPages.flatMap((page) => page.items)];
 }
 
 export async function uploadDocument(

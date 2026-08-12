@@ -11,8 +11,8 @@ import {
   type ApplicationEventType,
 } from "../api/application-events";
 import {
+  getAllDocuments,
   getDocumentDownloadUrl,
-  getDocuments,
   type DocumentType,
 } from "../api/documents";
 
@@ -82,7 +82,7 @@ function ApplicationDetailPage() {
   });
   const documentsQuery = useQuery({
     queryKey: ["documents", { applicationId }],
-    queryFn: () => getDocuments({ applicationId }),
+    queryFn: () => getAllDocuments({ applicationId }),
     enabled: isValidApplicationId,
   });
 
