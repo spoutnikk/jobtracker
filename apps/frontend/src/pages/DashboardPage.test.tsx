@@ -242,4 +242,28 @@ describe("DashboardPage", () => {
       await screen.findByText("Impossible de charger le tableau de bord."),
     ).toBeInTheDocument();
   });
+
+  it("renders the application status distribution as percentages", async () => {
+    renderDashboard();
+
+    const statusSection = (
+      await screen.findByRole("heading", {
+        name: "Candidatures par statut",
+      })
+    ).closest("section");
+
+    expect(statusSection).not.toBeNull();
+
+    expect(
+      within(statusSection!).getByRole("img", {
+        name: "APPLIED : 7 candidatures, 77,8 %",
+      }),
+    ).toBeInTheDocument();
+
+    expect(
+      within(statusSection!).getByRole("img", {
+        name: "INTERVIEW : 2 candidatures, 22,2 %",
+      }),
+    ).toBeInTheDocument();
+  });
 });

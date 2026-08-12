@@ -47,6 +47,11 @@ function DashboardPage() {
     1,
   );
 
+  const totalApplicationsByStatus = stats.applicationsByStatus.reduce(
+    (total, item) => total + item.count,
+    0,
+  );
+
   return (
     <main className="min-h-screen p-8">
       <div className="mx-auto max-w-5xl">
@@ -226,16 +231,48 @@ function DashboardPage() {
           {stats.applicationsByStatus.length === 0 ? (
             <p className="mt-4 text-gray-600">Aucune candidature à analyser.</p>
           ) : (
-            <div className="mt-4 space-y-3">
-              {stats.applicationsByStatus.map((item) => (
-                <div
-                  key={item.status}
-                  className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4"
-                >
-                  <span className="font-medium">{item.status}</span>
-                  <span className="text-lg font-semibold">{item.count}</span>
-                </div>
-              ))}
+            <div className="mt-4 space-y-4">
+              {stats.applicationsByStatus.map((item) => {
+                const percentage =
+                  totalApplicationsByStatus === 0
+                    ? 0
+                    : (item.count / totalApplicationsByStatus) * 100;
+
+                const formattedPercentage =
+                  percentageFormatter.format(percentage);
+                const accessibleLabel = `${item.status} : ${item.count} ${
+                  item.count > 1 ? "candidatures" : "candidature"
+                }, ${formattedPercentage} %`;
+
+                return (
+                  <div
+                    key={item.status}
+                    className="rounded-lg border border-gray-200 bg-white p-4"
+                    role="img"
+                    aria-label={accessibleLabel}
+                  >
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="font-medium">{item.status}</span>
+
+                      <span className="text-sm font-semibold text-gray-700">
+                        {item.count} · {formattedPercentage} %
+                      </span>
+                    </div>
+
+                    <div
+                      className="mt-3 h-3 overflow-hidden rounded-full bg-gray-100"
+                      aria-hidden="true"
+                    >
+                      <div
+                        className="h-full rounded-full bg-blue-600"
+                        style={{
+                          width: `${percentage}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </section>
