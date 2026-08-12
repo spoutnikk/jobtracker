@@ -1,8 +1,13 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { AxiosError, AxiosHeaders } from "axios";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getApplication, type Application } from "../api/applications";
+import {
+  getApplication,
+  updateApplication,
+  type Application,
+} from "../api/applications";
 import {
   getApplicationEvents,
   type ApplicationEvent,
@@ -17,6 +22,7 @@ import ApplicationDetailPage from "./ApplicationDetailPage";
 
 vi.mock("../api/applications", () => ({
   getApplication: vi.fn(),
+  updateApplication: vi.fn(),
 }));
 
 vi.mock("../api/application-events", () => ({
@@ -137,6 +143,7 @@ describe("ApplicationDetailPage", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.mocked(getApplication).mockResolvedValue(application);
+    vi.mocked(updateApplication).mockResolvedValue(application);
     vi.mocked(getApplicationEvents).mockResolvedValue([]);
     vi.mocked(getAllDocuments).mockResolvedValue([]);
     vi.mocked(getDocumentDownloadUrl).mockImplementation(
@@ -473,5 +480,179 @@ describe("ApplicationDetailPage", () => {
       screen.getByRole("heading", { name: "Développeur React" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Candidature créée")).toBeInTheDocument();
+  });
+
+  it("updates the application from the detail page", async () => {
+    const user = userEvent.setup();
+
+    vi.mocked(updateApplication).mockResolvedValue({
+      ...application,
+      status: "ACCEPTED",
+      appliedAt: "2026-08-02T00:00:00.000Z",
+      source: "France Travail",
+      notes: "Candidature mise à jour.",
+      contactName: "Grace Hopper",
+      contactEmail: "grace@example.com",
+      followUpAt: "2026-08-20T00:00:00.000Z",
+      interviewAt: "2026-08-21T14:30:00.000Z",
+    });
+
+    renderDetail();
+
+    await screen.findByRole("heading", { name: "Développeur React" });
+
+    await user.click(screen.getByRole("button", { name: "Modifier" }));
+
+    await user.selectOptions(screen.getByLabelText("Statut"), "ACCEPTED");
+
+    const appliedAtInput = screen.getByLabelText("Date de candidature");
+    await user.clear(appliedAtInput);
+    await user.type(appliedAtInput, "2026-08-02");
+
+    const sourceInput = screen.getByLabelText("Source");
+    await user.clear(sourceInput);
+    await user.type(sourceInput, "France Travail");
+
+    const notesInput = screen.getByLabelText("Notes");
+    await user.clear(notesInput);
+    await user.type(notesInput, "Candidature mise à jour.");
+
+    const contactNameInput = screen.getByLabelText("Nom du contact");
+    await user.clear(contactNameInput);
+    await user.type(contactNameInput, "Grace Hopper");
+
+    const contactEmailInput = screen.getByLabelText("Email du contact");
+    await user.clear(contactEmailInput);
+    await user.type(contactEmailInput, "grace@example.com");
+
+    const followUpInput = screen.getByLabelText("Date de relance");
+    await user.clear(followUpInput);
+    await user.type(followUpInput, "2026-08-20");
+
+    const interviewInput = screen.getByLabelText("Date d'entretien");
+    await user.clear(interviewInput);
+    await user.type(interviewInput, "2026-08-21T14:30");
+
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+    await waitFor(() => {
+      expect(updateApplication).toHaveBeenCalledTimes(1);
+    });
+
+    expect(updateApplication).toHaveBeenCalledWith(42, {
+      status: "ACCEPTED",
+      appliedAt: expect.any(String),
+      source: "France Travail",
+      notes: "Candidature mise à jour.",
+      contactName: "Grace Hopper",
+      contactEmail: "grace@example.com",
+      followUpAt: expect.any(String),
+      interviewAt: expect.any(String),
+    });
+  });
+  it("cancels application editing without saving", async () => {
+    const user = userEvent.setup();
+
+    renderDetail();
+
+    await screen.findByRole("heading", { name: "Développeur React" });
+
+    await user.click(screen.getByRole("button", { name: "Modifier" }));
+
+    const sourceInput = screen.getByLabelText("Source");
+    await user.clear(sourceInput);
+    await user.type(sourceInput, "France Travail");
+
+    await user.click(screen.getByRole("button", { name: "Annuler" }));
+
+    expect(updateApplication).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole("button", { name: "Enregistrer" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("LinkedIn")).toBeInTheDocument();
+  });
+
+  it("keeps the edit form open when updating fails", async () => {
+    const user = userEvent.setup();
+
+    vi.mocked(updateApplication).mockRejectedValue(new Error("Update failed"));
+
+    renderDetail();
+
+    await screen.findByRole("heading", { name: "Développeur React" });
+
+    await user.click(screen.getByRole("button", { name: "Modifier" }));
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+    expect(
+      await screen.findByText("Impossible de modifier la candidature."),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getByRole("button", { name: "Enregistrer" }),
+    ).toBeInTheDocument();
+  });
+
+  it("refreshes application data and history after a successful update", async () => {
+    const user = userEvent.setup();
+
+    renderDetail();
+
+    await screen.findByRole("heading", { name: "Développeur React" });
+
+    await user.click(screen.getByRole("button", { name: "Modifier" }));
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+    await waitFor(() => {
+      expect(updateApplication).toHaveBeenCalledTimes(1);
+    });
+
+    await waitFor(() => {
+      expect(getApplicationEvents).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it("clears optional application fields explicitly", async () => {
+    const user = userEvent.setup();
+
+    vi.mocked(updateApplication).mockResolvedValue({
+      ...application,
+      appliedAt: null,
+      source: null,
+      notes: null,
+      contactName: null,
+      contactEmail: null,
+      followUpAt: null,
+      interviewAt: null,
+    });
+
+    renderDetail();
+
+    await screen.findByRole("heading", { name: "Développeur React" });
+
+    await user.click(screen.getByRole("button", { name: "Modifier" }));
+
+    await user.clear(screen.getByLabelText("Date de candidature"));
+    await user.clear(screen.getByLabelText("Source"));
+    await user.clear(screen.getByLabelText("Notes"));
+    await user.clear(screen.getByLabelText("Nom du contact"));
+    await user.clear(screen.getByLabelText("Email du contact"));
+    await user.clear(screen.getByLabelText("Date de relance"));
+    await user.clear(screen.getByLabelText("Date d'entretien"));
+
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+    await waitFor(() => {
+      expect(updateApplication).toHaveBeenCalledWith(42, {
+        status: "INTERVIEW",
+        appliedAt: null,
+        source: null,
+        notes: null,
+        contactName: null,
+        contactEmail: null,
+        followUpAt: null,
+        interviewAt: null,
+      });
+    });
   });
 });

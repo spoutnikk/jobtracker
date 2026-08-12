@@ -1,10 +1,14 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
+import { useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   getApplication,
+  updateApplication,
+  type Application,
   type ApplicationStatus,
   type ContractType,
+  type UpdateApplicationInput,
 } from "../api/applications";
 import {
   getApplicationEvents,
@@ -52,6 +56,17 @@ const documentTypeLabels: Record<DocumentType, string> = {
   OTHER: "Autre",
 };
 
+interface EditApplicationForm {
+  status: ApplicationStatus;
+  appliedAt: string;
+  source: string;
+  notes: string;
+  contactName: string;
+  contactEmail: string;
+  followUpAt: string;
+  interviewAt: string;
+}
+
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("fr-FR", {
     dateStyle: "long",
@@ -65,25 +80,101 @@ function formatDateTime(value: string) {
   }).format(new Date(value));
 }
 
+function toDateInputValue(value: string | null) {
+  if (!value) {
+    return "";
+  }
+
+  return value.slice(0, 10);
+}
+
+function toDateTimeLocalInputValue(value: string | null) {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+  const offset = date.getTimezoneOffset() * 60_000;
+
+  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+}
+
+function toEditForm(application: Application): EditApplicationForm {
+  return {
+    status: application.status,
+    appliedAt: toDateInputValue(application.appliedAt),
+    source: application.source ?? "",
+    notes: application.notes ?? "",
+    contactName: application.contactName ?? "",
+    contactEmail: application.contactEmail ?? "",
+    followUpAt: toDateInputValue(application.followUpAt),
+    interviewAt: toDateTimeLocalInputValue(application.interviewAt),
+  };
+}
+
+function optionalText(value: string) {
+  const trimmed = value.trim();
+
+  return trimmed === "" ? null : trimmed;
+}
+
+function optionalDate(value: string) {
+  return value === "" ? null : new Date(`${value}T00:00:00`).toISOString();
+}
+
+function optionalDateTime(value: string) {
+  return value === "" ? null : new Date(value).toISOString();
+}
+
 function ApplicationDetailPage() {
   const { id } = useParams();
+  const queryClient = useQueryClient();
   const applicationId = Number(id);
   const isValidApplicationId =
     Number.isInteger(applicationId) && applicationId > 0;
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState<EditApplicationForm | null>(null);
+
   const applicationQuery = useQuery({
     queryKey: ["applications", "detail", applicationId],
     queryFn: () => getApplication(applicationId),
     enabled: isValidApplicationId,
   });
+
   const applicationEventsQuery = useQuery({
     queryKey: ["application-events", applicationId],
     queryFn: () => getApplicationEvents(applicationId),
     enabled: isValidApplicationId,
   });
+
   const documentsQuery = useQuery({
     queryKey: ["documents", { applicationId }],
     queryFn: () => getAllDocuments({ applicationId }),
     enabled: isValidApplicationId,
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (input: UpdateApplicationInput) =>
+      updateApplication(applicationId, input),
+    onSuccess: async (updatedApplication) => {
+      queryClient.setQueryData(
+        ["applications", "detail", applicationId],
+        updatedApplication,
+      );
+
+      setIsEditing(false);
+      setEditForm(null);
+
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["applications"],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["application-events", applicationId],
+        }),
+      ]);
+    },
   });
 
   if (!isValidApplicationId) {
@@ -122,6 +213,51 @@ function ApplicationDetailPage() {
   const { jobOffer } = application;
   const { company } = jobOffer;
 
+  function startEditing() {
+    setEditForm(toEditForm(application));
+    setIsEditing(true);
+    updateMutation.reset();
+  }
+
+  function cancelEditing() {
+    setEditForm(null);
+    setIsEditing(false);
+    updateMutation.reset();
+  }
+
+  function updateEditForm<Key extends keyof EditApplicationForm>(
+    key: Key,
+    value: EditApplicationForm[Key],
+  ) {
+    setEditForm((current) =>
+      current
+        ? {
+            ...current,
+            [key]: value,
+          }
+        : current,
+    );
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!editForm) {
+      return;
+    }
+
+    updateMutation.mutate({
+      status: editForm.status,
+      appliedAt: optionalDate(editForm.appliedAt),
+      source: optionalText(editForm.source),
+      notes: optionalText(editForm.notes),
+      contactName: optionalText(editForm.contactName),
+      contactEmail: optionalText(editForm.contactEmail),
+      followUpAt: optionalDate(editForm.followUpAt),
+      interviewAt: optionalDateTime(editForm.interviewAt),
+    });
+  }
+
   return (
     <main className="min-h-screen p-8">
       <div className="mx-auto max-w-4xl">
@@ -138,6 +274,7 @@ function ApplicationDetailPage() {
               <h1 className="text-3xl font-bold">{jobOffer.title}</h1>
               <p className="mt-2 text-lg text-gray-600">{company.name}</p>
             </div>
+
             <span className="rounded-full bg-gray-100 px-3 py-1 text-sm font-medium">
               {statusLabels[application.status]}
             </span>
@@ -145,55 +282,247 @@ function ApplicationDetailPage() {
         </header>
 
         <section className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-          <h2 className="text-xl font-semibold">Candidature</h2>
-          <dl className="mt-4 space-y-3">
-            {application.appliedAt && (
-              <div>
-                <dt className="font-medium">Date de candidature</dt>
-                <dd>{formatDate(application.appliedAt)}</dd>
-              </div>
+          <div className="flex items-center justify-between gap-4">
+            <h2 className="text-xl font-semibold">Candidature</h2>
+
+            {!isEditing && (
+              <button
+                type="button"
+                onClick={startEditing}
+                className="rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700"
+              >
+                Modifier
+              </button>
             )}
-            {application.source && (
+          </div>
+
+          {isEditing && editForm ? (
+            <form className="mt-4 space-y-4" onSubmit={handleSubmit}>
               <div>
-                <dt className="font-medium">Source</dt>
-                <dd>{application.source}</dd>
+                <label htmlFor="detail-status" className="block font-medium">
+                  Statut
+                </label>
+                <select
+                  id="detail-status"
+                  value={editForm.status}
+                  onChange={(event) =>
+                    updateEditForm(
+                      "status",
+                      event.target.value as ApplicationStatus,
+                    )
+                  }
+                  className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
+                >
+                  {Object.entries(statusLabels).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
               </div>
-            )}
-            {application.followUpAt && (
+
               <div>
-                <dt className="font-medium">Prochaine relance</dt>
-                <dd>{formatDateTime(application.followUpAt)}</dd>
+                <label
+                  htmlFor="detail-applied-at"
+                  className="block font-medium"
+                >
+                  Date de candidature
+                </label>
+                <input
+                  id="detail-applied-at"
+                  type="date"
+                  value={editForm.appliedAt}
+                  onChange={(event) =>
+                    updateEditForm("appliedAt", event.target.value)
+                  }
+                  className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
+                />
               </div>
-            )}
-            {application.interviewAt && (
+
               <div>
-                <dt className="font-medium">Entretien</dt>
-                <dd>{formatDateTime(application.interviewAt)}</dd>
+                <label htmlFor="detail-source" className="block font-medium">
+                  Source
+                </label>
+                <input
+                  id="detail-source"
+                  value={editForm.source}
+                  onChange={(event) =>
+                    updateEditForm("source", event.target.value)
+                  }
+                  className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
+                />
               </div>
-            )}
-            {application.contactName && (
+
               <div>
-                <dt className="font-medium">Contact</dt>
-                <dd>{application.contactName}</dd>
+                <label htmlFor="detail-notes" className="block font-medium">
+                  Notes
+                </label>
+                <textarea
+                  id="detail-notes"
+                  value={editForm.notes}
+                  onChange={(event) =>
+                    updateEditForm("notes", event.target.value)
+                  }
+                  rows={5}
+                  className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
+                />
               </div>
-            )}
-            {application.contactEmail && (
+
               <div>
-                <dt className="font-medium">Email du contact</dt>
-                <dd>{application.contactEmail}</dd>
+                <label
+                  htmlFor="detail-contact-name"
+                  className="block font-medium"
+                >
+                  Nom du contact
+                </label>
+                <input
+                  id="detail-contact-name"
+                  value={editForm.contactName}
+                  onChange={(event) =>
+                    updateEditForm("contactName", event.target.value)
+                  }
+                  className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
+                />
               </div>
-            )}
-            {application.notes && (
+
               <div>
-                <dt className="font-medium">Notes</dt>
-                <dd className="whitespace-pre-wrap">{application.notes}</dd>
+                <label
+                  htmlFor="detail-contact-email"
+                  className="block font-medium"
+                >
+                  Email du contact
+                </label>
+                <input
+                  id="detail-contact-email"
+                  type="email"
+                  value={editForm.contactEmail}
+                  onChange={(event) =>
+                    updateEditForm("contactEmail", event.target.value)
+                  }
+                  className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
+                />
               </div>
-            )}
-          </dl>
+
+              <div>
+                <label
+                  htmlFor="detail-follow-up-at"
+                  className="block font-medium"
+                >
+                  Date de relance
+                </label>
+                <input
+                  id="detail-follow-up-at"
+                  type="date"
+                  value={editForm.followUpAt}
+                  onChange={(event) =>
+                    updateEditForm("followUpAt", event.target.value)
+                  }
+                  className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="detail-interview-at"
+                  className="block font-medium"
+                >
+                  Date d'entretien
+                </label>
+                <input
+                  id="detail-interview-at"
+                  type="datetime-local"
+                  value={editForm.interviewAt}
+                  onChange={(event) =>
+                    updateEditForm("interviewAt", event.target.value)
+                  }
+                  className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
+                />
+              </div>
+
+              {updateMutation.isError && (
+                <p className="text-red-600">
+                  Impossible de modifier la candidature.
+                </p>
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  type="submit"
+                  disabled={updateMutation.isPending}
+                  className="rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {updateMutation.isPending
+                    ? "Enregistrement..."
+                    : "Enregistrer"}
+                </button>
+
+                <button
+                  type="button"
+                  disabled={updateMutation.isPending}
+                  onClick={cancelEditing}
+                  className="rounded border border-gray-300 px-4 py-2 font-medium hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Annuler
+                </button>
+              </div>
+            </form>
+          ) : (
+            <dl className="mt-4 space-y-3">
+              {application.appliedAt && (
+                <div>
+                  <dt className="font-medium">Date de candidature</dt>
+                  <dd>{formatDate(application.appliedAt)}</dd>
+                </div>
+              )}
+
+              {application.source && (
+                <div>
+                  <dt className="font-medium">Source</dt>
+                  <dd>{application.source}</dd>
+                </div>
+              )}
+
+              {application.followUpAt && (
+                <div>
+                  <dt className="font-medium">Prochaine relance</dt>
+                  <dd>{formatDateTime(application.followUpAt)}</dd>
+                </div>
+              )}
+
+              {application.interviewAt && (
+                <div>
+                  <dt className="font-medium">Entretien</dt>
+                  <dd>{formatDateTime(application.interviewAt)}</dd>
+                </div>
+              )}
+
+              {application.contactName && (
+                <div>
+                  <dt className="font-medium">Contact</dt>
+                  <dd>{application.contactName}</dd>
+                </div>
+              )}
+
+              {application.contactEmail && (
+                <div>
+                  <dt className="font-medium">Email du contact</dt>
+                  <dd>{application.contactEmail}</dd>
+                </div>
+              )}
+
+              {application.notes && (
+                <div>
+                  <dt className="font-medium">Notes</dt>
+                  <dd className="whitespace-pre-wrap">{application.notes}</dd>
+                </div>
+              )}
+            </dl>
+          )}
         </section>
 
         <section className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
           <h2 className="text-xl font-semibold">Offre</h2>
+
           <dl className="mt-4 space-y-3">
             {jobOffer.location && (
               <div>
@@ -201,24 +530,28 @@ function ApplicationDetailPage() {
                 <dd>{jobOffer.location}</dd>
               </div>
             )}
+
             {jobOffer.contractType && (
               <div>
                 <dt className="font-medium">Type de contrat</dt>
                 <dd>{contractTypeLabels[jobOffer.contractType]}</dd>
               </div>
             )}
+
             {jobOffer.salary && (
               <div>
                 <dt className="font-medium">Salaire</dt>
                 <dd>{jobOffer.salary}</dd>
               </div>
             )}
+
             {jobOffer.publishedAt && (
               <div>
                 <dt className="font-medium">Date de publication</dt>
                 <dd>{formatDate(jobOffer.publishedAt)}</dd>
               </div>
             )}
+
             {jobOffer.description && (
               <div>
                 <dt className="font-medium">Description</dt>
@@ -226,6 +559,7 @@ function ApplicationDetailPage() {
               </div>
             )}
           </dl>
+
           {jobOffer.url && (
             <a
               href={jobOffer.url}
@@ -240,8 +574,11 @@ function ApplicationDetailPage() {
 
         <section className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
           <h2 className="text-xl font-semibold">Entreprise</h2>
+
           <p className="mt-4 font-medium">{company.name}</p>
+
           {company.city && <p className="mt-2">{company.city}</p>}
+
           {company.website && (
             <a
               href={company.website}
@@ -279,12 +616,15 @@ function ApplicationDetailPage() {
                     {eventTypeLabels[applicationEvent.type] ??
                       applicationEvent.type}
                   </p>
+
                   <p className="mt-1">{applicationEvent.title}</p>
+
                   {applicationEvent.description && (
                     <p className="mt-1 whitespace-pre-wrap text-gray-700">
                       {applicationEvent.description}
                     </p>
                   )}
+
                   <time
                     dateTime={applicationEvent.occurredAt}
                     className="mt-2 block text-sm text-gray-600"
@@ -316,15 +656,18 @@ function ApplicationDetailPage() {
                   className="rounded-md border border-gray-200 p-4"
                 >
                   <p className="font-semibold">{document.name}</p>
+
                   <p className="mt-1 text-sm text-gray-700">
                     {documentTypeLabels[document.type]}
                   </p>
+
                   <time
                     dateTime={document.createdAt}
                     className="mt-1 block text-sm text-gray-600"
                   >
                     Ajouté le {formatDateTime(document.createdAt)}
                   </time>
+
                   <a
                     href={getDocumentDownloadUrl(document.id)}
                     className="mt-3 inline-block font-medium text-blue-700 hover:underline"
@@ -339,11 +682,13 @@ function ApplicationDetailPage() {
 
         <section className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
           <h2 className="text-xl font-semibold">Métadonnées</h2>
+
           <dl className="mt-4 space-y-3">
             <div>
               <dt className="font-medium">Créée le</dt>
               <dd>{formatDateTime(application.createdAt)}</dd>
             </div>
+
             <div>
               <dt className="font-medium">Mise à jour le</dt>
               <dd>{formatDateTime(application.updatedAt)}</dd>

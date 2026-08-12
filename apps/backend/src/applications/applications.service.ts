@@ -262,18 +262,30 @@ export class ApplicationsService {
           : null;
         const isFirstApplicationSent =
           isTransitioningToApplied && existingApplicationSentEvent === null;
-        const requestedAppliedAt = updateApplicationDto.appliedAt
-          ? new Date(updateApplicationDto.appliedAt)
-          : undefined;
+        const requestedAppliedAt =
+          updateApplicationDto.appliedAt === undefined
+            ? undefined
+            : updateApplicationDto.appliedAt === null
+              ? null
+              : new Date(updateApplicationDto.appliedAt);
+
         const appliedAt = isFirstApplicationSent
           ? (requestedAppliedAt ?? previousApplication.appliedAt ?? new Date())
           : requestedAppliedAt;
-        const followUpAt = updateApplicationDto.followUpAt
-          ? new Date(updateApplicationDto.followUpAt)
-          : undefined;
-        const interviewAt = updateApplicationDto.interviewAt
-          ? new Date(updateApplicationDto.interviewAt)
-          : undefined;
+
+        const followUpAt =
+          updateApplicationDto.followUpAt === undefined
+            ? undefined
+            : updateApplicationDto.followUpAt === null
+              ? null
+              : new Date(updateApplicationDto.followUpAt);
+
+        const interviewAt =
+          updateApplicationDto.interviewAt === undefined
+            ? undefined
+            : updateApplicationDto.interviewAt === null
+              ? null
+              : new Date(updateApplicationDto.interviewAt);
 
         const application = await tx.application.update({
           where: {
@@ -314,7 +326,7 @@ export class ApplicationsService {
           });
         }
 
-        if (isFirstApplicationSent) {
+        if (isFirstApplicationSent && appliedAt instanceof Date) {
           await tx.applicationEvent.create({
             data: {
               applicationId: id,
@@ -326,7 +338,7 @@ export class ApplicationsService {
         }
 
         if (
-          followUpAt !== undefined &&
+          followUpAt instanceof Date &&
           followUpAt.getTime() !== previousApplication.followUpAt?.getTime()
         ) {
           await tx.applicationEvent.create({
@@ -340,7 +352,7 @@ export class ApplicationsService {
         }
 
         if (
-          interviewAt !== undefined &&
+          interviewAt instanceof Date &&
           interviewAt.getTime() !== previousApplication.interviewAt?.getTime()
         ) {
           await tx.applicationEvent.create({

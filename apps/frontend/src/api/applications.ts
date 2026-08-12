@@ -128,9 +128,16 @@ export async function createApplication(
   return response.data;
 }
 
-export type UpdateApplicationInput = Partial<
-  Omit<CreateApplicationInput, "jobOfferId">
->;
+export interface UpdateApplicationInput {
+  status?: ApplicationStatus;
+  appliedAt?: string | null;
+  source?: string | null;
+  notes?: string | null;
+  contactName?: string | null;
+  contactEmail?: string | null;
+  followUpAt?: string | null;
+  interviewAt?: string | null;
+}
 
 export async function updateApplication(
   id: number,

@@ -992,6 +992,34 @@ describe('ApplicationsService', () => {
     });
   });
 
+  it('should preserve nullable fields when they are omitted from the update', async () => {
+    const application = {
+      id: 1,
+      status: 'DRAFT',
+    };
+
+    prismaServiceMock.application.findFirst.mockResolvedValue({
+      status: 'DRAFT',
+      appliedAt: new Date('2026-08-01T10:00:00.000Z'),
+      followUpAt: new Date('2026-08-20T10:00:00.000Z'),
+      interviewAt: new Date('2026-08-25T14:00:00.000Z'),
+    });
+    prismaServiceMock.application.update.mockResolvedValue(application);
+
+    await expect(service.update(7, 1, {})).resolves.toEqual(application);
+
+    const [updateArguments] = prismaServiceMock.application.update.mock
+      .calls[0] as [ApplicationUpdateArguments];
+
+    expect(updateArguments.data.appliedAt).toBeUndefined();
+    expect(updateArguments.data.source).toBeUndefined();
+    expect(updateArguments.data.notes).toBeUndefined();
+    expect(updateArguments.data.contactName).toBeUndefined();
+    expect(updateArguments.data.contactEmail).toBeUndefined();
+    expect(updateArguments.data.followUpAt).toBeUndefined();
+    expect(updateArguments.data.interviewAt).toBeUndefined();
+  });
+
   it('should preserve appliedAt without looking for an application sent event when leaving applied', async () => {
     const updatedApplication = { id: 1, status: 'INTERVIEW' };
 
@@ -1141,6 +1169,57 @@ describe('ApplicationsService', () => {
 
     expect(prismaServiceMock.applicationEvent.create).not.toHaveBeenCalled();
     expect(prismaServiceMock.jobOffer.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('should clear nullable application fields explicitly set to null', async () => {
+    const application = {
+      id: 1,
+      status: 'DRAFT',
+      appliedAt: null,
+      source: null,
+      notes: null,
+      contactName: null,
+      contactEmail: null,
+      followUpAt: null,
+      interviewAt: null,
+    };
+
+    prismaServiceMock.application.findFirst.mockResolvedValue({
+      status: 'DRAFT',
+      appliedAt: new Date('2026-08-01T10:00:00.000Z'),
+      followUpAt: new Date('2026-08-20T10:00:00.000Z'),
+      interviewAt: new Date('2026-08-25T14:00:00.000Z'),
+    });
+    prismaServiceMock.application.update.mockResolvedValue(application);
+
+    await expect(
+      service.update(7, 1, {
+        appliedAt: null,
+        source: null,
+        notes: null,
+        contactName: null,
+        contactEmail: null,
+        followUpAt: null,
+        interviewAt: null,
+      }),
+    ).resolves.toEqual(application);
+
+    const [updateArguments] = prismaServiceMock.application.update.mock
+      .calls[0] as [ApplicationUpdateArguments];
+
+    expect(updateArguments.data).toEqual(
+      expect.objectContaining({
+        appliedAt: null,
+        source: null,
+        notes: null,
+        contactName: null,
+        contactEmail: null,
+        followUpAt: null,
+        interviewAt: null,
+      }),
+    );
+
+    expect(prismaServiceMock.applicationEvent.create).not.toHaveBeenCalled();
   });
 
   it('should remove an application', async () => {
