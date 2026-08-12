@@ -1,5 +1,5 @@
 import { screen, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import {
   getFollowUps,
@@ -76,6 +76,10 @@ function renderCalendar() {
     </MemoryRouter>,
   );
 }
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe("CalendarPage", () => {
   beforeEach(() => {
@@ -260,7 +264,68 @@ describe("CalendarPage", () => {
     });
 
     expect(
-      within(august20).getByText("Relance · Développeur React"),
+      within(august20).getByRole("link", {
+        name: "14:00 · Relance · Développeur React",
+      }),
+    ).toHaveAttribute("href", `/applications/${followUp.id}`);
+  });
+
+  it("returns to the current month and highlights today", async () => {
+    vi.useFakeTimers({
+      shouldAdvanceTime: true,
+    });
+    vi.setSystemTime(new Date("2026-08-13T10:00:00.000Z"));
+
+    const user = userEvent.setup({
+      advanceTimers: vi.advanceTimersByTime,
+    });
+
+    renderCalendar();
+
+    expect(
+      await screen.findByRole("heading", {
+        name: /^août 2026$/i,
+      }),
     ).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Mois suivant",
+      }),
+    );
+
+    expect(
+      screen.getByRole("heading", {
+        name: /^septembre 2026$/i,
+      }),
+    ).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Aujourd'hui",
+      }),
+    );
+
+    expect(
+      screen.getByRole("heading", {
+        name: /^août 2026$/i,
+      }),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getByRole("gridcell", {
+        name: /13 août 2026.*aujourd'hui/i,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows event times in the monthly calendar", async () => {
+    renderCalendar();
+
+    const august20 = await screen.findByRole("gridcell", {
+      name: /20 août 2026/i,
+    });
+
+    expect(within(august20).getByText(/14:00/)).toBeInTheDocument();
   });
 });

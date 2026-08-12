@@ -238,6 +238,9 @@ function MonthlyCalendar({ events }: { events: CalendarEvent[] }) {
     getInitialMonth(events),
   );
 
+  const today = new Date();
+  const todayKey = getDayKey(today);
+
   const monthCells = createMonthCells(currentMonth);
 
   const eventsByDay = new Map<string, CalendarEvent[]>();
@@ -253,6 +256,12 @@ function MonthlyCalendar({ events }: { events: CalendarEvent[] }) {
     }
   }
 
+  function goToToday() {
+    const now = new Date();
+
+    setCurrentMonth(new Date(now.getFullYear(), now.getMonth(), 1, 12));
+  }
+
   function changeMonth(offset: number) {
     setCurrentMonth(
       (month) =>
@@ -263,14 +272,24 @@ function MonthlyCalendar({ events }: { events: CalendarEvent[] }) {
   return (
     <section className="mt-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <button
-          type="button"
-          onClick={() => changeMonth(-1)}
-          aria-label="Mois précédent"
-          className="rounded border border-gray-300 px-4 py-2 font-medium hover:bg-gray-50"
-        >
-          ←
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => changeMonth(-1)}
+            aria-label="Mois précédent"
+            className="rounded border border-gray-300 px-4 py-2 font-medium hover:bg-gray-50"
+          >
+            ←
+          </button>
+
+          <button
+            type="button"
+            onClick={goToToday}
+            className="rounded border border-gray-300 px-4 py-2 font-medium hover:bg-gray-50"
+          >
+            Aujourd'hui
+          </button>
+        </div>
 
         <h2 className="text-2xl font-semibold capitalize">
           {formatMonth(currentMonth)}
@@ -309,15 +328,19 @@ function MonthlyCalendar({ events }: { events: CalendarEvent[] }) {
           >
             {monthCells.map((cell) => {
               const dayEvents = eventsByDay.get(cell.key) ?? [];
+              const isToday = cell.key === todayKey;
 
               return (
                 <div
                   key={cell.key}
                   role="gridcell"
-                  aria-label={formatCalendarCellDate(cell.date)}
+                  aria-label={`${formatCalendarCellDate(cell.date)}${
+                    isToday ? ", aujourd'hui" : ""
+                  }`}
                   className={[
                     "min-h-32 border-b border-r border-gray-200 p-2",
                     cell.isCurrentMonth ? "bg-white" : "bg-gray-50",
+                    isToday ? "ring-2 ring-inset ring-blue-500" : "",
                   ].join(" ")}
                 >
                   <p
@@ -343,6 +366,7 @@ function MonthlyCalendar({ events }: { events: CalendarEvent[] }) {
                               : "bg-amber-50 text-amber-800 hover:bg-amber-100",
                           ].join(" ")}
                         >
+                          {formatTime(event.date)} ·{" "}
                           {event.type === "FOLLOW_UP" ? "Relance" : "Entretien"}{" "}
                           · {event.application.jobOffer.title}
                         </Link>
