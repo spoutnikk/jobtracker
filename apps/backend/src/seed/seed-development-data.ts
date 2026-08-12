@@ -146,8 +146,17 @@ function daysAgo(reference: Date, days: number): Date {
   return new Date(reference.getTime() - days * DAY_IN_MS);
 }
 
-function daysFromNow(reference: Date, days: number): Date {
-  return new Date(reference.getTime() + days * DAY_IN_MS);
+function daysFromNowAtUtcHour(
+  reference: Date,
+  days: number,
+  hour: number,
+): Date {
+  const date = new Date(reference);
+
+  date.setUTCDate(date.getUTCDate() + days);
+  date.setUTCHours(hour, 0, 0, 0);
+
+  return date;
 }
 
 function daysAfter(reference: Date, days: number): Date {
@@ -253,14 +262,19 @@ export async function seedDevelopmentData(
         : {}),
       ...(fixture.followUpDaysFromNow !== undefined
         ? {
-            followUpAt: daysFromNow(referenceDate, fixture.followUpDaysFromNow),
+            followUpAt: daysFromNowAtUtcHour(
+              referenceDate,
+              fixture.followUpDaysFromNow,
+              8,
+            ),
           }
         : {}),
       ...(fixture.interviewDaysFromNow !== undefined
         ? {
-            interviewAt: daysFromNow(
+            interviewAt: daysFromNowAtUtcHour(
               referenceDate,
               fixture.interviewDaysFromNow,
+              13,
             ),
           }
         : {}),

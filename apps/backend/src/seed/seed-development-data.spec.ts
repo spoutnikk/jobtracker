@@ -40,6 +40,33 @@ describe('seed development data', () => {
       referenceDate,
     );
 
+    const createdApplications = store.createApplication.mock.calls.map(
+      ([application]) => application,
+    );
+
+    const followUps = createdApplications.filter(
+      (application) => application.followUpAt !== undefined,
+    );
+
+    const interviews = createdApplications.filter(
+      (application) => application.interviewAt !== undefined,
+    );
+
+    expect(followUps.length).toBeGreaterThan(0);
+    expect(interviews.length).toBeGreaterThan(0);
+
+    for (const application of followUps) {
+      expect(application.followUpAt?.getUTCHours()).toBe(8);
+      expect(application.followUpAt?.getUTCMinutes()).toBe(0);
+      expect(application.followUpAt?.getUTCSeconds()).toBe(0);
+    }
+
+    for (const application of interviews) {
+      expect(application.interviewAt?.getUTCHours()).toBe(13);
+      expect(application.interviewAt?.getUTCMinutes()).toBe(0);
+      expect(application.interviewAt?.getUTCSeconds()).toBe(0);
+    }
+
     expect(store.findUserByEmail).toHaveBeenCalledWith('dev@jobtracker.local');
 
     expect(store.createCompany).toHaveBeenCalled();
