@@ -100,7 +100,7 @@ describe("CalendarPage", () => {
     expect(followUpCard).not.toBeNull();
     expect(interviewCard).not.toBeNull();
     expect(
-      within(followUpCard!).getByText(/^Relance prévue le /),
+      within(followUpCard!).getByText(/^Relance prévue à /),
     ).toBeInTheDocument();
     expect(within(followUpCard!).getByText("Acme")).toBeInTheDocument();
     expect(
@@ -109,7 +109,7 @@ describe("CalendarPage", () => {
       }),
     ).toHaveAttribute("href", `/applications/${followUp.id}`);
     expect(
-      within(interviewCard!).getByText(/^Entretien prévu le /),
+      within(interviewCard!).getByText(/^Entretien prévu à /),
     ).toBeInTheDocument();
     expect(within(interviewCard!).getByText("Acme")).toBeInTheDocument();
     expect(
@@ -119,16 +119,15 @@ describe("CalendarPage", () => {
     ).toHaveAttribute("href", `/applications/${interview.id}`);
   });
 
-  it("renders the empty state for both event types", async () => {
+  it("renders the empty calendar state", async () => {
     vi.mocked(getFollowUps).mockResolvedValue([]);
     vi.mocked(getInterviews).mockResolvedValue([]);
 
     renderCalendar();
 
     expect(
-      await screen.findByText("Aucune relance à venir."),
+      await screen.findByText("Aucun événement à venir."),
     ).toBeInTheDocument();
-    expect(screen.getByText("Aucun entretien à venir.")).toBeInTheDocument();
   });
 
   it("renders the loading state", () => {
@@ -150,6 +149,67 @@ describe("CalendarPage", () => {
       await screen.findByText(
         "Impossible de charger les relances ou les entretiens.",
       ),
+    ).toBeInTheDocument();
+  });
+
+  it("renders all calendar events in chronological order", async () => {
+    const laterFollowUp = createApplication({
+      id: 3,
+      followUpAt: "2026-08-25T09:00:00.000Z",
+      jobOfferId: 12,
+      jobOffer: {
+        ...followUp.jobOffer,
+        id: 12,
+        title: "Développeur Node.js",
+      },
+    });
+
+    vi.mocked(getFollowUps).mockResolvedValue([laterFollowUp, followUp]);
+    vi.mocked(getInterviews).mockResolvedValue([interview]);
+
+    renderCalendar();
+
+    const eventHeadings = await screen.findAllByRole("heading", {
+      level: 3,
+    });
+
+    expect(eventHeadings.map((heading) => heading.textContent)).toEqual([
+      "Développeur React",
+      "Développeur TypeScript",
+      "Développeur Node.js",
+    ]);
+  });
+
+  it("groups events occurring on the same day", async () => {
+    const sameDayInterview = createApplication({
+      id: 4,
+      status: "INTERVIEW",
+      followUpAt: null,
+      interviewAt: "2026-08-20T15:00:00.000Z",
+      jobOfferId: 13,
+      jobOffer: {
+        ...followUp.jobOffer,
+        id: 13,
+        title: "Développeur NestJS",
+      },
+    });
+
+    vi.mocked(getInterviews).mockResolvedValue([sameDayInterview]);
+
+    renderCalendar();
+
+    expect(
+      await screen.findByRole("heading", {
+        name: /20 août 2026/i,
+      }),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getByRole("heading", { name: "Développeur React" }),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getByRole("heading", { name: "Développeur NestJS" }),
     ).toBeInTheDocument();
   });
 });
