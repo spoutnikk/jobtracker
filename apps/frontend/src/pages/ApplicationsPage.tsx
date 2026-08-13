@@ -16,11 +16,26 @@ import {
   type ApplicationEventType,
 } from "../api/application-events";
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import CollapsibleSection from "../components/CollapsibleSection";
 
 function ApplicationsPage() {
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const statusFromUrl = searchParams.get("status");
+  const initialFilterStatus: ApplicationStatus | "" =
+    statusFromUrl &&
+    [
+      "DRAFT",
+      "APPLIED",
+      "FOLLOW_UP",
+      "INTERVIEW",
+      "ACCEPTED",
+      "REJECTED",
+    ].includes(statusFromUrl)
+      ? (statusFromUrl as ApplicationStatus)
+      : "";
 
   const [status, setStatus] = useState<ApplicationStatus>("DRAFT");
   const [source, setSource] = useState("");
@@ -33,7 +48,9 @@ function ApplicationsPage() {
   const [jobOfferId, setJobOfferId] = useState<number | null>(null);
   const [filterSearchInput, setFilterSearchInput] = useState("");
   const [filterSearch, setFilterSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState<ApplicationStatus | "">("");
+  const [filterStatus, setFilterStatus] = useState<ApplicationStatus | "">(
+    initialFilterStatus,
+  );
   const [filterCompanyId, setFilterCompanyId] = useState<number | null>(null);
   const [filterJobOfferId, setFilterJobOfferId] = useState<number | null>(null);
   const [page, setPage] = useState(1);
@@ -239,10 +256,21 @@ function ApplicationsPage() {
                 <select
                   value={filterStatus}
                   onChange={(event) => {
-                    setFilterStatus(
-                      event.target.value as ApplicationStatus | "",
-                    );
+                    const nextStatus = event.target.value as
+                      ApplicationStatus | "";
+
+                    setFilterStatus(nextStatus);
                     setPage(1);
+
+                    const nextSearchParams = new URLSearchParams(searchParams);
+
+                    if (nextStatus) {
+                      nextSearchParams.set("status", nextStatus);
+                    } else {
+                      nextSearchParams.delete("status");
+                    }
+
+                    setSearchParams(nextSearchParams, { replace: true });
                   }}
                   className="rounded-md border border-gray-300 px-3 py-2"
                 >
@@ -314,6 +342,10 @@ function ApplicationsPage() {
                   setFilterSearch("");
                   setFilterStatus("");
                   setFilterCompanyId(null);
+
+                  const nextSearchParams = new URLSearchParams(searchParams);
+                  nextSearchParams.delete("status");
+                  setSearchParams(nextSearchParams, { replace: true });
                   setFilterJobOfferId(null);
                   setPage(1);
                   setPageSize(10);

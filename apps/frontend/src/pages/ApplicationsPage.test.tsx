@@ -34,9 +34,9 @@ vi.mock("../api/application-events", () => ({
   getApplicationEvents: vi.fn(),
 }));
 
-function renderApplicationsPage() {
+function renderApplicationsPage(initialEntry = "/applications") {
   return renderWithProviders(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[initialEntry]}>
       <ApplicationsPage />
     </MemoryRouter>,
   );
@@ -185,6 +185,23 @@ describe("ApplicationsPage", () => {
     expect(
       await screen.findByText("Impossible de charger les candidatures."),
     ).toBeInTheDocument();
+  });
+
+  it("initializes the status filter from the URL", async () => {
+    renderApplicationsPage("/applications?status=INTERVIEW");
+
+    await screen.findByRole("heading", { name: jobOffer.title });
+
+    expect(screen.getByLabelText("Filtrer par statut")).toHaveValue(
+      "INTERVIEW",
+    );
+
+    await waitFor(() => {
+      expect(getApplications).toHaveBeenLastCalledWith({
+        ...defaultApplicationParams,
+        status: "INTERVIEW",
+      });
+    });
   });
 
   it.each([

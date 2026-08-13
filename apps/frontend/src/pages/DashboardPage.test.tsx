@@ -255,16 +255,16 @@ describe("DashboardPage", () => {
     expect(statusSection).not.toBeNull();
 
     expect(
-      within(statusSection!).getByRole("img", {
+      within(statusSection!).getByRole("link", {
         name: "APPLIED : 7 candidatures, 77,8 %",
       }),
-    ).toBeInTheDocument();
+    ).toHaveAttribute("href", "/applications?status=APPLIED");
 
     expect(
-      within(statusSection!).getByRole("img", {
+      within(statusSection!).getByRole("link", {
         name: "INTERVIEW : 2 candidatures, 22,2 %",
       }),
-    ).toBeInTheDocument();
+    ).toHaveAttribute("href", "/applications?status=INTERVIEW");
   });
   it("provides navigation links from the main dashboard counters", async () => {
     renderDashboard();

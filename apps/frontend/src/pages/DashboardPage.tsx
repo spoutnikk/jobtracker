@@ -283,32 +283,34 @@ function DashboardPage() {
                 }, ${formattedPercentage} %`;
 
                 return (
-                  <div
+                  <Link
                     key={item.status}
-                    className="rounded-lg border border-gray-200 bg-white p-4"
-                    role="img"
+                    to={`/applications?status=${item.status}`}
+                    className="block"
                     aria-label={accessibleLabel}
                   >
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="font-medium">{item.status}</span>
+                    <div className="rounded-lg border border-gray-200 bg-white p-4 transition hover:border-gray-300 hover:shadow">
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="font-medium">{item.status}</span>
 
-                      <span className="text-sm font-semibold text-gray-700">
-                        {item.count} · {formattedPercentage} %
-                      </span>
-                    </div>
+                        <span className="text-sm font-semibold text-gray-700">
+                          {item.count} · {formattedPercentage} %
+                        </span>
+                      </div>
 
-                    <div
-                      className="mt-3 h-3 overflow-hidden rounded-full bg-gray-100"
-                      aria-hidden="true"
-                    >
                       <div
-                        className="h-full rounded-full bg-blue-600"
-                        style={{
-                          width: `${percentage}%`,
-                        }}
-                      />
+                        className="mt-3 h-3 overflow-hidden rounded-full bg-gray-100"
+                        aria-hidden="true"
+                      >
+                        <div
+                          className="h-full rounded-full bg-blue-600"
+                          style={{
+                            width: `${percentage}%`,
+                          }}
+                        />
+                      </div>
                     </div>
-                  </div>
+                  </Link>
                 );
               })}
             </div>
