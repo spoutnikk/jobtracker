@@ -130,6 +130,7 @@ function createAxiosError(status: number) {
 describe("JobOffersPage", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    window.history.replaceState({}, "", "/job-offers");
     vi.mocked(getJobOffers).mockResolvedValue(paginatedJobOffers([]));
     vi.mocked(getAllCompanies).mockResolvedValue([company, secondCompany]);
     vi.mocked(createJobOffer).mockResolvedValue(jobOffer);
@@ -147,6 +148,31 @@ describe("JobOffersPage", () => {
       screen.getByRole("heading", { name: "Nouvelle offre" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Aucune offre enregistrée.")).toBeInTheDocument();
+  });
+
+  it("initializes filters from the URL", async () => {
+    window.history.pushState(
+      {},
+      "",
+      "/job-offers?search=React&companyId=1&contractType=CDI",
+    );
+
+    vi.mocked(getJobOffers).mockResolvedValue(paginatedJobOffers([jobOffer]));
+
+    renderWithProviders(<JobOffersPage />);
+
+    await waitFor(() => {
+      expect(getJobOffers).toHaveBeenLastCalledWith({
+        ...defaultJobOfferParams,
+        search: "React",
+        companyId: company.id,
+        contractType: "CDI",
+      });
+    });
+    await screen.findByRole("heading", { name: "Offres d’emploi" });
+    expect(screen.getByLabelText("Recherche")).toHaveValue("React");
+    expect(screen.getByLabelText("Filtrer par société")).toHaveValue("1");
+    expect(screen.getByLabelText("Filtrer par contrat")).toHaveValue("CDI");
   });
 
   it("navigates through pages and sends all filters", async () => {
@@ -196,6 +222,9 @@ describe("JobOffersPage", () => {
     });
     const [filters] = vi.mocked(getJobOffers).mock.calls.at(-1) ?? [];
     expect(filters).not.toHaveProperty("userId");
+    expect(window.location.search).toContain("search=React");
+    expect(window.location.search).toContain(`companyId=${company.id}`);
+    expect(window.location.search).toContain("contractType=CDI");
 
     const filtersSection = screen
       .getByRole("heading", { name: "Filtrer les offres" })
@@ -217,7 +246,7 @@ describe("JobOffersPage", () => {
       }),
     );
     expect(screen.getByLabelText("Filtrer par contrat")).toHaveValue("CDI");
-    expect(screen.getByLabelText("Recherche")).toHaveValue("  React  ");
+    expect(screen.getByLabelText("Recherche")).toHaveValue("React");
   });
 
   it("resets all list controls to their defaults", async () => {
@@ -255,6 +284,7 @@ describe("JobOffersPage", () => {
       expect(screen.getByLabelText("Trier par")).toHaveValue("createdAt");
       expect(screen.getByLabelText("Ordre")).toHaveValue("desc");
       expect(screen.getByLabelText("Par page")).toHaveValue("10");
+      expect(window.location.search).toBe("");
     });
   });
 
