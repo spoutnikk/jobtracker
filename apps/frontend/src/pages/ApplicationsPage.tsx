@@ -19,23 +19,39 @@ import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import CollapsibleSection from "../components/CollapsibleSection";
 
+const applicationStatuses: ApplicationStatus[] = [
+  "DRAFT",
+  "APPLIED",
+  "FOLLOW_UP",
+  "INTERVIEW",
+  "ACCEPTED",
+  "REJECTED",
+];
+
+function parseApplicationStatus(value: string | null): ApplicationStatus | "" {
+  return value && applicationStatuses.includes(value as ApplicationStatus)
+    ? (value as ApplicationStatus)
+    : "";
+}
+
+function parsePositiveInteger(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = Number(value);
+
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
 function ApplicationsPage() {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const statusFromUrl = searchParams.get("status");
-  const initialFilterStatus: ApplicationStatus | "" =
-    statusFromUrl &&
-    [
-      "DRAFT",
-      "APPLIED",
-      "FOLLOW_UP",
-      "INTERVIEW",
-      "ACCEPTED",
-      "REJECTED",
-    ].includes(statusFromUrl)
-      ? (statusFromUrl as ApplicationStatus)
-      : "";
+  const filterStatus = parseApplicationStatus(searchParams.get("status"));
+  const filterCompanyId = parsePositiveInteger(searchParams.get("companyId"));
+  const filterJobOfferId = parsePositiveInteger(searchParams.get("jobOfferId"));
+  const filterSearch = searchParams.get("search")?.trim() ?? "";
 
   const [status, setStatus] = useState<ApplicationStatus>("DRAFT");
   const [source, setSource] = useState("");
@@ -46,13 +62,15 @@ function ApplicationsPage() {
   const [followUpAt, setFollowUpAt] = useState("");
   const [interviewAt, setInterviewAt] = useState("");
   const [jobOfferId, setJobOfferId] = useState<number | null>(null);
-  const [filterSearchInput, setFilterSearchInput] = useState("");
-  const [filterSearch, setFilterSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState<ApplicationStatus | "">(
-    initialFilterStatus,
-  );
-  const [filterCompanyId, setFilterCompanyId] = useState<number | null>(null);
-  const [filterJobOfferId, setFilterJobOfferId] = useState<number | null>(null);
+  const [filterSearchDraft, setFilterSearchDraft] = useState(() => ({
+    base: filterSearch,
+    value: filterSearch,
+  }));
+  const filterSearchInput =
+    filterSearchDraft.base === filterSearch
+      ? filterSearchDraft.value
+      : filterSearch;
+
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [sortBy, setSortBy] = useState<ApplicationSortBy>("createdAt");
@@ -233,8 +251,23 @@ function ApplicationsPage() {
             className="mt-4"
             onSubmit={(event) => {
               event.preventDefault();
-              setFilterSearch(filterSearchInput.trim());
+
+              const nextSearch = filterSearchInput.trim();
+              const nextSearchParams = new URLSearchParams(searchParams);
+
+              setFilterSearchDraft({
+                base: nextSearch,
+                value: nextSearch,
+              });
               setPage(1);
+
+              if (nextSearch) {
+                nextSearchParams.set("search", nextSearch);
+              } else {
+                nextSearchParams.delete("search");
+              }
+
+              setSearchParams(nextSearchParams, { replace: true });
             }}
           >
             <div className="grid gap-4 md:grid-cols-2">
@@ -245,7 +278,12 @@ function ApplicationsPage() {
                 <input
                   type="search"
                   value={filterSearchInput}
-                  onChange={(event) => setFilterSearchInput(event.target.value)}
+                  onChange={(event) =>
+                    setFilterSearchDraft({
+                      base: filterSearch,
+                      value: event.target.value,
+                    })
+                  }
                   className="rounded-md border border-gray-300 px-3 py-2"
                 />
               </label>
@@ -259,7 +297,6 @@ function ApplicationsPage() {
                     const nextStatus = event.target.value as
                       ApplicationStatus | "";
 
-                    setFilterStatus(nextStatus);
                     setPage(1);
 
                     const nextSearchParams = new URLSearchParams(searchParams);
@@ -290,10 +327,21 @@ function ApplicationsPage() {
                 <select
                   value={filterCompanyId ?? ""}
                   onChange={(event) => {
-                    setFilterCompanyId(
-                      event.target.value ? Number(event.target.value) : null,
-                    );
+                    const nextCompanyId = event.target.value
+                      ? Number(event.target.value)
+                      : null;
+
                     setPage(1);
+
+                    const nextSearchParams = new URLSearchParams(searchParams);
+
+                    if (nextCompanyId !== null) {
+                      nextSearchParams.set("companyId", String(nextCompanyId));
+                    } else {
+                      nextSearchParams.delete("companyId");
+                    }
+
+                    setSearchParams(nextSearchParams, { replace: true });
                   }}
                   className="rounded-md border border-gray-300 px-3 py-2"
                 >
@@ -312,10 +360,24 @@ function ApplicationsPage() {
                 <select
                   value={filterJobOfferId ?? ""}
                   onChange={(event) => {
-                    setFilterJobOfferId(
-                      event.target.value ? Number(event.target.value) : null,
-                    );
+                    const nextJobOfferId = event.target.value
+                      ? Number(event.target.value)
+                      : null;
+
                     setPage(1);
+
+                    const nextSearchParams = new URLSearchParams(searchParams);
+
+                    if (nextJobOfferId !== null) {
+                      nextSearchParams.set(
+                        "jobOfferId",
+                        String(nextJobOfferId),
+                      );
+                    } else {
+                      nextSearchParams.delete("jobOfferId");
+                    }
+
+                    setSearchParams(nextSearchParams, { replace: true });
                   }}
                   className="rounded-md border border-gray-300 px-3 py-2"
                 >
@@ -338,15 +400,19 @@ function ApplicationsPage() {
               <button
                 type="button"
                 onClick={() => {
-                  setFilterSearchInput("");
-                  setFilterSearch("");
-                  setFilterStatus("");
-                  setFilterCompanyId(null);
+                  setFilterSearchDraft({
+                    base: "",
+                    value: "",
+                  });
 
                   const nextSearchParams = new URLSearchParams(searchParams);
+
                   nextSearchParams.delete("status");
+                  nextSearchParams.delete("companyId");
+                  nextSearchParams.delete("jobOfferId");
+                  nextSearchParams.delete("search");
+
                   setSearchParams(nextSearchParams, { replace: true });
-                  setFilterJobOfferId(null);
                   setPage(1);
                   setPageSize(10);
                   setSortBy("createdAt");

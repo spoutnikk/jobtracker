@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useNavigate } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createApplication,
@@ -39,6 +39,36 @@ function renderApplicationsPage(initialEntry = "/applications") {
     <MemoryRouter initialEntries={[initialEntry]}>
       <ApplicationsPage />
     </MemoryRouter>,
+  );
+}
+
+function QueryNavigationHarness() {
+  const navigate = useNavigate();
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() =>
+          navigate(
+            `/applications?status=INTERVIEW&companyId=${company.id}&jobOfferId=${jobOffer.id}&search=React`,
+          )
+        }
+      >
+        Appliquer les filtres URL
+      </button>
+
+      <button
+        type="button"
+        onClick={() => navigate("/applications?status=APPLIED&view=compact")}
+      >
+        Changer les filtres URL
+      </button>
+
+      <Routes>
+        <Route path="/applications" element={<ApplicationsPage />} />
+      </Routes>
+    </>
   );
 }
 
@@ -187,21 +217,125 @@ describe("ApplicationsPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("initializes the status filter from the URL", async () => {
-    renderApplicationsPage("/applications?status=INTERVIEW");
+  it("initializes filters from the URL", async () => {
+    renderApplicationsPage(
+      `/applications?status=INTERVIEW&companyId=${company.id}&jobOfferId=${jobOffer.id}&search=React`,
+    );
 
     await screen.findByRole("heading", { name: jobOffer.title });
 
     expect(screen.getByLabelText("Filtrer par statut")).toHaveValue(
       "INTERVIEW",
     );
+    expect(screen.getByLabelText("Filtrer par société")).toHaveValue(
+      String(company.id),
+    );
+    expect(screen.getByLabelText("Filtrer par offre")).toHaveValue(
+      String(jobOffer.id),
+    );
+    expect(screen.getByLabelText("Recherche")).toHaveValue("React");
 
     await waitFor(() => {
       expect(getApplications).toHaveBeenLastCalledWith({
         ...defaultApplicationParams,
         status: "INTERVIEW",
+        companyId: company.id,
+        jobOfferId: jobOffer.id,
+        search: "React",
       });
     });
+  });
+
+  it("resets filters initialized from the URL", async () => {
+    const user = userEvent.setup();
+
+    renderApplicationsPage(
+      `/applications?status=INTERVIEW&companyId=${company.id}&jobOfferId=${jobOffer.id}&search=React&view=compact`,
+    );
+
+    await screen.findByRole("heading", { name: jobOffer.title });
+    await user.click(screen.getByRole("button", { name: "Réinitialiser" }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Filtrer par statut")).toHaveValue("");
+      expect(screen.getByLabelText("Filtrer par société")).toHaveValue("");
+      expect(screen.getByLabelText("Filtrer par offre")).toHaveValue("");
+      expect(screen.getByLabelText("Recherche")).toHaveValue("");
+      expect(getApplications).toHaveBeenLastCalledWith(
+        defaultApplicationParams,
+      );
+    });
+  });
+
+  it("resynchronizes filters when the URL changes without remounting", async () => {
+    const user = userEvent.setup();
+
+    renderWithProviders(
+      <MemoryRouter initialEntries={["/applications"]}>
+        <QueryNavigationHarness />
+      </MemoryRouter>,
+    );
+
+    await screen.findByRole("heading", { name: jobOffer.title });
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Appliquer les filtres URL",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Filtrer par statut")).toHaveValue(
+        "INTERVIEW",
+      );
+      expect(screen.getByLabelText("Filtrer par société")).toHaveValue(
+        String(company.id),
+      );
+      expect(screen.getByLabelText("Filtrer par offre")).toHaveValue(
+        String(jobOffer.id),
+      );
+      expect(screen.getByLabelText("Recherche")).toHaveValue("React");
+      expect(getApplications).toHaveBeenLastCalledWith({
+        ...defaultApplicationParams,
+        status: "INTERVIEW",
+        companyId: company.id,
+        jobOfferId: jobOffer.id,
+        search: "React",
+      });
+    });
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Changer les filtres URL",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Filtrer par statut")).toHaveValue(
+        "APPLIED",
+      );
+      expect(screen.getByLabelText("Filtrer par société")).toHaveValue("");
+      expect(screen.getByLabelText("Filtrer par offre")).toHaveValue("");
+      expect(screen.getByLabelText("Recherche")).toHaveValue("");
+      expect(getApplications).toHaveBeenLastCalledWith({
+        ...defaultApplicationParams,
+        status: "APPLIED",
+      });
+    });
+  });
+
+  it("ignores invalid non-positive filter ids from the URL", async () => {
+    renderApplicationsPage(
+      "/applications?companyId=0&jobOfferId=-1&status=UNKNOWN",
+    );
+
+    await screen.findByRole("heading", { name: jobOffer.title });
+
+    expect(screen.getByLabelText("Filtrer par statut")).toHaveValue("");
+    expect(screen.getByLabelText("Filtrer par société")).toHaveValue("");
+    expect(screen.getByLabelText("Filtrer par offre")).toHaveValue("");
+
+    expect(getApplications).toHaveBeenLastCalledWith(defaultApplicationParams);
   });
 
   it.each([
