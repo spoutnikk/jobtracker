@@ -59,6 +59,50 @@ function formatApplicationDateTime(value: string) {
   }).format(new Date(value));
 }
 
+function isFutureDate(value: string) {
+  return new Date(value).getTime() > Date.now();
+}
+
+function TimelineDeadline({
+  label,
+  value,
+  withTime = false,
+  importance = "normal",
+}: {
+  label: string;
+  value: string;
+  withTime?: boolean;
+  importance?: "normal" | "important";
+}) {
+  const isUpcoming = isFutureDate(value);
+  const containerClassName = isUpcoming
+    ? importance === "important"
+      ? "rounded-md border border-blue-200 bg-blue-50 p-2"
+      : "rounded-md border border-amber-200 bg-amber-50 p-2"
+    : "rounded-md p-2 text-gray-500";
+  const labelClassName = isUpcoming
+    ? importance === "important"
+      ? "font-semibold text-blue-700"
+      : "font-semibold text-amber-700"
+    : "font-medium text-gray-400";
+
+  return (
+    <div className={containerClassName}>
+      <dt className={labelClassName}>{label}</dt>
+      <dd className={isUpcoming ? "font-medium" : undefined}>
+        {withTime
+          ? formatApplicationDateTime(value)
+          : formatApplicationDate(value)}
+      </dd>
+      <dd
+        className={`mt-1 text-xs ${isUpcoming ? "font-semibold" : "text-gray-400"}`}
+      >
+        {isUpcoming ? "À venir" : "Passée"}
+      </dd>
+    </div>
+  );
+}
+
 function ApplicationsPage() {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -708,22 +752,18 @@ function ApplicationsPage() {
                       </div>
                     )}
                     {application.followUpAt && (
-                      <div>
-                        <dt className="font-medium text-gray-500">
-                          Relance prévue
-                        </dt>
-                        <dd>{formatApplicationDate(application.followUpAt)}</dd>
-                      </div>
+                      <TimelineDeadline
+                        label="Relance prévue"
+                        value={application.followUpAt}
+                      />
                     )}
                     {application.interviewAt && (
-                      <div>
-                        <dt className="font-medium text-gray-500">
-                          Entretien prévu
-                        </dt>
-                        <dd>
-                          {formatApplicationDateTime(application.interviewAt)}
-                        </dd>
-                      </div>
+                      <TimelineDeadline
+                        label="Entretien prévu"
+                        value={application.interviewAt}
+                        withTime
+                        importance="important"
+                      />
                     )}
                   </dl>
                 )}

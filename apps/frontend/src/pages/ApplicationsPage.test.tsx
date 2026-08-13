@@ -202,6 +202,9 @@ describe("ApplicationsPage", () => {
   });
 
   it("renders scheduled follow-up and interview dates", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-08-13T10:00:00.000Z"));
+
     vi.mocked(getApplications).mockResolvedValue(
       paginatedApplications([
         {
@@ -231,6 +234,37 @@ describe("ApplicationsPage", () => {
     expect(card.getByText("20 août 2026")).toBeInTheDocument();
     expect(card.getByText("Entretien prévu")).toBeInTheDocument();
     expect(card.getByText(/25 août 2026.*16:30/)).toBeInTheDocument();
+    expect(card.getAllByText("À venir")).toHaveLength(2);
+  });
+
+  it("renders past follow-ups and interviews as completed deadlines", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-08-26T10:00:00.000Z"));
+
+    vi.mocked(getApplications).mockResolvedValue(
+      paginatedApplications([
+        {
+          ...application,
+          followUpAt: "2026-08-20T00:00:00.000Z",
+          interviewAt: "2026-08-25T14:30:00.000Z",
+        },
+      ]),
+    );
+
+    renderApplicationsPage();
+
+    const offerHeading = await screen.findByRole("heading", {
+      name: jobOffer.title,
+    });
+    const applicationCard = offerHeading.closest("article");
+
+    expect(applicationCard).not.toBeNull();
+
+    if (!applicationCard) {
+      throw new Error("Application card not found");
+    }
+
+    expect(within(applicationCard).getAllByText("Passée")).toHaveLength(2);
   });
 
   it("renders an empty state", async () => {
