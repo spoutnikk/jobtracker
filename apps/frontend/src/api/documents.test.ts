@@ -6,7 +6,9 @@ import {
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { apiClient } from "./client";
 import {
+  canPreviewDocument,
   downloadDocument,
+  getDocumentPreview,
   getAllDocuments,
   getDocuments,
   type Document,
@@ -187,6 +189,39 @@ describe("documents API", () => {
       },
     });
   });
+  it("recognizes only PDF and plain text documents as previewable", () => {
+    expect(canPreviewDocument("application/pdf")).toBe(true);
+    expect(canPreviewDocument("text/plain")).toBe(true);
+    expect(
+      canPreviewDocument(
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      ),
+    ).toBe(false);
+  });
+
+  it("loads a document preview through the authenticated API client", async () => {
+    const blob = new Blob(["PDF content"], { type: "application/pdf" });
+
+    vi.mocked(apiClient.get).mockResolvedValue({
+      data: blob,
+      status: 200,
+      statusText: "OK",
+      headers: {},
+      config: {
+        headers: new AxiosHeaders(),
+      },
+    });
+
+    await expect(getDocumentPreview(documentA.id)).resolves.toBe(blob);
+
+    expect(apiClient.get).toHaveBeenCalledWith(
+      `/documents/${documentA.id}/download`,
+      {
+        responseType: "blob",
+      },
+    );
+  });
+
   it("downloads a document through the authenticated API client", async () => {
     const blob = new Blob(["PDF content"], { type: "application/pdf" });
     const createObjectUrlSpy = vi.fn(() => "blob:jobtracker-document");

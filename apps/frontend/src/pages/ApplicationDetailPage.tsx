@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   getApplication,
@@ -15,7 +15,9 @@ import {
   type ApplicationEventType,
 } from "../api/application-events";
 import {
+  canPreviewDocument,
   downloadDocument,
+  getDocumentPreview,
   getAllDocuments,
   type DocumentType,
 } from "../api/documents";
@@ -121,6 +123,30 @@ function optionalDateTime(value: string) {
 function ApplicationDetailPage() {
   const { id } = useParams();
   const queryClient = useQueryClient();
+  const [preview, setPreview] = useState<{
+    documentId: number;
+    name: string;
+    mimeType: string;
+    objectUrl: string;
+  } | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (preview) {
+        URL.revokeObjectURL(preview.objectUrl);
+      }
+    };
+  }, [preview]);
+
+  function closePreview() {
+    setPreview((current) => {
+      if (current) {
+        URL.revokeObjectURL(current.objectUrl);
+      }
+      return null;
+    });
+  }
+
   const applicationId = Number(id);
   const isValidApplicationId =
     Number.isInteger(applicationId) && applicationId > 0;
@@ -149,6 +175,34 @@ function ApplicationDetailPage() {
   const downloadDocumentMutation = useMutation({
     mutationFn: ({ id, originalName }: { id: number; originalName: string }) =>
       downloadDocument(id, originalName),
+  });
+
+  const previewDocumentMutation = useMutation({
+    mutationFn: async ({
+      id,
+      name,
+      mimeType,
+    }: {
+      id: number;
+      name: string;
+      mimeType: string;
+    }) => {
+      const blob = await getDocumentPreview(id);
+      return {
+        documentId: id,
+        name,
+        mimeType,
+        objectUrl: URL.createObjectURL(blob),
+      };
+    },
+    onSuccess: (nextPreview) => {
+      setPreview((current) => {
+        if (current) {
+          URL.revokeObjectURL(current.objectUrl);
+        }
+        return nextPreview;
+      });
+    },
   });
 
   const updateMutation = useMutation({
@@ -667,6 +721,30 @@ function ApplicationDetailPage() {
                     Ajouté le {formatDateTime(document.createdAt)}
                   </time>
 
+                  {canPreviewDocument(document.mimeType) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        previewDocumentMutation.reset();
+                        previewDocumentMutation.mutate({
+                          id: document.id,
+                          name: document.name,
+                          mimeType: document.mimeType,
+                        });
+                      }}
+                      disabled={
+                        previewDocumentMutation.isPending &&
+                        previewDocumentMutation.variables?.id === document.id
+                      }
+                      className="mt-3 mr-4 font-medium text-blue-700 hover:underline disabled:opacity-50"
+                    >
+                      {previewDocumentMutation.isPending &&
+                      previewDocumentMutation.variables?.id === document.id
+                        ? `Chargement de l'aperçu de ${document.name}...`
+                        : `Aperçu ${document.name}`}
+                    </button>
+                  )}
+
                   <button
                     type="button"
                     onClick={() => {
@@ -688,6 +766,13 @@ function ApplicationDetailPage() {
                       : `Télécharger ${document.name}`}
                   </button>
 
+                  {previewDocumentMutation.isError &&
+                    previewDocumentMutation.variables?.id === document.id && (
+                      <p className="mt-2 text-sm text-red-600">
+                        Impossible d'afficher l'aperçu du document.
+                      </p>
+                    )}
+
                   {downloadDocumentMutation.isError &&
                     downloadDocumentMutation.variables?.id === document.id && (
                       <p className="mt-2 text-sm text-red-600">
@@ -699,6 +784,29 @@ function ApplicationDetailPage() {
             </ul>
           )}
         </section>
+
+        {preview && (
+          <section
+            className="mt-6 rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
+            aria-label={`Aperçu de ${preview.name}`}
+          >
+            <div className="flex items-center justify-between gap-4">
+              <h2 className="text-xl font-semibold">Aperçu — {preview.name}</h2>
+              <button
+                type="button"
+                onClick={closePreview}
+                className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Fermer l'aperçu
+              </button>
+            </div>
+            <iframe
+              title={`Aperçu de ${preview.name}`}
+              src={preview.objectUrl}
+              className="mt-4 h-[70vh] w-full rounded-md border border-gray-200"
+            />
+          </section>
+        )}
 
         <section className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
           <h2 className="text-xl font-semibold">Métadonnées</h2>

@@ -5,6 +5,7 @@ import { getAllApplications, type Application } from "../api/applications";
 import {
   deleteDocument,
   downloadDocument,
+  getDocumentPreview,
   getDocuments,
   type Document,
   type PaginatedDocuments,
@@ -14,8 +15,13 @@ import { renderWithProviders } from "../test/renderWithProviders";
 import DocumentsPage from "./DocumentsPage";
 
 vi.mock("../api/documents", () => ({
+  canPreviewDocument: vi.fn(
+    (mimeType: string) =>
+      mimeType === "application/pdf" || mimeType === "text/plain",
+  ),
   deleteDocument: vi.fn(),
   downloadDocument: vi.fn(),
+  getDocumentPreview: vi.fn(),
   getDocuments: vi.fn(),
   uploadDocument: vi.fn(),
 }));
@@ -118,6 +124,54 @@ describe("DocumentsPage", () => {
     vi.mocked(uploadDocument).mockResolvedValue(document);
     vi.mocked(deleteDocument).mockResolvedValue(document);
     vi.mocked(downloadDocument).mockResolvedValue(undefined);
+    vi.mocked(getDocumentPreview).mockResolvedValue(
+      new Blob(["preview"], { type: "application/pdf" }),
+    );
+  });
+
+  it("previews a PDF through the authenticated API", async () => {
+    const user = userEvent.setup();
+    const createObjectUrlSpy = vi.fn(() => "blob:document-preview");
+    const revokeObjectUrlSpy = vi.fn();
+
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: createObjectUrlSpy,
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      configurable: true,
+      value: revokeObjectUrlSpy,
+    });
+
+    renderWithProviders(<DocumentsPage />);
+
+    const documentHeading = await screen.findByRole("heading", {
+      name: document.name,
+    });
+    const documentCard = documentHeading.closest("article");
+
+    if (!documentCard) {
+      throw new Error("Document card not found");
+    }
+
+    await user.click(
+      within(documentCard).getByRole("button", { name: "Aperçu" }),
+    );
+
+    await waitFor(() => {
+      expect(getDocumentPreview).toHaveBeenCalledWith(document.id);
+    });
+
+    expect(
+      await screen.findByRole("region", { name: `Aperçu de ${document.name}` }),
+    ).toBeInTheDocument();
+    expect(screen.getByTitle(`Aperçu de ${document.name}`)).toHaveAttribute(
+      "src",
+      "blob:document-preview",
+    );
+
+    await user.click(screen.getByRole("button", { name: "Fermer l'aperçu" }));
+    expect(revokeObjectUrlSpy).toHaveBeenCalledWith("blob:document-preview");
   });
 
   it("renders a document and downloads it through the API", async () => {

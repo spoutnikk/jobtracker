@@ -15,6 +15,7 @@ import {
 import {
   downloadDocument,
   getAllDocuments,
+  getDocumentPreview,
   type Document,
 } from "../api/documents";
 import { renderWithProviders } from "../test/renderWithProviders";
@@ -30,8 +31,13 @@ vi.mock("../api/application-events", () => ({
 }));
 
 vi.mock("../api/documents", () => ({
+  canPreviewDocument: vi.fn(
+    (mimeType: string) =>
+      mimeType === "application/pdf" || mimeType === "text/plain",
+  ),
   downloadDocument: vi.fn(),
   getAllDocuments: vi.fn(),
+  getDocumentPreview: vi.fn(),
 }));
 
 const events: ApplicationEvent[] = [
@@ -147,6 +153,9 @@ describe("ApplicationDetailPage", () => {
     vi.mocked(getApplicationEvents).mockResolvedValue([]);
     vi.mocked(getAllDocuments).mockResolvedValue([]);
     vi.mocked(downloadDocument).mockResolvedValue(undefined);
+    vi.mocked(getDocumentPreview).mockResolvedValue(
+      new Blob(["preview"], { type: "application/pdf" }),
+    );
   });
 
   it("renders the loading state", () => {
@@ -424,6 +433,35 @@ describe("ApplicationDetailPage", () => {
       screen.getByRole("heading", { name: "Développeur React" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Candidature créée")).toBeInTheDocument();
+  });
+
+  it("previews an associated PDF through the authenticated API", async () => {
+    const user = userEvent.setup();
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: vi.fn(() => "blob:detail-preview"),
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      configurable: true,
+      value: vi.fn(),
+    });
+    vi.mocked(getAllDocuments).mockResolvedValue([document]);
+
+    renderDetail();
+    await screen.findByRole("heading", { name: "Développeur React" });
+
+    await user.click(
+      screen.getByRole("button", { name: `Aperçu ${document.name}` }),
+    );
+
+    await waitFor(() => {
+      expect(getDocumentPreview).toHaveBeenCalledWith(document.id);
+    });
+
+    expect(screen.getByTitle(`Aperçu de ${document.name}`)).toHaveAttribute(
+      "src",
+      "blob:detail-preview",
+    );
   });
 
   it("renders associated documents and downloads them through the API", async () => {

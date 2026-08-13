@@ -122,6 +122,18 @@ export async function deleteDocument(id: number): Promise<Document> {
   return response.data;
 }
 
+export function canPreviewDocument(mimeType: string): boolean {
+  return mimeType === "application/pdf" || mimeType === "text/plain";
+}
+
+export async function getDocumentPreview(id: number): Promise<Blob> {
+  const response = await apiClient.get<Blob>(`/documents/${id}/download`, {
+    responseType: "blob",
+  });
+
+  return response.data;
+}
+
 export async function downloadDocument(
   id: number,
   originalName: string,

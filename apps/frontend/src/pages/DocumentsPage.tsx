@@ -1,9 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import CollapsibleSection from "../components/CollapsibleSection";
 import {
   deleteDocument,
+  canPreviewDocument,
   downloadDocument,
+  getDocumentPreview,
   getDocuments,
   uploadDocument,
   type DocumentType,
@@ -12,6 +14,29 @@ import { getAllApplications } from "../api/applications";
 
 function DocumentsPage() {
   const queryClient = useQueryClient();
+  const [preview, setPreview] = useState<{
+    documentId: number;
+    name: string;
+    mimeType: string;
+    objectUrl: string;
+  } | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (preview) {
+        URL.revokeObjectURL(preview.objectUrl);
+      }
+    };
+  }, [preview]);
+
+  function closePreview() {
+    setPreview((current) => {
+      if (current) {
+        URL.revokeObjectURL(current.objectUrl);
+      }
+      return null;
+    });
+  }
 
   const [file, setFile] = useState<File | null>(null);
   const [name, setName] = useState("");
@@ -75,6 +100,34 @@ function DocumentsPage() {
   const downloadDocumentMutation = useMutation({
     mutationFn: ({ id, originalName }: { id: number; originalName: string }) =>
       downloadDocument(id, originalName),
+  });
+
+  const previewDocumentMutation = useMutation({
+    mutationFn: async ({
+      id,
+      name,
+      mimeType,
+    }: {
+      id: number;
+      name: string;
+      mimeType: string;
+    }) => {
+      const blob = await getDocumentPreview(id);
+      return {
+        documentId: id,
+        name,
+        mimeType,
+        objectUrl: URL.createObjectURL(blob),
+      };
+    },
+    onSuccess: (nextPreview) => {
+      setPreview((current) => {
+        if (current) {
+          URL.revokeObjectURL(current.objectUrl);
+        }
+        return nextPreview;
+      });
+    },
   });
 
   const deleteDocumentMutation = useMutation({
@@ -385,6 +438,30 @@ function DocumentsPage() {
                 </div>
 
                 <div className="mt-4 flex gap-2">
+                  {canPreviewDocument(document.mimeType) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        previewDocumentMutation.reset();
+                        previewDocumentMutation.mutate({
+                          id: document.id,
+                          name: document.name,
+                          mimeType: document.mimeType,
+                        });
+                      }}
+                      disabled={
+                        previewDocumentMutation.isPending &&
+                        previewDocumentMutation.variables?.id === document.id
+                      }
+                      className="rounded-md border border-blue-300 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-50"
+                    >
+                      {previewDocumentMutation.isPending &&
+                      previewDocumentMutation.variables?.id === document.id
+                        ? "Chargement de l'aperçu..."
+                        : "Aperçu"}
+                    </button>
+                  )}
+
                   <button
                     type="button"
                     onClick={() => {
@@ -424,6 +501,13 @@ function DocumentsPage() {
                   </button>
                 </div>
 
+                {previewDocumentMutation.isError &&
+                  previewDocumentMutation.variables?.id === document.id && (
+                    <p className="mt-3 text-sm text-red-600">
+                      Impossible d'afficher l'aperçu du document.
+                    </p>
+                  )}
+
                 {downloadDocumentMutation.isError &&
                   downloadDocumentMutation.variables?.id === document.id && (
                     <p className="mt-3 text-sm text-red-600">
@@ -434,6 +518,29 @@ function DocumentsPage() {
             ))}
           </div>
         )}
+        {preview && (
+          <section
+            className="mt-6 rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
+            aria-label={`Aperçu de ${preview.name}`}
+          >
+            <div className="flex items-center justify-between gap-4">
+              <h2 className="text-xl font-semibold">Aperçu — {preview.name}</h2>
+              <button
+                type="button"
+                onClick={closePreview}
+                className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Fermer l'aperçu
+              </button>
+            </div>
+            <iframe
+              title={`Aperçu de ${preview.name}`}
+              src={preview.objectUrl}
+              className="mt-4 h-[70vh] w-full rounded-md border border-gray-200"
+            />
+          </section>
+        )}
+
         {documentsQuery.data.total > 0 && (
           <div className="mt-6 flex items-center justify-between gap-4">
             <button
