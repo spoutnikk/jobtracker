@@ -383,4 +383,51 @@ describe("CalendarPage", () => {
 
     expect(within(august20).getAllByRole("link")).toHaveLength(3);
   });
+  it("can collapse and reopen the upcoming events section", async () => {
+    const user = userEvent.setup();
+
+    renderCalendar();
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Événements à venir",
+      }),
+    ).toBeInTheDocument();
+
+    const toggleButton = screen.getByRole("button", {
+      name: "Masquer les événements à venir",
+    });
+
+    expect(
+      screen.getByRole("heading", {
+        name: followUp.jobOffer.title,
+      }),
+    ).toBeInTheDocument();
+
+    await user.click(toggleButton);
+
+    expect(
+      screen.queryByRole("heading", {
+        name: followUp.jobOffer.title,
+      }),
+    ).not.toBeInTheDocument();
+
+    expect(
+      screen.getByRole("button", {
+        name: "Afficher les événements à venir",
+      }),
+    ).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Afficher les événements à venir",
+      }),
+    );
+
+    expect(
+      screen.getByRole("heading", {
+        name: followUp.jobOffer.title,
+      }),
+    ).toBeInTheDocument();
+  });
 });

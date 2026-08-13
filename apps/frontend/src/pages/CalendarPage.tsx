@@ -416,6 +416,7 @@ function MonthlyCalendar({ events }: { events: CalendarEvent[] }) {
 }
 
 function CalendarPage() {
+  const [showUpcomingEvents, setShowUpcomingEvents] = useState(true);
   const followUpsQuery = useQuery({
     queryKey: ["follow-ups"],
     queryFn: getFollowUps,
@@ -458,30 +459,46 @@ function CalendarPage() {
         <MonthlyCalendar events={events} />
 
         <section className="mt-12">
-          <h2 className="text-2xl font-semibold">Événements à venir</h2>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <h2 className="text-2xl font-semibold">Événements à venir</h2>
 
-          {days.length === 0 ? (
-            <p className="mt-4 text-gray-600">Aucun événement à venir.</p>
-          ) : (
-            <div className="mt-6 space-y-10">
-              {days.map((day) => (
-                <section key={day.key}>
-                  <h2 className="text-xl font-semibold capitalize">
-                    {formatDay(day.date)}
-                  </h2>
+            <button
+              type="button"
+              onClick={() => setShowUpcomingEvents((current) => !current)}
+              aria-label={
+                showUpcomingEvents
+                  ? "Masquer les événements à venir"
+                  : "Afficher les événements à venir"
+              }
+              className="rounded border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50"
+            >
+              {showUpcomingEvents ? "Masquer" : "Afficher"}
+            </button>
+          </div>
 
-                  <div className="mt-4 space-y-4">
-                    {day.events.map((event) => (
-                      <CalendarEventCard
-                        key={`${event.type}-${event.application.id}-${event.date}`}
-                        event={event}
-                      />
-                    ))}
-                  </div>
-                </section>
-              ))}
-            </div>
-          )}
+          {showUpcomingEvents &&
+            (days.length === 0 ? (
+              <p className="mt-4 text-gray-600">Aucun événement à venir.</p>
+            ) : (
+              <div className="mt-6 space-y-10">
+                {days.map((day) => (
+                  <section key={day.key}>
+                    <h2 className="text-xl font-semibold capitalize">
+                      {formatDay(day.date)}
+                    </h2>
+
+                    <div className="mt-4 space-y-4">
+                      {day.events.map((event) => (
+                        <CalendarEventCard
+                          key={`${event.type}-${event.application.id}-${event.date}`}
+                          event={event}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            ))}
         </section>
       </div>
     </main>
