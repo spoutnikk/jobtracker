@@ -163,15 +163,23 @@ describe("DocumentsPage", () => {
     });
 
     expect(
-      await screen.findByRole("region", { name: `Aperçu de ${document.name}` }),
+      await screen.findByRole("dialog", { name: `Aperçu de ${document.name}` }),
     ).toBeInTheDocument();
     expect(screen.getByTitle(`Aperçu de ${document.name}`)).toHaveAttribute(
       "src",
       "blob:document-preview",
     );
+    expect(window.document.body).toHaveStyle({ overflow: "hidden" });
+    expect(
+      screen.getByRole("button", { name: "Ouvrir dans un nouvel onglet" }),
+    ).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Fermer l'aperçu" }));
+    await user.keyboard("{Escape}");
     expect(revokeObjectUrlSpy).toHaveBeenCalledWith("blob:document-preview");
+    expect(
+      screen.queryByRole("dialog", { name: `Aperçu de ${document.name}` }),
+    ).not.toBeInTheDocument();
+    expect(window.document.body).not.toHaveStyle({ overflow: "hidden" });
   });
 
   it("renders a document and downloads it through the API", async () => {

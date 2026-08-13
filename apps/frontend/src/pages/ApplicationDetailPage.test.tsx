@@ -458,6 +458,9 @@ describe("ApplicationDetailPage", () => {
       expect(getDocumentPreview).toHaveBeenCalledWith(document.id);
     });
 
+    expect(
+      screen.getByRole("dialog", { name: `Aperçu de ${document.name}` }),
+    ).toBeInTheDocument();
     expect(screen.getByTitle(`Aperçu de ${document.name}`)).toHaveAttribute(
       "src",
       "blob:detail-preview",
