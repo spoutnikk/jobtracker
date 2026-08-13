@@ -10,6 +10,7 @@ import {
   type PaginatedCompanies,
   updateCompany,
 } from "../api/companies";
+import { MemoryRouter } from "react-router-dom";
 import { renderWithProviders } from "../test/renderWithProviders";
 import CompaniesPage from "./CompaniesPage";
 
@@ -80,7 +81,11 @@ describe("CompaniesPage", () => {
   });
 
   it("renders an existing company", async () => {
-    renderWithProviders(<CompaniesPage />);
+    renderWithProviders(
+      <MemoryRouter>
+        <CompaniesPage />
+      </MemoryRouter>,
+    );
 
     expect(
       await screen.findByRole("heading", { name: "Entreprises" }),
@@ -103,7 +108,9 @@ describe("CompaniesPage", () => {
       "href",
       company.website,
     );
-    expect(card.getByText("0 offre d'emploi")).toBeInTheDocument();
+    expect(
+      card.getByRole("link", { name: "0 offre d'emploi" }),
+    ).toHaveAttribute("href", `/job-offers?companyId=${company.id}`);
     expect(screen.getByText("1 entreprises")).toBeInTheDocument();
     expect(screen.getByText("Page 1 sur 1")).toBeInTheDocument();
   });
@@ -117,7 +124,11 @@ describe("CompaniesPage", () => {
       }),
     );
     const user = userEvent.setup();
-    renderWithProviders(<CompaniesPage />);
+    renderWithProviders(
+      <MemoryRouter>
+        <CompaniesPage />
+      </MemoryRouter>,
+    );
 
     expect(await screen.findByText("21 entreprises")).toBeInTheDocument();
     expect(screen.getByText("Page 1 sur 3")).toBeInTheDocument();
@@ -150,7 +161,11 @@ describe("CompaniesPage", () => {
       }),
     );
     const user = userEvent.setup();
-    renderWithProviders(<CompaniesPage />);
+    renderWithProviders(
+      <MemoryRouter>
+        <CompaniesPage />
+      </MemoryRouter>,
+    );
 
     await screen.findByRole("heading", { name: company.name });
     await user.click(screen.getByRole("button", { name: "Suivant" }));
@@ -212,7 +227,11 @@ describe("CompaniesPage", () => {
       }),
     );
     const user = userEvent.setup();
-    renderWithProviders(<CompaniesPage />);
+    renderWithProviders(
+      <MemoryRouter>
+        <CompaniesPage />
+      </MemoryRouter>,
+    );
 
     await screen.findByRole("heading", { name: company.name });
     await user.click(screen.getByRole("button", { name: "Suivant" }));
@@ -236,7 +255,11 @@ describe("CompaniesPage", () => {
   it("creates a company and resets the form", async () => {
     vi.mocked(getCompanies).mockResolvedValue(paginatedCompanies([]));
     const user = userEvent.setup();
-    const { queryClient } = renderWithProviders(<CompaniesPage />);
+    const { queryClient } = renderWithProviders(
+      <MemoryRouter>
+        <CompaniesPage />
+      </MemoryRouter>,
+    );
     const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
 
     const creationSection = (
@@ -300,7 +323,11 @@ describe("CompaniesPage", () => {
     vi.mocked(createCompany).mockRejectedValue(new Error("Unexpected error"));
     const user = userEvent.setup();
 
-    renderWithProviders(<CompaniesPage />);
+    renderWithProviders(
+      <MemoryRouter>
+        <CompaniesPage />
+      </MemoryRouter>,
+    );
 
     const creationSection = (
       await screen.findByRole("heading", { name: "Nouvelle entreprise" })
@@ -327,7 +354,11 @@ describe("CompaniesPage", () => {
   it("prefills the edit form with the company", async () => {
     const user = userEvent.setup();
 
-    renderWithProviders(<CompaniesPage />);
+    renderWithProviders(
+      <MemoryRouter>
+        <CompaniesPage />
+      </MemoryRouter>,
+    );
 
     await user.click(await screen.findByRole("button", { name: "Modifier" }));
     const cancelButton = screen.getByRole("button", { name: "Annuler" });
@@ -350,7 +381,11 @@ describe("CompaniesPage", () => {
   it("cancels editing without updating the company", async () => {
     const user = userEvent.setup();
 
-    renderWithProviders(<CompaniesPage />);
+    renderWithProviders(
+      <MemoryRouter>
+        <CompaniesPage />
+      </MemoryRouter>,
+    );
 
     await user.click(await screen.findByRole("button", { name: "Modifier" }));
     const cancelButton = screen.getByRole("button", { name: "Annuler" });
@@ -384,7 +419,11 @@ describe("CompaniesPage", () => {
     };
     vi.mocked(updateCompany).mockResolvedValue(updatedCompany);
     const user = userEvent.setup();
-    const { queryClient } = renderWithProviders(<CompaniesPage />);
+    const { queryClient } = renderWithProviders(
+      <MemoryRouter>
+        <CompaniesPage />
+      </MemoryRouter>,
+    );
     const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
 
     await user.click(await screen.findByRole("button", { name: "Modifier" }));
@@ -429,7 +468,11 @@ describe("CompaniesPage", () => {
   it("does not delete a company when confirmation is cancelled", async () => {
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
     const user = userEvent.setup();
-    const { queryClient } = renderWithProviders(<CompaniesPage />);
+    const { queryClient } = renderWithProviders(
+      <MemoryRouter>
+        <CompaniesPage />
+      </MemoryRouter>,
+    );
     const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
 
     await user.click(await screen.findByRole("button", { name: "Supprimer" }));
@@ -453,7 +496,11 @@ describe("CompaniesPage", () => {
       .mockRejectedValueOnce(createAxiosError(404));
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     const user = userEvent.setup();
-    const { queryClient } = renderWithProviders(<CompaniesPage />);
+    const { queryClient } = renderWithProviders(
+      <MemoryRouter>
+        <CompaniesPage />
+      </MemoryRouter>,
+    );
     const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
 
     await user.click(await screen.findByRole("button", { name: "Supprimer" }));
@@ -479,7 +526,11 @@ describe("CompaniesPage", () => {
     vi.mocked(deleteCompany).mockRejectedValue(createAxiosError(409));
     vi.spyOn(window, "confirm").mockReturnValue(true);
     const user = userEvent.setup();
-    const { queryClient } = renderWithProviders(<CompaniesPage />);
+    const { queryClient } = renderWithProviders(
+      <MemoryRouter>
+        <CompaniesPage />
+      </MemoryRouter>,
+    );
     const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
 
     await user.click(await screen.findByRole("button", { name: "Supprimer" }));

@@ -9,6 +9,7 @@ import {
   type CompanySortOrder,
 } from "../api/companies";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import CollapsibleSection from "../components/CollapsibleSection";
 
 function CompaniesPage() {
@@ -316,8 +317,13 @@ function CompaniesPage() {
                   )}
 
                   <p>
-                    {company.jobOffers.length} offre
-                    {company.jobOffers.length > 1 ? "s" : ""} d'emploi
+                    <Link
+                      to={`/job-offers?companyId=${company.id}`}
+                      className="text-blue-600 hover:underline"
+                    >
+                      {company.jobOffers.length} offre
+                      {company.jobOffers.length > 1 ? "s" : ""} d'emploi
+                    </Link>
                   </p>
                 </div>
                 <div className="flex gap-2">
