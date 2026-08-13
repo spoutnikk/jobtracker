@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { useState } from "react";
 import CollapsibleSection from "../components/CollapsibleSection";
+import { Link } from "react-router-dom";
 import { getAllCompanies } from "../api/companies";
 import {
   createJobOffer,
@@ -740,6 +741,12 @@ function JobOffersPage() {
 
                 {editingJobOfferId !== jobOffer.id && (
                   <div className="mt-4 flex gap-2">
+                    <Link
+                      to={`/applications?jobOfferId=${jobOffer.id}`}
+                      className="rounded-md border border-blue-300 px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50"
+                    >
+                      Voir les candidatures
+                    </Link>
                     <button
                       type="button"
                       onClick={() => startEditing(jobOffer)}

@@ -2,6 +2,7 @@ import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AxiosError, AxiosHeaders } from "axios";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router-dom";
 import { getAllCompanies } from "../api/companies";
 import {
   createJobOffer,
@@ -127,6 +128,14 @@ function createAxiosError(status: number) {
   );
 }
 
+function renderJobOffersPage() {
+  return renderWithProviders(
+    <MemoryRouter>
+      <JobOffersPage />
+    </MemoryRouter>,
+  );
+}
+
 describe("JobOffersPage", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -139,7 +148,7 @@ describe("JobOffersPage", () => {
   });
 
   it("renders the empty job offers page", async () => {
-    renderWithProviders(<JobOffersPage />);
+    renderJobOffersPage();
 
     expect(
       await screen.findByRole("heading", { name: "Offres d’emploi" }),
@@ -159,7 +168,7 @@ describe("JobOffersPage", () => {
 
     vi.mocked(getJobOffers).mockResolvedValue(paginatedJobOffers([jobOffer]));
 
-    renderWithProviders(<JobOffersPage />);
+    renderJobOffersPage();
 
     await waitFor(() => {
       expect(getJobOffers).toHaveBeenLastCalledWith({
@@ -184,7 +193,7 @@ describe("JobOffersPage", () => {
       }),
     );
     const user = userEvent.setup();
-    renderWithProviders(<JobOffersPage />);
+    renderJobOffersPage();
 
     expect(await screen.findByText("21 offres")).toBeInTheDocument();
     expect(screen.getByText("Page 1 sur 3")).toBeInTheDocument();
@@ -258,7 +267,7 @@ describe("JobOffersPage", () => {
       }),
     );
     const user = userEvent.setup();
-    renderWithProviders(<JobOffersPage />);
+    renderJobOffersPage();
 
     await screen.findByRole("heading", { name: jobOffer.title });
     await user.type(screen.getByLabelText("Recherche"), "React");
@@ -291,7 +300,7 @@ describe("JobOffersPage", () => {
   it("renders an existing job offer", async () => {
     vi.mocked(getJobOffers).mockResolvedValue(paginatedJobOffers([jobOffer]));
 
-    renderWithProviders(<JobOffersPage />);
+    renderJobOffersPage();
 
     const jobOfferHeading = await screen.findByRole("heading", {
       name: jobOffer.title,
@@ -313,11 +322,16 @@ describe("JobOffersPage", () => {
       "href",
       jobOffer.url,
     );
+    expect(
+      within(jobOfferCard).getByRole("link", {
+        name: "Voir les candidatures",
+      }),
+    ).toHaveAttribute("href", `/applications?jobOfferId=${jobOffer.id}`);
   });
 
   it("creates a job offer and resets the form", async () => {
     const user = userEvent.setup();
-    const { queryClient } = renderWithProviders(<JobOffersPage />);
+    const { queryClient } = renderJobOffersPage();
     const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
 
     const creationSection = (
@@ -402,7 +416,7 @@ describe("JobOffersPage", () => {
     vi.mocked(getJobOffers).mockResolvedValue(paginatedJobOffers([jobOffer]));
     const user = userEvent.setup();
 
-    renderWithProviders(<JobOffersPage />);
+    renderJobOffersPage();
 
     await user.click(await screen.findByRole("button", { name: "Modifier" }));
     const cancelButton = screen.getByRole("button", { name: "Annuler" });
@@ -438,7 +452,7 @@ describe("JobOffersPage", () => {
     vi.mocked(getJobOffers).mockResolvedValue(paginatedJobOffers([jobOffer]));
     const user = userEvent.setup();
 
-    renderWithProviders(<JobOffersPage />);
+    renderJobOffersPage();
 
     await user.click(await screen.findByRole("button", { name: "Modifier" }));
     const cancelButton = screen.getByRole("button", { name: "Annuler" });
@@ -470,7 +484,7 @@ describe("JobOffersPage", () => {
   it("updates a job offer and closes the edit form", async () => {
     vi.mocked(getJobOffers).mockResolvedValue(paginatedJobOffers([jobOffer]));
     const user = userEvent.setup();
-    const { queryClient } = renderWithProviders(<JobOffersPage />);
+    const { queryClient } = renderJobOffersPage();
     const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
 
     await user.click(await screen.findByRole("button", { name: "Modifier" }));
@@ -539,7 +553,7 @@ describe("JobOffersPage", () => {
     vi.mocked(getJobOffers).mockResolvedValue(paginatedJobOffers([jobOffer]));
     vi.mocked(updateJobOffer).mockRejectedValue(createAxiosError(404));
     const user = userEvent.setup();
-    const { queryClient } = renderWithProviders(<JobOffersPage />);
+    const { queryClient } = renderJobOffersPage();
     const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
 
     await user.click(await screen.findByRole("button", { name: "Modifier" }));
@@ -573,7 +587,7 @@ describe("JobOffersPage", () => {
     vi.mocked(getJobOffers).mockResolvedValue(paginatedJobOffers([jobOffer]));
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     const user = userEvent.setup();
-    const { queryClient } = renderWithProviders(<JobOffersPage />);
+    const { queryClient } = renderJobOffersPage();
     const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
 
     await user.click(await screen.findByRole("button", { name: "Supprimer" }));
@@ -609,7 +623,7 @@ describe("JobOffersPage", () => {
     vi.mocked(getJobOffers).mockResolvedValue(paginatedJobOffers([jobOffer]));
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
     const user = userEvent.setup();
-    const { queryClient } = renderWithProviders(<JobOffersPage />);
+    const { queryClient } = renderJobOffersPage();
     const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
 
     await user.click(await screen.findByRole("button", { name: "Supprimer" }));
@@ -627,7 +641,7 @@ describe("JobOffersPage", () => {
     vi.mocked(deleteJobOffer).mockRejectedValue(createAxiosError(409));
     vi.spyOn(window, "confirm").mockReturnValue(true);
     const user = userEvent.setup();
-    const { queryClient } = renderWithProviders(<JobOffersPage />);
+    const { queryClient } = renderJobOffersPage();
     const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
 
     await user.click(await screen.findByRole("button", { name: "Supprimer" }));
@@ -651,7 +665,7 @@ describe("JobOffersPage", () => {
     vi.mocked(deleteJobOffer).mockRejectedValue(createAxiosError(404));
     vi.spyOn(window, "confirm").mockReturnValue(true);
     const user = userEvent.setup();
-    const { queryClient } = renderWithProviders(<JobOffersPage />);
+    const { queryClient } = renderJobOffersPage();
     const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
 
     await user.click(await screen.findByRole("button", { name: "Supprimer" }));
@@ -675,7 +689,7 @@ describe("JobOffersPage", () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
     const user = userEvent.setup();
 
-    renderWithProviders(<JobOffersPage />);
+    renderJobOffersPage();
 
     await user.click(await screen.findByRole("button", { name: "Supprimer" }));
 
@@ -696,7 +710,7 @@ describe("JobOffersPage", () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
     const user = userEvent.setup();
 
-    renderWithProviders(<JobOffersPage />);
+    renderJobOffersPage();
 
     const deleteButtons = await screen.findAllByRole("button", {
       name: "Supprimer",
