@@ -19,15 +19,7 @@ import {
   getDocumentDownloadUrl,
   type DocumentType,
 } from "../api/documents";
-
-const statusLabels: Record<ApplicationStatus, string> = {
-  DRAFT: "À préparer",
-  APPLIED: "Envoyée",
-  FOLLOW_UP: "Relance",
-  INTERVIEW: "Entretien",
-  ACCEPTED: "Acceptée",
-  REJECTED: "Refusée",
-};
+import { applicationStatusLabels } from "../constants/application-status";
 
 const contractTypeLabels: Record<ContractType, string> = {
   CDI: "CDI",
@@ -276,7 +268,7 @@ function ApplicationDetailPage() {
             </div>
 
             <span className="rounded-full bg-gray-100 px-3 py-1 text-sm font-medium">
-              {statusLabels[application.status]}
+              {applicationStatusLabels[application.status]}
             </span>
           </div>
         </header>
@@ -313,11 +305,13 @@ function ApplicationDetailPage() {
                   }
                   className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
                 >
-                  {Object.entries(statusLabels).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
+                  {Object.entries(applicationStatusLabels).map(
+                    ([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ),
+                  )}
                 </select>
               </div>
 
