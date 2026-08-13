@@ -28,6 +28,15 @@ const applicationStatuses: ApplicationStatus[] = [
   "REJECTED",
 ];
 
+const applicationStatusLabels: Record<ApplicationStatus, string> = {
+  DRAFT: "Brouillon",
+  APPLIED: "Envoyée",
+  FOLLOW_UP: "Relance",
+  INTERVIEW: "Entretien",
+  ACCEPTED: "Acceptée",
+  REJECTED: "Refusée",
+};
+
 function parseApplicationStatus(value: string | null): ApplicationStatus | "" {
   return value && applicationStatuses.includes(value as ApplicationStatus)
     ? (value as ApplicationStatus)
@@ -662,7 +671,7 @@ function ApplicationsPage() {
                   </div>
 
                   <span className="rounded-full bg-gray-100 px-3 py-1 text-sm font-medium">
-                    {application.status}
+                    {applicationStatusLabels[application.status]}
                   </span>
                 </div>
                 <div className="mt-4 space-y-1 text-sm text-gray-600">

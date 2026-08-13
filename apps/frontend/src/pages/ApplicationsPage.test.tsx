@@ -177,7 +177,7 @@ describe("ApplicationsPage", () => {
     const card = within(applicationCard);
 
     expect(card.getByText(company.name)).toBeInTheDocument();
-    expect(card.getByText(application.status)).toBeInTheDocument();
+    expect(card.getByText("Envoyée")).toBeInTheDocument();
     expect(
       card.getByRole("link", { name: "Voir les détails" }),
     ).toHaveAttribute("href", `/applications/${application.id}`);
