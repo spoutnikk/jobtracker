@@ -123,12 +123,12 @@ describe("DashboardPage", () => {
     expect(within(weeklyChart!).getAllByRole("img")).toHaveLength(8);
     expect(
       within(weeklyChart!).getByRole("img", {
-        name: "Semaine du 22 juin : 0 candidature",
+        name: "Semaine du 22 juin : 0 candidature, 0 %",
       }),
     ).toBeInTheDocument();
     expect(
       within(weeklyChart!).getByRole("img", {
-        name: "Semaine du 13 juil. : 3 candidatures",
+        name: "Semaine du 13 juil. : 3 candidatures, 27,3 %",
       }),
     ).toBeInTheDocument();
     expect(
@@ -136,14 +136,14 @@ describe("DashboardPage", () => {
         .getAllByRole("img")
         .map((item) => item.ariaLabel),
     ).toEqual([
-      "Semaine du 22 juin : 0 candidature",
-      "Semaine du 29 juin : 1 candidature",
-      "Semaine du 6 juil. : 0 candidature",
-      "Semaine du 13 juil. : 3 candidatures",
-      "Semaine du 20 juil. : 2 candidatures",
-      "Semaine du 27 juil. : 0 candidature",
-      "Semaine du 3 août : 4 candidatures",
-      "Semaine du 10 août : 1 candidature",
+      "Semaine du 22 juin : 0 candidature, 0 %",
+      "Semaine du 29 juin : 1 candidature, 9,1 %",
+      "Semaine du 6 juil. : 0 candidature, 0 %",
+      "Semaine du 13 juil. : 3 candidatures, 27,3 %",
+      "Semaine du 20 juil. : 2 candidatures, 18,2 %",
+      "Semaine du 27 juil. : 0 candidature, 0 %",
+      "Semaine du 3 août : 4 candidatures, 36,4 %",
+      "Semaine du 10 août : 1 candidature, 9,1 %",
     ]);
 
     const followUpsSection = screen
@@ -302,5 +302,28 @@ describe("DashboardPage", () => {
         name: /Entretiens à venir\s+2/,
       }),
     ).toHaveAttribute("href", "/calendar");
+  });
+  it("shows the weekly application distribution as percentages", async () => {
+    renderDashboard();
+
+    const weeklySection = (
+      await screen.findByRole("heading", {
+        name: "Candidatures des 8 dernières semaines",
+      })
+    ).closest("section");
+
+    expect(weeklySection).not.toBeNull();
+
+    expect(
+      within(weeklySection!).getByRole("img", {
+        name: "Semaine du 3 août : 4 candidatures, 36,4 %",
+      }),
+    ).toBeInTheDocument();
+
+    expect(
+      within(weeklySection!).getByRole("img", {
+        name: "Semaine du 10 août : 1 candidature, 9,1 %",
+      }),
+    ).toBeInTheDocument();
   });
 });

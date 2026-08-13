@@ -46,7 +46,10 @@ function DashboardPage() {
     ...stats.weeklyApplications.map(({ count }) => count),
     1,
   );
-
+  const totalWeeklyApplications = stats.weeklyApplications.reduce(
+    (total, { count }) => total + count,
+    0,
+  );
   const totalApplicationsByStatus = stats.applicationsByStatus.reduce(
     (total, item) => total + item.count,
     0,
@@ -144,7 +147,17 @@ function DashboardPage() {
           <div className="mt-4 grid h-64 grid-cols-8 gap-2 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
             {stats.weeklyApplications.map(({ weekStart, count }) => {
               const weekLabel = weekFormatter.format(new Date(weekStart));
-              const accessibleLabel = `Semaine du ${weekLabel} : ${count} ${count > 1 ? "candidatures" : "candidature"}`;
+              const percentage =
+                totalWeeklyApplications === 0
+                  ? 0
+                  : (count / totalWeeklyApplications) * 100;
+
+              const formattedPercentage =
+                percentageFormatter.format(percentage);
+
+              const accessibleLabel = `Semaine du ${weekLabel} : ${count} ${
+                count > 1 ? "candidatures" : "candidature"
+              }, ${formattedPercentage} %`;
 
               return (
                 <div
@@ -153,7 +166,12 @@ function DashboardPage() {
                   role="img"
                   aria-label={accessibleLabel}
                 >
-                  <span className="text-sm font-semibold">{count}</span>
+                  <span className="text-center text-sm font-semibold">
+                    {count}
+                    <span className="block text-xs font-normal text-gray-500">
+                      {formattedPercentage} %
+                    </span>
+                  </span>
                   <div className="flex h-40 w-full items-end justify-center">
                     <div
                       className="min-h-1 w-full max-w-10 rounded-t bg-blue-600"
