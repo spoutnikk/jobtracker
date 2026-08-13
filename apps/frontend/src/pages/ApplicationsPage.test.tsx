@@ -193,8 +193,44 @@ describe("ApplicationsPage", () => {
     expect(
       card.getByText(`Contact : ${application.contactName}`),
     ).toBeInTheDocument();
+    expect(card.getByText("Candidature envoyée")).toBeInTheDocument();
+    expect(card.getByText("12 août 2026")).toBeInTheDocument();
+    expect(card.queryByText("Relance prévue")).not.toBeInTheDocument();
+    expect(card.queryByText("Entretien prévu")).not.toBeInTheDocument();
     expect(screen.getByText("1 candidatures")).toBeInTheDocument();
     expect(screen.getByText("Page 1 sur 1")).toBeInTheDocument();
+  });
+
+  it("renders scheduled follow-up and interview dates", async () => {
+    vi.mocked(getApplications).mockResolvedValue(
+      paginatedApplications([
+        {
+          ...application,
+          followUpAt: "2026-08-20T00:00:00.000Z",
+          interviewAt: "2026-08-25T14:30:00.000Z",
+        },
+      ]),
+    );
+
+    renderApplicationsPage();
+
+    const offerHeading = await screen.findByRole("heading", {
+      name: jobOffer.title,
+    });
+    const applicationCard = offerHeading.closest("article");
+
+    expect(applicationCard).not.toBeNull();
+
+    if (!applicationCard) {
+      throw new Error("Application card not found");
+    }
+
+    const card = within(applicationCard);
+
+    expect(card.getByText("Relance prévue")).toBeInTheDocument();
+    expect(card.getByText("20 août 2026")).toBeInTheDocument();
+    expect(card.getByText("Entretien prévu")).toBeInTheDocument();
+    expect(card.getByText(/25 août 2026.*16:30/)).toBeInTheDocument();
   });
 
   it("renders an empty state", async () => {

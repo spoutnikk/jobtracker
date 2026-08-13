@@ -39,6 +39,26 @@ function parsePositiveInteger(value: string | null) {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
+function formatApplicationDate(value: string) {
+  return new Intl.DateTimeFormat("fr-FR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(value));
+}
+
+function formatApplicationDateTime(value: string) {
+  return new Intl.DateTimeFormat("fr-FR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Paris",
+  }).format(new Date(value));
+}
+
 function ApplicationsPage() {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -675,6 +695,38 @@ function ApplicationsPage() {
                     <p>Contact : {application.contactName}</p>
                   )}
                 </div>
+                {(application.appliedAt ||
+                  application.followUpAt ||
+                  application.interviewAt) && (
+                  <dl className="mt-4 grid gap-2 rounded-md bg-gray-50 p-3 text-sm text-gray-700 sm:grid-cols-3">
+                    {application.appliedAt && (
+                      <div>
+                        <dt className="font-medium text-gray-500">
+                          Candidature envoyée
+                        </dt>
+                        <dd>{formatApplicationDate(application.appliedAt)}</dd>
+                      </div>
+                    )}
+                    {application.followUpAt && (
+                      <div>
+                        <dt className="font-medium text-gray-500">
+                          Relance prévue
+                        </dt>
+                        <dd>{formatApplicationDate(application.followUpAt)}</dd>
+                      </div>
+                    )}
+                    {application.interviewAt && (
+                      <div>
+                        <dt className="font-medium text-gray-500">
+                          Entretien prévu
+                        </dt>
+                        <dd>
+                          {formatApplicationDateTime(application.interviewAt)}
+                        </dd>
+                      </div>
+                    )}
+                  </dl>
+                )}
                 <div className="mt-4 flex gap-2">
                   <Link
                     to={`/applications/${application.id}`}
