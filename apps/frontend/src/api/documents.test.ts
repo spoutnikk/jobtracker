@@ -6,6 +6,7 @@ import {
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { apiClient } from "./client";
 import {
+  downloadDocument,
   getAllDocuments,
   getDocuments,
   type Document,
@@ -185,5 +186,48 @@ describe("documents API", () => {
         pageSize: 50,
       },
     });
+  });
+  it("downloads a document through the authenticated API client", async () => {
+    const blob = new Blob(["PDF content"], { type: "application/pdf" });
+    const createObjectUrlSpy = vi.fn(() => "blob:jobtracker-document");
+    const revokeObjectUrlSpy = vi.fn();
+
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: createObjectUrlSpy,
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      configurable: true,
+      value: revokeObjectUrlSpy,
+    });
+
+    const clickSpy = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => undefined);
+
+    vi.mocked(apiClient.get).mockResolvedValue({
+      data: blob,
+      status: 200,
+      statusText: "OK",
+      headers: {},
+      config: {
+        headers: new AxiosHeaders(),
+      },
+    });
+
+    await downloadDocument(documentA.id, documentA.originalName);
+
+    expect(apiClient.get).toHaveBeenCalledWith(
+      `/documents/${documentA.id}/download`,
+      {
+        responseType: "blob",
+      },
+    );
+    expect(createObjectUrlSpy).toHaveBeenCalledWith(blob);
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+    expect(revokeObjectUrlSpy).toHaveBeenCalledWith("blob:jobtracker-document");
+    expect(
+      document.body.querySelector('a[download="cv-principal.pdf"]'),
+    ).not.toBeInTheDocument();
   });
 });

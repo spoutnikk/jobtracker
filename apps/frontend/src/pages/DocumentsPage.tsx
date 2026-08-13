@@ -3,7 +3,7 @@ import { useState } from "react";
 import CollapsibleSection from "../components/CollapsibleSection";
 import {
   deleteDocument,
-  getDocumentDownloadUrl,
+  downloadDocument,
   getDocuments,
   uploadDocument,
   type DocumentType,
@@ -70,6 +70,11 @@ function DocumentsPage() {
         });
       }
     },
+  });
+
+  const downloadDocumentMutation = useMutation({
+    mutationFn: ({ id, originalName }: { id: number; originalName: string }) =>
+      downloadDocument(id, originalName),
   });
 
   const deleteDocumentMutation = useMutation({
@@ -380,12 +385,26 @@ function DocumentsPage() {
                 </div>
 
                 <div className="mt-4 flex gap-2">
-                  <a
-                    href={getDocumentDownloadUrl(document.id)}
-                    className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  <button
+                    type="button"
+                    onClick={() => {
+                      downloadDocumentMutation.reset();
+                      downloadDocumentMutation.mutate({
+                        id: document.id,
+                        originalName: document.originalName,
+                      });
+                    }}
+                    disabled={
+                      downloadDocumentMutation.isPending &&
+                      downloadDocumentMutation.variables?.id === document.id
+                    }
+                    className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                   >
-                    Télécharger
-                  </a>
+                    {downloadDocumentMutation.isPending &&
+                    downloadDocumentMutation.variables?.id === document.id
+                      ? "Téléchargement..."
+                      : "Télécharger"}
+                  </button>
 
                   <button
                     type="button"
@@ -404,6 +423,13 @@ function DocumentsPage() {
                     Supprimer
                   </button>
                 </div>
+
+                {downloadDocumentMutation.isError &&
+                  downloadDocumentMutation.variables?.id === document.id && (
+                    <p className="mt-3 text-sm text-red-600">
+                      Impossible de télécharger le document.
+                    </p>
+                  )}
               </article>
             ))}
           </div>

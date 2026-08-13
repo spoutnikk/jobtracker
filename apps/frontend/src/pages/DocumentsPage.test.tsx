@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getAllApplications, type Application } from "../api/applications";
 import {
   deleteDocument,
-  getDocumentDownloadUrl,
+  downloadDocument,
   getDocuments,
   type Document,
   type PaginatedDocuments,
@@ -15,7 +15,7 @@ import DocumentsPage from "./DocumentsPage";
 
 vi.mock("../api/documents", () => ({
   deleteDocument: vi.fn(),
-  getDocumentDownloadUrl: vi.fn(),
+  downloadDocument: vi.fn(),
   getDocuments: vi.fn(),
   uploadDocument: vi.fn(),
 }));
@@ -117,12 +117,12 @@ describe("DocumentsPage", () => {
     vi.mocked(getDocuments).mockResolvedValue(paginatedDocuments([document]));
     vi.mocked(uploadDocument).mockResolvedValue(document);
     vi.mocked(deleteDocument).mockResolvedValue(document);
-    vi.mocked(getDocumentDownloadUrl).mockImplementation(
-      (id) => `http://localhost:3000/documents/${id}/download`,
-    );
+    vi.mocked(downloadDocument).mockResolvedValue(undefined);
   });
 
-  it("renders a document and its download link", async () => {
+  it("renders a document and downloads it through the API", async () => {
+    const user = userEvent.setup();
+
     renderWithProviders(<DocumentsPage />);
 
     const documentHeading = await screen.findByRole("heading", {
@@ -146,11 +146,41 @@ describe("DocumentsPage", () => {
         `Candidature : ${application.jobOffer.title} — ${application.jobOffer.company.name}`,
       ),
     ).toBeInTheDocument();
-    expect(card.getByRole("link", { name: "Télécharger" })).toHaveAttribute(
-      "href",
-      `http://localhost:3000/documents/${document.id}/download`,
+
+    await user.click(card.getByRole("button", { name: "Télécharger" }));
+
+    await waitFor(() => {
+      expect(downloadDocument).toHaveBeenCalledWith(
+        document.id,
+        document.originalName,
+      );
+    });
+  });
+
+  it("shows an error when a document download fails", async () => {
+    const user = userEvent.setup();
+    vi.mocked(downloadDocument).mockRejectedValue(new Error("Download failed"));
+
+    renderWithProviders(<DocumentsPage />);
+
+    const documentHeading = await screen.findByRole("heading", {
+      name: document.name,
+    });
+    const documentCard = documentHeading.closest("article");
+
+    if (!documentCard) {
+      throw new Error("Document card not found");
+    }
+
+    await user.click(
+      within(documentCard).getByRole("button", { name: "Télécharger" }),
     );
-    expect(getDocumentDownloadUrl).toHaveBeenCalledWith(document.id);
+
+    expect(
+      await within(documentCard).findByText(
+        "Impossible de télécharger le document.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("renders an empty state", async () => {

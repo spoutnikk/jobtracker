@@ -122,6 +122,27 @@ export async function deleteDocument(id: number): Promise<Document> {
   return response.data;
 }
 
-export function getDocumentDownloadUrl(id: number) {
-  return `http://localhost:3000/documents/${id}/download`;
+export async function downloadDocument(
+  id: number,
+  originalName: string,
+): Promise<void> {
+  const response = await apiClient.get<Blob>(`/documents/${id}/download`, {
+    responseType: "blob",
+  });
+
+  const objectUrl = URL.createObjectURL(response.data);
+  const anchor = window.document.createElement("a");
+
+  anchor.href = objectUrl;
+  anchor.download = originalName;
+  anchor.style.display = "none";
+
+  window.document.body.appendChild(anchor);
+
+  try {
+    anchor.click();
+  } finally {
+    anchor.remove();
+    URL.revokeObjectURL(objectUrl);
+  }
 }

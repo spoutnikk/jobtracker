@@ -13,7 +13,7 @@ import {
   type ApplicationEvent,
 } from "../api/application-events";
 import {
-  getDocumentDownloadUrl,
+  downloadDocument,
   getAllDocuments,
   type Document,
 } from "../api/documents";
@@ -30,8 +30,8 @@ vi.mock("../api/application-events", () => ({
 }));
 
 vi.mock("../api/documents", () => ({
+  downloadDocument: vi.fn(),
   getAllDocuments: vi.fn(),
-  getDocumentDownloadUrl: vi.fn((id: number) => `/documents/${id}/download`),
 }));
 
 const events: ApplicationEvent[] = [
@@ -146,9 +146,7 @@ describe("ApplicationDetailPage", () => {
     vi.mocked(updateApplication).mockResolvedValue(application);
     vi.mocked(getApplicationEvents).mockResolvedValue([]);
     vi.mocked(getAllDocuments).mockResolvedValue([]);
-    vi.mocked(getDocumentDownloadUrl).mockImplementation(
-      (documentId) => `http://localhost:3000/documents/${documentId}/download`,
-    );
+    vi.mocked(downloadDocument).mockResolvedValue(undefined);
   });
 
   it("renders the loading state", () => {
@@ -428,7 +426,8 @@ describe("ApplicationDetailPage", () => {
     expect(screen.getByText("Candidature créée")).toBeInTheDocument();
   });
 
-  it("renders associated documents and their download links", async () => {
+  it("renders associated documents and downloads them through the API", async () => {
+    const user = userEvent.setup();
     vi.mocked(getAllDocuments).mockResolvedValue([document]);
 
     renderDetail();
@@ -444,17 +443,47 @@ describe("ApplicationDetailPage", () => {
     expect(
       within(documentsSection!).getByText(/11 août 2026/),
     ).toBeInTheDocument();
-    expect(
-      within(documentsSection!).getByRole("link", {
+
+    await user.click(
+      within(documentsSection!).getByRole("button", {
         name: "Télécharger CV Bruno",
       }),
-    ).toHaveAttribute(
-      "href",
-      `http://localhost:3000/documents/${document.id}/download`,
     );
+
+    await waitFor(() => {
+      expect(downloadDocument).toHaveBeenCalledWith(
+        document.id,
+        document.originalName,
+      );
+    });
     expect(getAllDocuments).toHaveBeenCalledWith({ applicationId: 42 });
-    expect(getDocumentDownloadUrl).toHaveBeenCalledWith(document.id);
     expect(screen.queryByText(foreignDocument.name)).not.toBeInTheDocument();
+  });
+
+  it("shows an error when a document download fails", async () => {
+    const user = userEvent.setup();
+    vi.mocked(getAllDocuments).mockResolvedValue([document]);
+    vi.mocked(downloadDocument).mockRejectedValue(new Error("Download failed"));
+
+    renderDetail();
+
+    const documentsSection = (
+      await screen.findByRole("heading", { name: "Documents" })
+    ).closest("section");
+
+    expect(documentsSection).not.toBeNull();
+
+    await user.click(
+      within(documentsSection!).getByRole("button", {
+        name: "Télécharger CV Bruno",
+      }),
+    );
+
+    expect(
+      await within(documentsSection!).findByText(
+        "Impossible de télécharger le document.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("renders the empty documents state", async () => {

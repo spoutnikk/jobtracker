@@ -15,8 +15,8 @@ import {
   type ApplicationEventType,
 } from "../api/application-events";
 import {
+  downloadDocument,
   getAllDocuments,
-  getDocumentDownloadUrl,
   type DocumentType,
 } from "../api/documents";
 import { applicationStatusLabels } from "../constants/application-status";
@@ -144,6 +144,11 @@ function ApplicationDetailPage() {
     queryKey: ["documents", { applicationId }],
     queryFn: () => getAllDocuments({ applicationId }),
     enabled: isValidApplicationId,
+  });
+
+  const downloadDocumentMutation = useMutation({
+    mutationFn: ({ id, originalName }: { id: number; originalName: string }) =>
+      downloadDocument(id, originalName),
   });
 
   const updateMutation = useMutation({
@@ -662,12 +667,33 @@ function ApplicationDetailPage() {
                     Ajouté le {formatDateTime(document.createdAt)}
                   </time>
 
-                  <a
-                    href={getDocumentDownloadUrl(document.id)}
-                    className="mt-3 inline-block font-medium text-blue-700 hover:underline"
+                  <button
+                    type="button"
+                    onClick={() => {
+                      downloadDocumentMutation.reset();
+                      downloadDocumentMutation.mutate({
+                        id: document.id,
+                        originalName: document.originalName,
+                      });
+                    }}
+                    disabled={
+                      downloadDocumentMutation.isPending &&
+                      downloadDocumentMutation.variables?.id === document.id
+                    }
+                    className="mt-3 font-medium text-blue-700 hover:underline disabled:opacity-50"
                   >
-                    Télécharger {document.name}
-                  </a>
+                    {downloadDocumentMutation.isPending &&
+                    downloadDocumentMutation.variables?.id === document.id
+                      ? `Téléchargement de ${document.name}...`
+                      : `Télécharger ${document.name}`}
+                  </button>
+
+                  {downloadDocumentMutation.isError &&
+                    downloadDocumentMutation.variables?.id === document.id && (
+                      <p className="mt-2 text-sm text-red-600">
+                        Impossible de télécharger le document.
+                      </p>
+                    )}
                 </li>
               ))}
             </ul>
