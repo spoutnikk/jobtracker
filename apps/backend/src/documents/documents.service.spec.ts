@@ -2,10 +2,15 @@ import { HttpStatus, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { unlink } from 'fs/promises';
 import { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { FindDocumentsQueryDto } from './dto/find-documents-query.dto';
 import { DocumentsService } from './documents.service';
+
+jest.mock('fs/promises', () => ({
+  unlink: jest.fn(),
+}));
 
 describe('DocumentsService', () => {
   let service: DocumentsService;
@@ -57,6 +62,8 @@ describe('DocumentsService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+
+    jest.mocked(unlink).mockResolvedValue(undefined);
 
     transactionClientMock.application.findFirst.mockResolvedValue({
       id: 1,
@@ -666,6 +673,43 @@ describe('DocumentsService', () => {
     });
 
     expect(prismaServiceMock.document.delete).not.toHaveBeenCalled();
+  });
+
+  it('should keep the physical file when database deletion fails', async () => {
+    const document = {
+      id: 1,
+      name: 'Document de test',
+      path: 'uploads/document.pdf',
+      application: null,
+    };
+    const databaseError = new Error('Database deletion failed');
+
+    prismaServiceMock.document.findFirst.mockResolvedValue(document);
+    prismaServiceMock.document.delete.mockRejectedValueOnce(databaseError);
+
+    await expect(service.remove(7, 1)).rejects.toBe(databaseError);
+
+    expect(unlink).not.toHaveBeenCalled();
+  });
+
+  it('should delete the database record before the physical file', async () => {
+    const document = {
+      id: 1,
+      name: 'Document de test',
+      path: 'uploads/document.pdf',
+      application: null,
+    };
+
+    prismaServiceMock.document.findFirst.mockResolvedValue(document);
+    prismaServiceMock.document.delete.mockResolvedValue(document);
+
+    await expect(service.remove(7, 1)).resolves.toEqual(document);
+
+    expect(prismaServiceMock.document.delete).toHaveBeenCalledTimes(1);
+    expect(unlink).toHaveBeenCalledWith(document.path);
+    expect(
+      prismaServiceMock.document.delete.mock.invocationCallOrder[0],
+    ).toBeLessThan(jest.mocked(unlink).mock.invocationCallOrder[0]);
   });
 
   it('should translate P2025 during removal to the same NotFoundException', async () => {

@@ -233,18 +233,12 @@ export class DocumentsService {
   async remove(userId: number, id: number) {
     const document = await this.findOne(userId, id);
 
-    try {
-      await unlink(document.path);
-    } catch (error: unknown) {
-      const fileSystemError = error as NodeJS.ErrnoException;
-
-      if (fileSystemError.code !== 'ENOENT') {
-        throw error;
-      }
-    }
+    let deletedDocument: Awaited<
+      ReturnType<typeof this.prisma.document.delete>
+    >;
 
     try {
-      return await this.prisma.document.delete({
+      deletedDocument = await this.prisma.document.delete({
         where: {
           id,
           userId,
@@ -260,5 +254,17 @@ export class DocumentsService {
 
       throw error;
     }
+
+    try {
+      await unlink(document.path);
+    } catch (error: unknown) {
+      const fileSystemError = error as NodeJS.ErrnoException;
+
+      if (fileSystemError.code !== 'ENOENT') {
+        throw error;
+      }
+    }
+
+    return deletedDocument;
   }
 }
