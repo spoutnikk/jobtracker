@@ -130,6 +130,17 @@ export class ApplicationsService {
       ...(filters.jobOfferId !== undefined && {
         jobOfferId: filters.jobOfferId,
       }),
+      ...((filters.createdFrom !== undefined ||
+        filters.createdTo !== undefined) && {
+        createdAt: {
+          ...(filters.createdFrom !== undefined && {
+            gte: new Date(filters.createdFrom),
+          }),
+          ...(filters.createdTo !== undefined && {
+            lt: new Date(filters.createdTo),
+          }),
+        },
+      }),
       ...(hasJobOfferFilter && { jobOffer: jobOfferFilter }),
     };
     const orderBy = this.buildApplicationOrderBy(sortBy, sortOrder);

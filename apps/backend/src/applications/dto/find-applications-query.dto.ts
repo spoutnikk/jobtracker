@@ -1,5 +1,6 @@
 import { Transform, Type } from 'class-transformer';
 import {
+  IsDateString,
   IsEnum,
   IsInt,
   IsOptional,
@@ -34,6 +35,14 @@ export class FindApplicationsQueryDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @IsOptional()
+  @IsDateString()
+  createdFrom?: string;
+
+  @IsOptional()
+  @IsDateString()
+  createdTo?: string;
 
   @IsOptional()
   @Type(() => Number)

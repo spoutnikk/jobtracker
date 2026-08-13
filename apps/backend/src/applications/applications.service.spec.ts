@@ -197,6 +197,45 @@ describe('ApplicationsService', () => {
     });
   });
 
+  it('should filter applications by creation date range', async () => {
+    prismaServiceMock.application.findMany.mockResolvedValue([]);
+    prismaServiceMock.application.count.mockResolvedValue(0);
+
+    await service.findAll(7, {
+      createdFrom: '2026-08-03T00:00:00.000Z',
+      createdTo: '2026-08-10T00:00:00.000Z',
+      page: 1,
+      pageSize: 10,
+      sortBy: 'createdAt',
+      sortOrder: 'desc',
+    });
+
+    const expectedWhere = {
+      userId: 7,
+      createdAt: {
+        gte: new Date('2026-08-03T00:00:00.000Z'),
+        lt: new Date('2026-08-10T00:00:00.000Z'),
+      },
+    };
+
+    expect(prismaServiceMock.application.findMany).toHaveBeenCalledWith({
+      where: expectedWhere,
+      include: {
+        jobOffer: {
+          include: {
+            company: true,
+          },
+        },
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      skip: 0,
+      take: 10,
+    });
+    expect(prismaServiceMock.application.count).toHaveBeenCalledWith({
+      where: expectedWhere,
+    });
+  });
+
   it('returns zero total pages for an empty result', async () => {
     prismaServiceMock.application.findMany.mockResolvedValue([]);
     prismaServiceMock.application.count.mockResolvedValue(0);

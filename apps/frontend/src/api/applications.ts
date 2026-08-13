@@ -52,6 +52,8 @@ export interface ApplicationFilters {
   companyId?: number;
   jobOfferId?: number;
   search?: string;
+  createdFrom?: string;
+  createdTo?: string;
   page?: number;
   pageSize?: number;
   sortBy?: ApplicationSortBy;

@@ -165,32 +165,45 @@ function DashboardPage() {
               const accessibleLabel = `Semaine du ${weekLabel} : ${count} ${
                 count > 1 ? "candidatures" : "candidature"
               }, ${formattedPercentage} %`;
+              const createdFrom = new Date(weekStart);
+              const createdTo = new Date(createdFrom);
+              createdTo.setUTCDate(createdTo.getUTCDate() + 7);
+              const applicationsUrl = `/applications?${new URLSearchParams({
+                createdFrom: createdFrom.toISOString(),
+                createdTo: createdTo.toISOString(),
+              }).toString()}`;
 
               return (
-                <div
+                <Link
                   key={weekStart}
-                  className="flex min-w-0 flex-col items-center justify-end gap-2"
-                  role="img"
-                  aria-label={accessibleLabel}
+                  to={applicationsUrl}
+                  className="flex min-w-0 flex-col items-center justify-end gap-2 rounded transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  aria-label={`Voir les candidatures — ${accessibleLabel}`}
                 >
-                  <span className="text-center text-sm font-semibold">
-                    {count}
-                    <span className="block text-xs font-normal text-gray-500">
-                      {formattedPercentage} %
+                  <div
+                    className="contents"
+                    role="img"
+                    aria-label={accessibleLabel}
+                  >
+                    <span className="text-center text-sm font-semibold">
+                      {count}
+                      <span className="block text-xs font-normal text-gray-500">
+                        {formattedPercentage} %
+                      </span>
                     </span>
-                  </span>
-                  <div className="flex h-40 w-full items-end justify-center">
-                    <div
-                      className="min-h-1 w-full max-w-10 rounded-t bg-blue-600"
-                      style={{
-                        height: `${(count / maxWeeklyApplications) * 100}%`,
-                      }}
-                    />
+                    <div className="flex h-40 w-full items-end justify-center">
+                      <div
+                        className="min-h-1 w-full max-w-10 rounded-t bg-blue-600"
+                        style={{
+                          height: `${(count / maxWeeklyApplications) * 100}%`,
+                        }}
+                      />
+                    </div>
+                    <span className="text-center text-xs text-gray-600">
+                      {weekLabel}
+                    </span>
                   </div>
-                  <span className="text-center text-xs text-gray-600">
-                    {weekLabel}
-                  </span>
-                </div>
+                </Link>
               );
             })}
           </div>

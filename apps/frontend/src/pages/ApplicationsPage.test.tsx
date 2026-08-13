@@ -51,7 +51,7 @@ function QueryNavigationHarness() {
         type="button"
         onClick={() =>
           navigate(
-            `/applications?status=INTERVIEW&companyId=${company.id}&jobOfferId=${jobOffer.id}&search=React`,
+            `/applications?status=INTERVIEW&companyId=${company.id}&jobOfferId=${jobOffer.id}&search=React&createdFrom=2026-08-03T00%3A00%3A00.000Z&createdTo=2026-08-10T00%3A00%3A00.000Z`,
           )
         }
       >
@@ -132,6 +132,8 @@ const defaultApplicationParams = {
   companyId: undefined,
   jobOfferId: undefined,
   search: undefined,
+  createdFrom: undefined,
+  createdTo: undefined,
   page: 1,
   pageSize: 10,
   sortBy: "createdAt",
@@ -289,7 +291,7 @@ describe("ApplicationsPage", () => {
 
   it("initializes filters from the URL", async () => {
     renderApplicationsPage(
-      `/applications?status=INTERVIEW&companyId=${company.id}&jobOfferId=${jobOffer.id}&search=React`,
+      `/applications?status=INTERVIEW&companyId=${company.id}&jobOfferId=${jobOffer.id}&search=React&createdFrom=2026-08-03T00%3A00%3A00.000Z&createdTo=2026-08-10T00%3A00%3A00.000Z`,
     );
 
     await screen.findByRole("heading", { name: jobOffer.title });
@@ -312,6 +314,8 @@ describe("ApplicationsPage", () => {
         companyId: company.id,
         jobOfferId: jobOffer.id,
         search: "React",
+        createdFrom: "2026-08-03T00:00:00.000Z",
+        createdTo: "2026-08-10T00:00:00.000Z",
       });
     });
   });
@@ -371,6 +375,8 @@ describe("ApplicationsPage", () => {
         companyId: company.id,
         jobOfferId: jobOffer.id,
         search: "React",
+        createdFrom: "2026-08-03T00:00:00.000Z",
+        createdTo: "2026-08-10T00:00:00.000Z",
       });
     });
 

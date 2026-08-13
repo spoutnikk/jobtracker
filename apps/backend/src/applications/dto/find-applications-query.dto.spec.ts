@@ -33,6 +33,33 @@ describe('FindApplicationsQueryDto', () => {
     });
   });
 
+  it('accepts ISO date range filters', async () => {
+    const dto = plainToInstance(FindApplicationsQueryDto, {
+      createdFrom: '2026-08-03T00:00:00.000Z',
+      createdTo: '2026-08-10T00:00:00.000Z',
+    });
+
+    await expect(validate(dto)).resolves.toHaveLength(0);
+    expect(dto).toMatchObject({
+      createdFrom: '2026-08-03T00:00:00.000Z',
+      createdTo: '2026-08-10T00:00:00.000Z',
+    });
+  });
+
+  it.each([
+    [{ createdFrom: 'not-a-date' }, 'createdFrom'],
+    [{ createdTo: 'not-a-date' }, 'createdTo'],
+  ])('rejects invalid date filter %p', async (input, invalidProperty) => {
+    const dto = plainToInstance(FindApplicationsQueryDto, input);
+    const errors = await validate(dto);
+
+    expect(errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ property: invalidProperty }),
+      ]),
+    );
+  });
+
   it.each([
     [{ page: '0' }, 'page'],
     [{ pageSize: '0' }, 'pageSize'],

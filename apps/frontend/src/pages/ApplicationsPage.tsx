@@ -111,6 +111,9 @@ function ApplicationsPage() {
   const filterCompanyId = parsePositiveInteger(searchParams.get("companyId"));
   const filterJobOfferId = parsePositiveInteger(searchParams.get("jobOfferId"));
   const filterSearch = searchParams.get("search")?.trim() ?? "";
+  const filterCreatedFrom =
+    searchParams.get("createdFrom")?.trim() || undefined;
+  const filterCreatedTo = searchParams.get("createdTo")?.trim() || undefined;
 
   const [status, setStatus] = useState<ApplicationStatus>("DRAFT");
   const [source, setSource] = useState("");
@@ -261,6 +264,8 @@ function ApplicationsPage() {
     companyId: filterCompanyId ?? undefined,
     jobOfferId: filterJobOfferId ?? undefined,
     search: filterSearch || undefined,
+    createdFrom: filterCreatedFrom,
+    createdTo: filterCreatedTo,
     page,
     pageSize,
     sortBy,
@@ -270,7 +275,9 @@ function ApplicationsPage() {
     applicationFilters.status !== undefined ||
     applicationFilters.companyId !== undefined ||
     applicationFilters.jobOfferId !== undefined ||
-    applicationFilters.search !== undefined;
+    applicationFilters.search !== undefined ||
+    applicationFilters.createdFrom !== undefined ||
+    applicationFilters.createdTo !== undefined;
   const companies = Array.from(
     new Map(
       (jobOffersQuery.data ?? []).map((offer) => [
@@ -471,6 +478,8 @@ function ApplicationsPage() {
                   nextSearchParams.delete("jobOfferId");
                   nextSearchParams.delete("search");
 
+                  nextSearchParams.delete("createdFrom");
+                  nextSearchParams.delete("createdTo");
                   setSearchParams(nextSearchParams, { replace: true });
                   setPage(1);
                   setPageSize(10);

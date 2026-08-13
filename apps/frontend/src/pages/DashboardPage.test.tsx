@@ -337,5 +337,23 @@ describe("DashboardPage", () => {
         name: "Semaine du 10 août : 1 candidature, 9,1 %",
       }),
     ).toBeInTheDocument();
+
+    expect(
+      within(weeklySection!).getByRole("link", {
+        name: "Voir les candidatures — Semaine du 3 août : 4 candidatures, 36,4 %",
+      }),
+    ).toHaveAttribute(
+      "href",
+      "/applications?createdFrom=2026-08-03T00%3A00%3A00.000Z&createdTo=2026-08-10T00%3A00%3A00.000Z",
+    );
+
+    expect(
+      within(weeklySection!).getByRole("link", {
+        name: "Voir les candidatures — Semaine du 10 août : 1 candidature, 9,1 %",
+      }),
+    ).toHaveAttribute(
+      "href",
+      "/applications?createdFrom=2026-08-10T00%3A00%3A00.000Z&createdTo=2026-08-17T00%3A00%3A00.000Z",
+    );
   });
 });
