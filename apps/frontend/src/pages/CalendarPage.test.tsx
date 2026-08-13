@@ -328,4 +328,59 @@ describe("CalendarPage", () => {
 
     expect(within(august20).getByText(/14:00/)).toBeInTheDocument();
   });
+  it("collapses busy calendar days after three events and can expand them", async () => {
+    const user = userEvent.setup();
+
+    const busyDayFollowUps = Array.from({ length: 5 }, (_, index) =>
+      createApplication({
+        id: 10 + index,
+        followUpAt: `2026-08-20T${String(8 + index).padStart(2, "0")}:00:00.000Z`,
+        jobOfferId: 100 + index,
+        jobOffer: {
+          ...followUp.jobOffer,
+          id: 100 + index,
+          title: `Offre ${index + 1}`,
+        },
+      }),
+    );
+
+    vi.mocked(getFollowUps).mockResolvedValue(busyDayFollowUps);
+    vi.mocked(getInterviews).mockResolvedValue([]);
+
+    renderCalendar();
+
+    const august20 = await screen.findByRole("gridcell", {
+      name: /20 août 2026/i,
+    });
+
+    expect(within(august20).getAllByRole("link")).toHaveLength(3);
+
+    expect(
+      within(august20).getByRole("button", {
+        name: "+ 2 autres",
+      }),
+    ).toBeInTheDocument();
+
+    await user.click(
+      within(august20).getByRole("button", {
+        name: "+ 2 autres",
+      }),
+    );
+
+    expect(within(august20).getAllByRole("link")).toHaveLength(5);
+
+    expect(
+      within(august20).getByRole("button", {
+        name: "Réduire",
+      }),
+    ).toBeInTheDocument();
+
+    await user.click(
+      within(august20).getByRole("button", {
+        name: "Réduire",
+      }),
+    );
+
+    expect(within(august20).getAllByRole("link")).toHaveLength(3);
+  });
 });

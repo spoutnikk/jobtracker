@@ -237,6 +237,9 @@ function MonthlyCalendar({ events }: { events: CalendarEvent[] }) {
   const [currentMonth, setCurrentMonth] = useState(() =>
     getInitialMonth(events),
   );
+  const [expandedDays, setExpandedDays] = useState<Set<string>>(
+    () => new Set(),
+  );
 
   const today = new Date();
   const todayKey = getDayKey(today);
@@ -268,7 +271,19 @@ function MonthlyCalendar({ events }: { events: CalendarEvent[] }) {
         new Date(month.getFullYear(), month.getMonth() + offset, 1, 12),
     );
   }
+  function toggleDayExpansion(dayKey: string) {
+    setExpandedDays((current) => {
+      const next = new Set(current);
 
+      if (next.has(dayKey)) {
+        next.delete(dayKey);
+      } else {
+        next.add(dayKey);
+      }
+
+      return next;
+    });
+  }
   return (
     <section className="mt-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -329,6 +344,11 @@ function MonthlyCalendar({ events }: { events: CalendarEvent[] }) {
             {monthCells.map((cell) => {
               const dayEvents = eventsByDay.get(cell.key) ?? [];
               const isToday = cell.key === todayKey;
+              const isExpanded = expandedDays.has(cell.key);
+              const visibleEvents = isExpanded
+                ? dayEvents
+                : dayEvents.slice(0, 3);
+              const hiddenEventCount = dayEvents.length - visibleEvents.length;
 
               return (
                 <div
@@ -355,7 +375,7 @@ function MonthlyCalendar({ events }: { events: CalendarEvent[] }) {
 
                   {dayEvents.length > 0 && (
                     <div className="mt-2 space-y-1">
-                      {dayEvents.map((event) => (
+                      {visibleEvents.map((event) => (
                         <Link
                           key={`${event.type}-${event.application.id}-${event.date}`}
                           to={`/applications/${event.application.id}`}
@@ -371,6 +391,18 @@ function MonthlyCalendar({ events }: { events: CalendarEvent[] }) {
                           · {event.application.jobOffer.title}
                         </Link>
                       ))}
+
+                      {dayEvents.length > 3 && (
+                        <button
+                          type="button"
+                          onClick={() => toggleDayExpansion(cell.key)}
+                          className="mt-1 text-xs font-medium text-blue-700 hover:underline"
+                        >
+                          {isExpanded
+                            ? "Réduire"
+                            : `+ ${hiddenEventCount} autres`}
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
