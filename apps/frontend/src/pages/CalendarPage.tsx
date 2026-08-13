@@ -139,6 +139,9 @@ function filterUpcomingEvents(
 ) {
   const nowTime = now.getTime();
   const sevenDaysFromNow = nowTime + 7 * 24 * 60 * 60 * 1000;
+  const isCurrentMonth =
+    activeMonth.getFullYear() === now.getFullYear() &&
+    activeMonth.getMonth() === now.getMonth();
 
   return events.filter((event) => {
     const eventDate = new Date(event.date);
@@ -152,9 +155,11 @@ function filterUpcomingEvents(
       eventDate.getFullYear() === activeMonth.getFullYear() &&
       eventDate.getMonth() === activeMonth.getMonth();
 
-    const isInNextSevenDays = eventTime <= sevenDaysFromNow;
+    if (!isCurrentMonth) {
+      return isInActiveMonth;
+    }
 
-    return isInActiveMonth || isInNextSevenDays;
+    return isInActiveMonth || eventTime <= sevenDaysFromNow;
   });
 }
 

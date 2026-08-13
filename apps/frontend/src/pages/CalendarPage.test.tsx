@@ -417,9 +417,19 @@ describe("CalendarPage", () => {
 
     expect(
       screen.getByRole("heading", {
+        name: "Offre septembre proche",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", {
         name: "Offre septembre lointaine",
       }),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", {
+        name: "Offre août à venir",
+      }),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("heading", {
         name: "Offre passée août",
