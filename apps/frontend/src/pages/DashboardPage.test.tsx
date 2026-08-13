@@ -302,6 +302,18 @@ describe("DashboardPage", () => {
         name: /Entretiens à venir\s+2/,
       }),
     ).toHaveAttribute("href", "/calendar");
+
+    expect(
+      screen.getByRole("link", {
+        name: /Entretiens à venir — 7 jours\s+1/,
+      }),
+    ).toHaveAttribute("href", "/calendar");
+
+    expect(
+      screen.getByRole("link", {
+        name: /Relances à venir — 7 jours\s+1/,
+      }),
+    ).toHaveAttribute("href", "/calendar");
   });
   it("shows the weekly application distribution as percentages", async () => {
     renderDashboard();

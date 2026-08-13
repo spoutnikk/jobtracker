@@ -122,21 +122,27 @@ function DashboardPage() {
             </p>
           </article>
 
-          <article className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-            <p className="text-sm text-gray-600">
-              Entretiens à venir — 7 jours
-            </p>
-            <p className="mt-2 text-3xl font-bold">
-              {stats.upcomingInterviews7Days}
-            </p>
-          </article>
+          <Link to="/calendar" className="block">
+            <article className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm transition hover:border-gray-300 hover:shadow">
+              <p className="text-sm text-gray-600">
+                Entretiens à venir — 7 jours
+              </p>
+              <p className="mt-2 text-3xl font-bold">
+                {stats.upcomingInterviews7Days}
+              </p>
+            </article>
+          </Link>
 
-          <article className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-            <p className="text-sm text-gray-600">Relances à venir — 7 jours</p>
-            <p className="mt-2 text-3xl font-bold">
-              {stats.upcomingFollowUps7Days}
-            </p>
-          </article>
+          <Link to="/calendar" className="block">
+            <article className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm transition hover:border-gray-300 hover:shadow">
+              <p className="text-sm text-gray-600">
+                Relances à venir — 7 jours
+              </p>
+              <p className="mt-2 text-3xl font-bold">
+                {stats.upcomingFollowUps7Days}
+              </p>
+            </article>
+          </Link>
         </div>
 
         <section className="mt-10">
