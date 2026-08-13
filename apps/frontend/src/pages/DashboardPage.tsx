@@ -58,32 +58,46 @@ function DashboardPage() {
         <h1 className="text-3xl font-bold">Tableau de bord</h1>
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <article className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-            <p className="text-sm text-gray-600">Candidatures</p>
-            <p className="mt-2 text-3xl font-bold">{stats.totalApplications}</p>
-          </article>
+          <Link to="/applications" className="block">
+            <article className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm transition hover:border-gray-300 hover:shadow">
+              <p className="text-sm text-gray-600">Candidatures</p>
+              <p className="mt-2 text-3xl font-bold">
+                {stats.totalApplications}
+              </p>
+            </article>
+          </Link>
 
-          <article className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-            <p className="text-sm text-gray-600">Entreprises</p>
-            <p className="mt-2 text-3xl font-bold">{stats.totalCompanies}</p>
-          </article>
+          <Link to="/companies" className="block">
+            <article className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm transition hover:border-gray-300 hover:shadow">
+              <p className="text-sm text-gray-600">Entreprises</p>
+              <p className="mt-2 text-3xl font-bold">{stats.totalCompanies}</p>
+            </article>
+          </Link>
 
-          <article className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-            <p className="text-sm text-gray-600">Offres</p>
-            <p className="mt-2 text-3xl font-bold">{stats.totalJobOffers}</p>
-          </article>
+          <Link to="/job-offers" className="block">
+            <article className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm transition hover:border-gray-300 hover:shadow">
+              <p className="text-sm text-gray-600">Offres</p>
+              <p className="mt-2 text-3xl font-bold">{stats.totalJobOffers}</p>
+            </article>
+          </Link>
 
-          <article className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-            <p className="text-sm text-gray-600">Relances à venir</p>
-            <p className="mt-2 text-3xl font-bold">{stats.upcomingFollowUps}</p>
-          </article>
+          <Link to="/calendar" className="block">
+            <article className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm transition hover:border-gray-300 hover:shadow">
+              <p className="text-sm text-gray-600">Relances à venir</p>
+              <p className="mt-2 text-3xl font-bold">
+                {stats.upcomingFollowUps}
+              </p>
+            </article>
+          </Link>
 
-          <article className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-            <p className="text-sm text-gray-600">Entretiens à venir</p>
-            <p className="mt-2 text-3xl font-bold">
-              {stats.upcomingInterviews}
-            </p>
-          </article>
+          <Link to="/calendar" className="block">
+            <article className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm transition hover:border-gray-300 hover:shadow">
+              <p className="text-sm text-gray-600">Entretiens à venir</p>
+              <p className="mt-2 text-3xl font-bold">
+                {stats.upcomingInterviews}
+              </p>
+            </article>
+          </Link>
           <article className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
             <p className="text-sm text-gray-600">Taux d'entretien</p>
             <p className="mt-2 text-3xl font-bold">

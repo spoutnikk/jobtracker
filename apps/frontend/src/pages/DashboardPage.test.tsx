@@ -266,4 +266,41 @@ describe("DashboardPage", () => {
       }),
     ).toBeInTheDocument();
   });
+  it("provides navigation links from the main dashboard counters", async () => {
+    renderDashboard();
+
+    await screen.findByRole("heading", {
+      name: "Tableau de bord",
+    });
+
+    expect(
+      screen.getByRole("link", {
+        name: /Candidatures\s+12/,
+      }),
+    ).toHaveAttribute("href", "/applications");
+
+    expect(
+      screen.getByRole("link", {
+        name: /Entreprises\s+5/,
+      }),
+    ).toHaveAttribute("href", "/companies");
+
+    expect(
+      screen.getByRole("link", {
+        name: /Offres\s+8/,
+      }),
+    ).toHaveAttribute("href", "/job-offers");
+
+    expect(
+      screen.getByRole("link", {
+        name: /Relances à venir\s+3/,
+      }),
+    ).toHaveAttribute("href", "/calendar");
+
+    expect(
+      screen.getByRole("link", {
+        name: /Entretiens à venir\s+2/,
+      }),
+    ).toHaveAttribute("href", "/calendar");
+  });
 });
