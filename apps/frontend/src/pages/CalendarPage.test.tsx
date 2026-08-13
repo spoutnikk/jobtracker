@@ -1,9 +1,11 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import {
+  getAllApplications,
   getFollowUps,
   getInterviews,
+  updateApplication,
   type Application,
 } from "../api/applications";
 import { renderWithProviders } from "../test/renderWithProviders";
@@ -11,8 +13,10 @@ import userEvent from "@testing-library/user-event";
 import CalendarPage from "./CalendarPage";
 
 vi.mock("../api/applications", () => ({
+  getAllApplications: vi.fn(),
   getFollowUps: vi.fn(),
   getInterviews: vi.fn(),
+  updateApplication: vi.fn(),
 }));
 
 function createApplication(overrides: Partial<Application> = {}): Application {
@@ -86,6 +90,8 @@ describe("CalendarPage", () => {
     vi.restoreAllMocks();
     vi.mocked(getFollowUps).mockResolvedValue([followUp]);
     vi.mocked(getInterviews).mockResolvedValue([interview]);
+    vi.mocked(getAllApplications).mockResolvedValue([followUp, interview]);
+    vi.mocked(updateApplication).mockResolvedValue(followUp);
   });
 
   it("renders upcoming follow-ups and interviews", async () => {
@@ -429,5 +435,104 @@ describe("CalendarPage", () => {
         name: followUp.jobOffer.title,
       }),
     ).toBeInTheDocument();
+  });
+  it("opens a follow-up form for a selected calendar day", async () => {
+    const user = userEvent.setup();
+
+    renderCalendar();
+
+    const august20 = await screen.findByRole("gridcell", {
+      name: /20 août 2026/i,
+    });
+
+    await user.click(
+      within(august20).getByRole("button", {
+        name: "Ajouter un événement le 20 août 2026",
+      }),
+    );
+
+    expect(
+      screen.getByRole("heading", {
+        name: "Programmer une relance",
+      }),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getByRole("combobox", {
+        name: "Candidature",
+      }),
+    ).toBeInTheDocument();
+
+    expect(screen.getByLabelText("Date de relance")).toHaveValue("2026-08-20");
+  });
+  it("schedules a follow-up for the selected application", async () => {
+    const user = userEvent.setup();
+
+    renderCalendar();
+
+    const august20 = await screen.findByRole("gridcell", {
+      name: /20 août 2026/i,
+    });
+
+    await user.click(
+      within(august20).getByRole("button", {
+        name: "Ajouter un événement le 20 août 2026",
+      }),
+    );
+
+    await user.selectOptions(
+      screen.getByRole("combobox", {
+        name: "Candidature",
+      }),
+      String(interview.id),
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Enregistrer la relance",
+      }),
+    );
+
+    expect(updateApplication).toHaveBeenCalledTimes(1);
+
+    expect(updateApplication).toHaveBeenCalledWith(interview.id, {
+      followUpAt: "2026-08-20T08:00:00.000Z",
+    });
+  });
+  it("closes the follow-up form after a successful update", async () => {
+    const user = userEvent.setup();
+
+    renderCalendar();
+
+    const august20 = await screen.findByRole("gridcell", {
+      name: /20 août 2026/i,
+    });
+
+    await user.click(
+      within(august20).getByRole("button", {
+        name: "Ajouter un événement le 20 août 2026",
+      }),
+    );
+
+    await user.selectOptions(
+      screen.getByRole("combobox", {
+        name: "Candidature",
+      }),
+      String(interview.id),
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Enregistrer la relance",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("heading", {
+          name: "Programmer une relance",
+        }),
+      ).not.toBeInTheDocument();
+    });
   });
 });

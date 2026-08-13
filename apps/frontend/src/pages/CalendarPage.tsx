@@ -1,9 +1,11 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
+  getAllApplications,
   getFollowUps,
   getInterviews,
+  updateApplication,
   type Application,
 } from "../api/applications";
 
@@ -233,7 +235,13 @@ function CalendarEventCard({ event }: { event: CalendarEvent }) {
   );
 }
 
-function MonthlyCalendar({ events }: { events: CalendarEvent[] }) {
+function MonthlyCalendar({
+  events,
+  onAddEvent,
+}: {
+  events: CalendarEvent[];
+  onAddEvent: (date: Date) => void;
+}) {
   const [currentMonth, setCurrentMonth] = useState(() =>
     getInitialMonth(events),
   );
@@ -372,6 +380,14 @@ function MonthlyCalendar({ events }: { events: CalendarEvent[] }) {
                   >
                     {cell.date.getDate()}
                   </p>
+                  <button
+                    type="button"
+                    onClick={() => onAddEvent(cell.date)}
+                    aria-label={`Ajouter un événement le ${formatCalendarCellDate(cell.date)}`}
+                    className="mt-1 text-xs font-medium text-blue-700 hover:underline"
+                  >
+                    +
+                  </button>
 
                   {dayEvents.length > 0 && (
                     <div className="mt-2 space-y-1">
@@ -416,7 +432,12 @@ function MonthlyCalendar({ events }: { events: CalendarEvent[] }) {
 }
 
 function CalendarPage() {
+  const queryClient = useQueryClient();
   const [showUpcomingEvents, setShowUpcomingEvents] = useState(true);
+  const [selectedFollowUpDate, setSelectedFollowUpDate] = useState<
+    string | null
+  >(null);
+  const [selectedApplicationId, setSelectedApplicationId] = useState("");
   const followUpsQuery = useQuery({
     queryKey: ["follow-ups"],
     queryFn: getFollowUps,
@@ -427,6 +448,40 @@ function CalendarPage() {
     queryFn: getInterviews,
   });
 
+  const applicationsQuery = useQuery({
+    queryKey: ["applications", "all"],
+    queryFn: getAllApplications,
+    enabled: selectedFollowUpDate !== null,
+  });
+  const scheduleFollowUpMutation = useMutation({
+    mutationFn: ({
+      applicationId,
+      followUpAt,
+    }: {
+      applicationId: number;
+      followUpAt: string;
+    }) =>
+      updateApplication(applicationId, {
+        followUpAt,
+      }),
+
+    onSuccess: async () => {
+      setSelectedFollowUpDate(null);
+      setSelectedApplicationId("");
+
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["follow-ups"],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["applications"],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["dashboard-stats"],
+        }),
+      ]);
+    },
+  });
   if (followUpsQuery.isPending || interviewsQuery.isPending) {
     return (
       <main className="min-h-screen p-8">
@@ -456,7 +511,86 @@ function CalendarPage() {
       <div className="mx-auto max-w-5xl">
         <h1 className="text-3xl font-bold">Calendrier</h1>
 
-        <MonthlyCalendar events={events} />
+        <MonthlyCalendar
+          events={events}
+          onAddEvent={(date) => {
+            setSelectedFollowUpDate(getDayKey(date));
+          }}
+        />
+        {selectedFollowUpDate && (
+          <section className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+            <h2 className="text-xl font-semibold">Programmer une relance</h2>
+
+            <div className="mt-4">
+              <label
+                htmlFor="calendar-application"
+                className="block font-medium"
+              >
+                Candidature
+              </label>
+              <select
+                id="calendar-application"
+                value={selectedApplicationId}
+                onChange={(event) => {
+                  setSelectedApplicationId(event.target.value);
+                }}
+                className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
+              >
+                <option value="">Sélectionner une candidature</option>
+
+                {applicationsQuery.data?.map((application) => (
+                  <option key={application.id} value={application.id}>
+                    {application.jobOffer.title} —{" "}
+                    {application.jobOffer.company.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="mt-4">
+              <label
+                htmlFor="calendar-follow-up-date"
+                className="block font-medium"
+              >
+                Date de relance
+              </label>
+              <input
+                id="calendar-follow-up-date"
+                type="date"
+                value={selectedFollowUpDate}
+                readOnly
+                className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
+              />
+            </div>
+            <button
+              type="button"
+              disabled={
+                selectedApplicationId === "" ||
+                scheduleFollowUpMutation.isPending
+              }
+              onClick={() => {
+                if (!selectedFollowUpDate || selectedApplicationId === "") {
+                  return;
+                }
+
+                scheduleFollowUpMutation.mutate({
+                  applicationId: Number(selectedApplicationId),
+                  followUpAt: `${selectedFollowUpDate}T08:00:00.000Z`,
+                });
+              }}
+              className="mt-4 rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {scheduleFollowUpMutation.isPending
+                ? "Enregistrement..."
+                : "Enregistrer la relance"}
+            </button>
+            {scheduleFollowUpMutation.isError && (
+              <p className="mt-3 text-red-600">
+                Impossible de programmer la relance.
+              </p>
+            )}
+          </section>
+        )}
 
         <section className="mt-12">
           <div className="flex flex-wrap items-center justify-between gap-4">
