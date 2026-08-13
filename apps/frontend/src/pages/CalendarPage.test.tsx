@@ -262,133 +262,71 @@ describe("CalendarPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders calendar events on their corresponding day", async () => {
+  it("summarizes calendar events by type for each day", async () => {
+    const secondFollowUp = createApplication({
+      id: 3,
+      followUpAt: "2026-08-20T16:00:00.000Z",
+      jobOfferId: 12,
+      jobOffer: { ...followUp.jobOffer, id: 12, title: "Développeur Node.js" },
+    });
+    vi.mocked(getFollowUps).mockResolvedValue([followUp, secondFollowUp]);
     renderCalendar();
-
     const august20 = await screen.findByRole("gridcell", {
       name: /20 août 2026/i,
     });
+    expect(within(august20).getByText("Relance 2")).toBeInTheDocument();
+  });
 
+  it("does not display a count for a single event", async () => {
+    renderCalendar();
+    const august20 = await screen.findByRole("gridcell", {
+      name: /20 août 2026/i,
+    });
+    expect(within(august20).getByText("Relance")).toBeInTheDocument();
+    expect(within(august20).queryByText("Relance 1")).not.toBeInTheDocument();
+  });
+
+  it("can hide and show the monthly calendar", async () => {
+    const user = userEvent.setup();
+    renderCalendar();
     expect(
-      within(august20).getByRole("link", {
-        name: "14:00 · Relance · Développeur React",
-      }),
-    ).toHaveAttribute("href", `/applications/${followUp.id}`);
+      await screen.findByRole("grid", { name: /Calendrier août 2026/i }),
+    ).toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", { name: "Masquer le calendrier" }),
+    );
+    expect(
+      screen.queryByRole("grid", { name: /Calendrier août 2026/i }),
+    ).not.toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", { name: "Afficher le calendrier" }),
+    );
+    expect(
+      screen.getByRole("grid", { name: /Calendrier août 2026/i }),
+    ).toBeInTheDocument();
   });
 
   it("returns to the current month and highlights today", async () => {
-    vi.useFakeTimers({
-      shouldAdvanceTime: true,
-    });
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime(new Date("2026-08-13T10:00:00.000Z"));
-
-    const user = userEvent.setup({
-      advanceTimers: vi.advanceTimersByTime,
-    });
-
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     renderCalendar();
-
     expect(
-      await screen.findByRole("heading", {
-        name: /^août 2026$/i,
-      }),
+      await screen.findByRole("heading", { name: /^août 2026$/i }),
     ).toBeInTheDocument();
-
-    await user.click(
-      screen.getByRole("button", {
-        name: "Mois suivant",
-      }),
-    );
-
+    await user.click(screen.getByRole("button", { name: "Mois suivant" }));
     expect(
-      screen.getByRole("heading", {
-        name: /^septembre 2026$/i,
-      }),
+      screen.getByRole("heading", { name: /^septembre 2026$/i }),
     ).toBeInTheDocument();
-
-    await user.click(
-      screen.getByRole("button", {
-        name: "Aujourd'hui",
-      }),
-    );
-
+    await user.click(screen.getByRole("button", { name: "Aujourd'hui" }));
     expect(
-      screen.getByRole("heading", {
-        name: /^août 2026$/i,
-      }),
+      screen.getByRole("heading", { name: /^août 2026$/i }),
     ).toBeInTheDocument();
-
     expect(
-      screen.getByRole("gridcell", {
-        name: /13 août 2026.*aujourd'hui/i,
-      }),
+      screen.getByRole("gridcell", { name: /13 août 2026.*aujourd'hui/i }),
     ).toBeInTheDocument();
   });
 
-  it("shows event times in the monthly calendar", async () => {
-    renderCalendar();
-
-    const august20 = await screen.findByRole("gridcell", {
-      name: /20 août 2026/i,
-    });
-
-    expect(within(august20).getByText(/14:00/)).toBeInTheDocument();
-  });
-  it("collapses busy calendar days after three events and can expand them", async () => {
-    const user = userEvent.setup();
-
-    const busyDayFollowUps = Array.from({ length: 5 }, (_, index) =>
-      createApplication({
-        id: 10 + index,
-        followUpAt: `2026-08-20T${String(8 + index).padStart(2, "0")}:00:00.000Z`,
-        jobOfferId: 100 + index,
-        jobOffer: {
-          ...followUp.jobOffer,
-          id: 100 + index,
-          title: `Offre ${index + 1}`,
-        },
-      }),
-    );
-
-    vi.mocked(getFollowUps).mockResolvedValue(busyDayFollowUps);
-    vi.mocked(getInterviews).mockResolvedValue([]);
-
-    renderCalendar();
-
-    const august20 = await screen.findByRole("gridcell", {
-      name: /20 août 2026/i,
-    });
-
-    expect(within(august20).getAllByRole("link")).toHaveLength(3);
-
-    expect(
-      within(august20).getByRole("button", {
-        name: "+ 2 autres",
-      }),
-    ).toBeInTheDocument();
-
-    await user.click(
-      within(august20).getByRole("button", {
-        name: "+ 2 autres",
-      }),
-    );
-
-    expect(within(august20).getAllByRole("link")).toHaveLength(5);
-
-    expect(
-      within(august20).getByRole("button", {
-        name: "Réduire",
-      }),
-    ).toBeInTheDocument();
-
-    await user.click(
-      within(august20).getByRole("button", {
-        name: "Réduire",
-      }),
-    );
-
-    expect(within(august20).getAllByRole("link")).toHaveLength(3);
-  });
   it("can collapse and reopen the upcoming events section", async () => {
     const user = userEvent.setup();
 
@@ -467,6 +405,46 @@ describe("CalendarPage", () => {
       "2026-08-20",
     );
   });
+  it("cancels the event form and resets its values", async () => {
+    const user = userEvent.setup();
+    renderCalendar();
+    const august20 = await screen.findByRole("gridcell", {
+      name: /20 août 2026/i,
+    });
+    await user.click(
+      within(august20).getByRole("button", {
+        name: "Ajouter un événement le 20 août 2026",
+      }),
+    );
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Type d'événement" }),
+      "INTERVIEW",
+    );
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Candidature" }),
+      String(followUp.id),
+    );
+    await user.clear(screen.getByLabelText("Heure"));
+    await user.type(screen.getByLabelText("Heure"), "14:30");
+    await user.click(screen.getByRole("button", { name: "Annuler" }));
+    expect(
+      screen.queryByRole("heading", { name: "Ajouter un événement" }),
+    ).not.toBeInTheDocument();
+    expect(updateApplication).not.toHaveBeenCalled();
+    await user.click(
+      within(august20).getByRole("button", {
+        name: "Ajouter un événement le 20 août 2026",
+      }),
+    );
+    expect(
+      screen.getByRole("combobox", { name: "Type d'événement" }),
+    ).toHaveValue("FOLLOW_UP");
+    expect(screen.getByRole("combobox", { name: "Candidature" })).toHaveValue(
+      "",
+    );
+    expect(screen.getByLabelText("Heure")).toHaveValue("08:00");
+  });
+
   it("schedules a follow-up for the selected application", async () => {
     const user = userEvent.setup();
 

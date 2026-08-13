@@ -245,9 +245,7 @@ function MonthlyCalendar({
   const [currentMonth, setCurrentMonth] = useState(() =>
     getInitialMonth(events),
   );
-  const [expandedDays, setExpandedDays] = useState<Set<string>>(
-    () => new Set(),
-  );
+  const [showCalendar, setShowCalendar] = useState(true);
 
   const today = new Date();
   const todayKey = getDayKey(today);
@@ -279,19 +277,6 @@ function MonthlyCalendar({
         new Date(month.getFullYear(), month.getMonth() + offset, 1, 12),
     );
   }
-  function toggleDayExpansion(dayKey: string) {
-    setExpandedDays((current) => {
-      const next = new Set(current);
-
-      if (next.has(dayKey)) {
-        next.delete(dayKey);
-      } else {
-        next.add(dayKey);
-      }
-
-      return next;
-    });
-  }
   return (
     <section className="mt-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -304,7 +289,6 @@ function MonthlyCalendar({
           >
             ←
           </button>
-
           <button
             type="button"
             onClick={goToToday}
@@ -313,120 +297,114 @@ function MonthlyCalendar({
             Aujourd'hui
           </button>
         </div>
-
         <h2 className="text-2xl font-semibold capitalize">
           {formatMonth(currentMonth)}
         </h2>
-
-        <button
-          type="button"
-          onClick={() => changeMonth(1)}
-          aria-label="Mois suivant"
-          className="rounded border border-gray-300 px-4 py-2 font-medium hover:bg-gray-50"
-        >
-          →
-        </button>
-      </div>
-
-      <div className="mt-4 overflow-x-auto">
-        <div className="min-w-[700px]">
-          <div
-            className="grid grid-cols-7 border-l border-t border-gray-200"
-            aria-hidden="true"
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowCalendar((current) => !current)}
+            aria-label={
+              showCalendar ? "Masquer le calendrier" : "Afficher le calendrier"
+            }
+            className="rounded border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50"
           >
-            {weekDays.map((day) => (
-              <div
-                key={day}
-                className="border-b border-r border-gray-200 bg-gray-50 p-2 text-center text-sm font-semibold text-gray-600"
-              >
-                {day}
-              </div>
-            ))}
-          </div>
-
-          <div
-            role="grid"
-            aria-label={`Calendrier ${formatMonth(currentMonth)}`}
-            className="grid grid-cols-7 border-l border-gray-200"
+            {showCalendar ? "Masquer" : "Afficher"}
+          </button>
+          <button
+            type="button"
+            onClick={() => changeMonth(1)}
+            aria-label="Mois suivant"
+            className="rounded border border-gray-300 px-4 py-2 font-medium hover:bg-gray-50"
           >
-            {monthCells.map((cell) => {
-              const dayEvents = eventsByDay.get(cell.key) ?? [];
-              const isToday = cell.key === todayKey;
-              const isExpanded = expandedDays.has(cell.key);
-              const visibleEvents = isExpanded
-                ? dayEvents
-                : dayEvents.slice(0, 3);
-              const hiddenEventCount = dayEvents.length - visibleEvents.length;
-
-              return (
-                <div
-                  key={cell.key}
-                  role="gridcell"
-                  aria-label={`${formatCalendarCellDate(cell.date)}${
-                    isToday ? ", aujourd'hui" : ""
-                  }`}
-                  className={[
-                    "min-h-32 border-b border-r border-gray-200 p-2",
-                    cell.isCurrentMonth ? "bg-white" : "bg-gray-50",
-                    isToday ? "ring-2 ring-inset ring-blue-500" : "",
-                  ].join(" ")}
-                >
-                  <p
-                    className={
-                      cell.isCurrentMonth
-                        ? "text-sm font-semibold text-gray-900"
-                        : "text-sm text-gray-400"
-                    }
-                  >
-                    {cell.date.getDate()}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => onAddEvent(cell.date)}
-                    aria-label={`Ajouter un événement le ${formatCalendarCellDate(cell.date)}`}
-                    className="mt-1 text-xs font-medium text-blue-700 hover:underline"
-                  >
-                    +
-                  </button>
-
-                  {dayEvents.length > 0 && (
-                    <div className="mt-2 space-y-1">
-                      {visibleEvents.map((event) => (
-                        <Link
-                          key={`${event.type}-${event.application.id}-${event.date}`}
-                          to={`/applications/${event.application.id}`}
-                          className={[
-                            "block rounded px-2 py-1 text-xs font-medium",
-                            event.type === "FOLLOW_UP"
-                              ? "bg-blue-50 text-blue-800 hover:bg-blue-100"
-                              : "bg-amber-50 text-amber-800 hover:bg-amber-100",
-                          ].join(" ")}
-                        >
-                          {formatTime(event.date)} ·{" "}
-                          {event.type === "FOLLOW_UP" ? "Relance" : "Entretien"}{" "}
-                          · {event.application.jobOffer.title}
-                        </Link>
-                      ))}
-
-                      {dayEvents.length > 3 && (
-                        <button
-                          type="button"
-                          onClick={() => toggleDayExpansion(cell.key)}
-                          className="mt-1 text-xs font-medium text-blue-700 hover:underline"
-                        >
-                          {isExpanded
-                            ? "Réduire"
-                            : `+ ${hiddenEventCount} autres`}
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+            →
+          </button>
         </div>
       </div>
+
+      {showCalendar && (
+        <div className="mt-4 overflow-x-auto">
+          <div className="min-w-[700px]">
+            <div
+              className="grid grid-cols-7 border-l border-t border-gray-200"
+              aria-hidden="true"
+            >
+              {weekDays.map((day) => (
+                <div
+                  key={day}
+                  className="border-b border-r border-gray-200 bg-gray-50 p-2 text-center text-sm font-semibold text-gray-600"
+                >
+                  {day}
+                </div>
+              ))}
+            </div>
+            <div
+              role="grid"
+              aria-label={`Calendrier ${formatMonth(currentMonth)}`}
+              className="grid grid-cols-7 border-l border-gray-200"
+            >
+              {monthCells.map((cell) => {
+                const dayEvents = eventsByDay.get(cell.key) ?? [];
+                const isToday = cell.key === todayKey;
+                const followUps = dayEvents.filter(
+                  (event) => event.type === "FOLLOW_UP",
+                );
+                const interviews = dayEvents.filter(
+                  (event) => event.type === "INTERVIEW",
+                );
+                return (
+                  <div
+                    key={cell.key}
+                    role="gridcell"
+                    aria-label={`${formatCalendarCellDate(cell.date)}${isToday ? ", aujourd'hui" : ""}`}
+                    className={[
+                      "min-h-32 border-b border-r border-gray-200 p-2",
+                      cell.isCurrentMonth ? "bg-white" : "bg-gray-50",
+                      isToday ? "ring-2 ring-inset ring-blue-500" : "",
+                    ].join(" ")}
+                  >
+                    <p
+                      className={
+                        cell.isCurrentMonth
+                          ? "text-sm font-semibold text-gray-900"
+                          : "text-sm text-gray-400"
+                      }
+                    >
+                      {cell.date.getDate()}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => onAddEvent(cell.date)}
+                      aria-label={`Ajouter un événement le ${formatCalendarCellDate(cell.date)}`}
+                      className="mt-1 text-xs font-medium text-blue-700 hover:underline"
+                    >
+                      +
+                    </button>
+                    {dayEvents.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        {followUps.length > 0 && (
+                          <span className="block rounded bg-blue-50 px-2 py-1 text-xs font-medium text-blue-800">
+                            Relance
+                            {followUps.length > 1 ? ` ${followUps.length}` : ""}
+                          </span>
+                        )}
+                        {interviews.length > 0 && (
+                          <span className="block rounded bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800">
+                            Entretien
+                            {interviews.length > 1
+                              ? ` ${interviews.length}`
+                              : ""}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -496,6 +474,14 @@ function CalendarPage() {
       ]);
     },
   });
+  function closeEventForm() {
+    setSelectedEventDate(null);
+    setSelectedApplicationId("");
+    setSelectedEventType("FOLLOW_UP");
+    setSelectedEventTime("08:00");
+    scheduleEventMutation.reset();
+  }
+
   if (followUpsQuery.isPending || interviewsQuery.isPending) {
     return (
       <main className="min-h-screen p-8">
@@ -646,6 +632,14 @@ function CalendarPage() {
                 : selectedEventType === "FOLLOW_UP"
                   ? "Enregistrer la relance"
                   : "Enregistrer l'entretien"}
+            </button>
+            <button
+              type="button"
+              onClick={closeEventForm}
+              disabled={scheduleEventMutation.isPending}
+              className="ml-3 mt-4 rounded border border-gray-300 px-4 py-2 font-medium hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Annuler
             </button>
             {scheduleEventMutation.isError && (
               <p className="mt-3 text-red-600">
