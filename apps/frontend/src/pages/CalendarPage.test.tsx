@@ -453,7 +453,7 @@ describe("CalendarPage", () => {
 
     expect(
       screen.getByRole("heading", {
-        name: "Programmer une relance",
+        name: "Ajouter un événement",
       }),
     ).toBeInTheDocument();
 
@@ -463,7 +463,9 @@ describe("CalendarPage", () => {
       }),
     ).toBeInTheDocument();
 
-    expect(screen.getByLabelText("Date de relance")).toHaveValue("2026-08-20");
+    expect(screen.getByLabelText("Date de l'événement")).toHaveValue(
+      "2026-08-20",
+    );
   });
   it("schedules a follow-up for the selected application", async () => {
     const user = userEvent.setup();
@@ -496,7 +498,51 @@ describe("CalendarPage", () => {
     expect(updateApplication).toHaveBeenCalledTimes(1);
 
     expect(updateApplication).toHaveBeenCalledWith(interview.id, {
-      followUpAt: "2026-08-20T08:00:00.000Z",
+      followUpAt: new Date("2026-08-20T08:00:00").toISOString(),
+    });
+  });
+  it("schedules an interview with the selected date and time", async () => {
+    const user = userEvent.setup();
+
+    renderCalendar();
+
+    const august20 = await screen.findByRole("gridcell", {
+      name: /20 août 2026/i,
+    });
+
+    await user.click(
+      within(august20).getByRole("button", {
+        name: "Ajouter un événement le 20 août 2026",
+      }),
+    );
+
+    await user.selectOptions(
+      screen.getByRole("combobox", {
+        name: "Type d'événement",
+      }),
+      "INTERVIEW",
+    );
+
+    await user.selectOptions(
+      screen.getByRole("combobox", {
+        name: "Candidature",
+      }),
+      String(followUp.id),
+    );
+
+    await user.clear(screen.getByLabelText("Heure"));
+    await user.type(screen.getByLabelText("Heure"), "14:30");
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Enregistrer l'entretien",
+      }),
+    );
+
+    expect(updateApplication).toHaveBeenCalledTimes(1);
+
+    expect(updateApplication).toHaveBeenCalledWith(followUp.id, {
+      interviewAt: new Date("2026-08-20T14:30:00").toISOString(),
     });
   });
   it("closes the follow-up form after a successful update", async () => {
@@ -530,7 +576,7 @@ describe("CalendarPage", () => {
     await waitFor(() => {
       expect(
         screen.queryByRole("heading", {
-          name: "Programmer une relance",
+          name: "Ajouter un événement",
         }),
       ).not.toBeInTheDocument();
     });

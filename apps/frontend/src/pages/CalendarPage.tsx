@@ -434,9 +434,13 @@ function MonthlyCalendar({
 function CalendarPage() {
   const queryClient = useQueryClient();
   const [showUpcomingEvents, setShowUpcomingEvents] = useState(true);
-  const [selectedFollowUpDate, setSelectedFollowUpDate] = useState<
-    string | null
-  >(null);
+  const [selectedEventDate, setSelectedEventDate] = useState<string | null>(
+    null,
+  );
+  const [selectedEventType, setSelectedEventType] = useState<
+    "FOLLOW_UP" | "INTERVIEW"
+  >("FOLLOW_UP");
+  const [selectedEventTime, setSelectedEventTime] = useState("08:00");
   const [selectedApplicationId, setSelectedApplicationId] = useState("");
   const followUpsQuery = useQuery({
     queryKey: ["follow-ups"],
@@ -451,27 +455,37 @@ function CalendarPage() {
   const applicationsQuery = useQuery({
     queryKey: ["applications", "all"],
     queryFn: getAllApplications,
-    enabled: selectedFollowUpDate !== null,
+    enabled: selectedEventDate !== null,
   });
-  const scheduleFollowUpMutation = useMutation({
+  const scheduleEventMutation = useMutation({
     mutationFn: ({
       applicationId,
-      followUpAt,
+      eventType,
+      scheduledAt,
     }: {
       applicationId: number;
-      followUpAt: string;
+      eventType: "FOLLOW_UP" | "INTERVIEW";
+      scheduledAt: string;
     }) =>
-      updateApplication(applicationId, {
-        followUpAt,
-      }),
+      updateApplication(
+        applicationId,
+        eventType === "FOLLOW_UP"
+          ? { followUpAt: scheduledAt }
+          : { interviewAt: scheduledAt },
+      ),
 
     onSuccess: async () => {
-      setSelectedFollowUpDate(null);
+      setSelectedEventDate(null);
       setSelectedApplicationId("");
+      setSelectedEventType("FOLLOW_UP");
+      setSelectedEventTime("08:00");
 
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: ["follow-ups"],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["interviews"],
         }),
         queryClient.invalidateQueries({
           queryKey: ["applications"],
@@ -514,13 +528,34 @@ function CalendarPage() {
         <MonthlyCalendar
           events={events}
           onAddEvent={(date) => {
-            setSelectedFollowUpDate(getDayKey(date));
+            setSelectedEventDate(getDayKey(date));
           }}
         />
-        {selectedFollowUpDate && (
+        {selectedEventDate && (
           <section className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="text-xl font-semibold">Programmer une relance</h2>
+            <h2 className="text-xl font-semibold">Ajouter un événement</h2>
+            <div className="mt-4">
+              <label
+                htmlFor="calendar-event-type"
+                className="block font-medium"
+              >
+                Type d'événement
+              </label>
 
+              <select
+                id="calendar-event-type"
+                value={selectedEventType}
+                onChange={(event) => {
+                  setSelectedEventType(
+                    event.target.value as "FOLLOW_UP" | "INTERVIEW",
+                  );
+                }}
+                className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
+              >
+                <option value="FOLLOW_UP">Relance</option>
+                <option value="INTERVIEW">Entretien</option>
+              </select>
+            </div>
             <div className="mt-4">
               <label
                 htmlFor="calendar-application"
@@ -549,16 +584,34 @@ function CalendarPage() {
 
             <div className="mt-4">
               <label
-                htmlFor="calendar-follow-up-date"
+                htmlFor="calendar-event-date"
                 className="block font-medium"
               >
-                Date de relance
+                Date de l'événement
               </label>
               <input
-                id="calendar-follow-up-date"
+                id="calendar-event-date"
                 type="date"
-                value={selectedFollowUpDate}
+                value={selectedEventDate}
                 readOnly
+                className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
+              />
+            </div>
+            <div className="mt-4">
+              <label
+                htmlFor="calendar-event-time"
+                className="block font-medium"
+              >
+                Heure
+              </label>
+
+              <input
+                id="calendar-event-time"
+                type="time"
+                value={selectedEventTime}
+                onChange={(event) => {
+                  setSelectedEventTime(event.target.value);
+                }}
                 className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
               />
             </div>
@@ -566,27 +619,37 @@ function CalendarPage() {
               type="button"
               disabled={
                 selectedApplicationId === "" ||
-                scheduleFollowUpMutation.isPending
+                selectedEventTime === "" ||
+                scheduleEventMutation.isPending
               }
               onClick={() => {
-                if (!selectedFollowUpDate || selectedApplicationId === "") {
+                if (
+                  !selectedEventDate ||
+                  selectedApplicationId === "" ||
+                  selectedEventTime === ""
+                ) {
                   return;
                 }
 
-                scheduleFollowUpMutation.mutate({
+                scheduleEventMutation.mutate({
                   applicationId: Number(selectedApplicationId),
-                  followUpAt: `${selectedFollowUpDate}T08:00:00.000Z`,
+                  eventType: selectedEventType,
+                  scheduledAt: new Date(
+                    `${selectedEventDate}T${selectedEventTime}:00`,
+                  ).toISOString(),
                 });
               }}
               className="mt-4 rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {scheduleFollowUpMutation.isPending
+              {scheduleEventMutation.isPending
                 ? "Enregistrement..."
-                : "Enregistrer la relance"}
+                : selectedEventType === "FOLLOW_UP"
+                  ? "Enregistrer la relance"
+                  : "Enregistrer l'entretien"}
             </button>
-            {scheduleFollowUpMutation.isError && (
+            {scheduleEventMutation.isError && (
               <p className="mt-3 text-red-600">
-                Impossible de programmer la relance.
+                Impossible de programmer l'événement.
               </p>
             )}
           </section>
