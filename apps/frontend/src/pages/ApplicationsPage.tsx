@@ -18,24 +18,10 @@ import {
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import CollapsibleSection from "../components/CollapsibleSection";
-
-const applicationStatuses: ApplicationStatus[] = [
-  "DRAFT",
-  "APPLIED",
-  "FOLLOW_UP",
-  "INTERVIEW",
-  "ACCEPTED",
-  "REJECTED",
-];
-
-const applicationStatusLabels: Record<ApplicationStatus, string> = {
-  DRAFT: "Brouillon",
-  APPLIED: "Envoyée",
-  FOLLOW_UP: "Relance",
-  INTERVIEW: "Entretien",
-  ACCEPTED: "Acceptée",
-  REJECTED: "Refusée",
-};
+import {
+  applicationStatuses,
+  applicationStatusLabels,
+} from "../constants/application-status";
 
 function parseApplicationStatus(value: string | null): ApplicationStatus | "" {
   return value && applicationStatuses.includes(value as ApplicationStatus)

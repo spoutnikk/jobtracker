@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { getDashboardStats } from "../api/dashboard";
+import { getApplicationStatusLabel } from "../constants/application-status";
 
 function formatDateTime(value: string) {
   return new Intl.DateTimeFormat("fr-FR", {
@@ -278,7 +279,8 @@ function DashboardPage() {
 
                 const formattedPercentage =
                   percentageFormatter.format(percentage);
-                const accessibleLabel = `${item.status} : ${item.count} ${
+                const statusLabel = getApplicationStatusLabel(item.status);
+                const accessibleLabel = `${statusLabel} : ${item.count} ${
                   item.count > 1 ? "candidatures" : "candidature"
                 }, ${formattedPercentage} %`;
 
@@ -291,7 +293,7 @@ function DashboardPage() {
                   >
                     <div className="rounded-lg border border-gray-200 bg-white p-4 transition hover:border-gray-300 hover:shadow">
                       <div className="flex items-center justify-between gap-4">
-                        <span className="font-medium">{item.status}</span>
+                        <span className="font-medium">{statusLabel}</span>
 
                         <span className="text-sm font-semibold text-gray-700">
                           {item.count} · {formattedPercentage} %

@@ -112,8 +112,8 @@ describe("DashboardPage", () => {
     ).not.toBeInTheDocument();
     expect(screen.queryByText("99")).not.toBeInTheDocument();
 
-    expect(screen.getByText("APPLIED")).toBeInTheDocument();
-    expect(screen.getByText("INTERVIEW")).toBeInTheDocument();
+    expect(screen.getByText("Envoyée")).toBeInTheDocument();
+    expect(screen.getByText("Entretien")).toBeInTheDocument();
 
     const weeklyChart = screen.getByRole("heading", {
       name: "Candidatures des 8 dernières semaines",
@@ -256,13 +256,13 @@ describe("DashboardPage", () => {
 
     expect(
       within(statusSection!).getByRole("link", {
-        name: "APPLIED : 7 candidatures, 77,8 %",
+        name: "Envoyée : 7 candidatures, 77,8 %",
       }),
     ).toHaveAttribute("href", "/applications?status=APPLIED");
 
     expect(
       within(statusSection!).getByRole("link", {
-        name: "INTERVIEW : 2 candidatures, 22,2 %",
+        name: "Entretien : 2 candidatures, 22,2 %",
       }),
     ).toHaveAttribute("href", "/applications?status=INTERVIEW");
   });
