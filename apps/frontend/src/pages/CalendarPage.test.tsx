@@ -327,6 +327,106 @@ describe("CalendarPage", () => {
     ).toBeInTheDocument();
   });
 
+  it("shows only future events from the active month plus the next seven days", async () => {
+    vi.useFakeTimers({
+      shouldAdvanceTime: true,
+    });
+    vi.setSystemTime(new Date("2026-08-28T10:00:00.000Z"));
+
+    const pastAugust = createApplication({
+      id: 20,
+      followUpAt: "2026-08-27T12:00:00.000Z",
+      jobOfferId: 120,
+      jobOffer: {
+        ...followUp.jobOffer,
+        id: 120,
+        title: "Offre passée août",
+      },
+    });
+    const futureAugust = createApplication({
+      id: 21,
+      followUpAt: "2026-08-30T12:00:00.000Z",
+      jobOfferId: 121,
+      jobOffer: {
+        ...followUp.jobOffer,
+        id: 121,
+        title: "Offre août à venir",
+      },
+    });
+    const nearSeptember = createApplication({
+      id: 22,
+      followUpAt: "2026-09-02T12:00:00.000Z",
+      jobOfferId: 122,
+      jobOffer: {
+        ...followUp.jobOffer,
+        id: 122,
+        title: "Offre septembre proche",
+      },
+    });
+    const farSeptember = createApplication({
+      id: 23,
+      followUpAt: "2026-09-10T12:00:00.000Z",
+      jobOfferId: 123,
+      jobOffer: {
+        ...followUp.jobOffer,
+        id: 123,
+        title: "Offre septembre lointaine",
+      },
+    });
+
+    vi.mocked(getFollowUps).mockResolvedValue([
+      pastAugust,
+      futureAugust,
+      nearSeptember,
+      farSeptember,
+    ]);
+    vi.mocked(getInterviews).mockResolvedValue([]);
+
+    const user = userEvent.setup({
+      advanceTimers: vi.advanceTimersByTime,
+    });
+
+    renderCalendar();
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Offre août à venir",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", {
+        name: "Offre septembre proche",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", {
+        name: "Offre passée août",
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", {
+        name: "Offre septembre lointaine",
+      }),
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Mois suivant",
+      }),
+    );
+
+    expect(
+      screen.getByRole("heading", {
+        name: "Offre septembre lointaine",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", {
+        name: "Offre passée août",
+      }),
+    ).not.toBeInTheDocument();
+  });
+
   it("can collapse and reopen the upcoming events section", async () => {
     const user = userEvent.setup();
 
@@ -389,11 +489,15 @@ describe("CalendarPage", () => {
       }),
     );
 
-    expect(
-      screen.getByRole("heading", {
-        name: "Ajouter un événement",
-      }),
-    ).toBeInTheDocument();
+    const formHeading = screen.getByRole("heading", {
+      name: "Ajouter un événement",
+    });
+
+    expect(formHeading).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(formHeading).toHaveFocus();
+    });
 
     expect(
       screen.getByRole("combobox", {

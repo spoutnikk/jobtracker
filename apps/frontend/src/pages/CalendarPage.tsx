@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   getAllApplications,
@@ -132,6 +132,32 @@ function groupEventsByDay(events: CalendarEvent[]): CalendarDay[] {
   return Array.from(days.values());
 }
 
+function filterUpcomingEvents(
+  events: CalendarEvent[],
+  activeMonth: Date,
+  now: Date = new Date(),
+) {
+  const nowTime = now.getTime();
+  const sevenDaysFromNow = nowTime + 7 * 24 * 60 * 60 * 1000;
+
+  return events.filter((event) => {
+    const eventDate = new Date(event.date);
+    const eventTime = eventDate.getTime();
+
+    if (eventTime < nowTime) {
+      return false;
+    }
+
+    const isInActiveMonth =
+      eventDate.getFullYear() === activeMonth.getFullYear() &&
+      eventDate.getMonth() === activeMonth.getMonth();
+
+    const isInNextSevenDays = eventTime <= sevenDaysFromNow;
+
+    return isInActiveMonth || isInNextSevenDays;
+  });
+}
+
 function createMonthCells(month: Date): MonthCell[] {
   const year = month.getFullYear();
   const monthIndex = month.getMonth();
@@ -238,14 +264,20 @@ function CalendarEventCard({ event }: { event: CalendarEvent }) {
 function MonthlyCalendar({
   events,
   onAddEvent,
+  onMonthChange,
 }: {
   events: CalendarEvent[];
   onAddEvent: (date: Date) => void;
+  onMonthChange: (month: Date) => void;
 }) {
   const [currentMonth, setCurrentMonth] = useState(() =>
     getInitialMonth(events),
   );
   const [showCalendar, setShowCalendar] = useState(true);
+
+  useEffect(() => {
+    onMonthChange(currentMonth);
+  }, [currentMonth, onMonthChange]);
 
   const today = new Date();
   const todayKey = getDayKey(today);
@@ -273,8 +305,12 @@ function MonthlyCalendar({
 
   function changeMonth(offset: number) {
     setCurrentMonth(
-      (month) =>
-        new Date(month.getFullYear(), month.getMonth() + offset, 1, 12),
+      new Date(
+        currentMonth.getFullYear(),
+        currentMonth.getMonth() + offset,
+        1,
+        12,
+      ),
     );
   }
   return (
@@ -412,6 +448,9 @@ function MonthlyCalendar({
 function CalendarPage() {
   const queryClient = useQueryClient();
   const [showUpcomingEvents, setShowUpcomingEvents] = useState(true);
+  const [activeCalendarMonth, setActiveCalendarMonth] = useState<Date | null>(
+    null,
+  );
   const [selectedEventDate, setSelectedEventDate] = useState<string | null>(
     null,
   );
@@ -420,6 +459,14 @@ function CalendarPage() {
   >("FOLLOW_UP");
   const [selectedEventTime, setSelectedEventTime] = useState("08:00");
   const [selectedApplicationId, setSelectedApplicationId] = useState("");
+  const eventFormHeadingRef = useRef<HTMLHeadingElement>(null);
+
+  useEffect(() => {
+    if (selectedEventDate) {
+      eventFormHeadingRef.current?.focus();
+    }
+  }, [selectedEventDate]);
+
   const followUpsQuery = useQuery({
     queryKey: ["follow-ups"],
     queryFn: getFollowUps,
@@ -504,7 +551,9 @@ function CalendarPage() {
     followUpsQuery.data,
     interviewsQuery.data,
   );
-  const days = groupEventsByDay(events);
+  const displayedMonth = activeCalendarMonth ?? getInitialMonth(events);
+  const upcomingEvents = filterUpcomingEvents(events, displayedMonth);
+  const days = groupEventsByDay(upcomingEvents);
 
   return (
     <main className="min-h-screen p-8">
@@ -516,10 +565,17 @@ function CalendarPage() {
           onAddEvent={(date) => {
             setSelectedEventDate(getDayKey(date));
           }}
+          onMonthChange={setActiveCalendarMonth}
         />
         {selectedEventDate && (
           <section className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="text-xl font-semibold">Ajouter un événement</h2>
+            <h2
+              ref={eventFormHeadingRef}
+              tabIndex={-1}
+              className="text-xl font-semibold outline-none"
+            >
+              Ajouter un événement
+            </h2>
             <div className="mt-4">
               <label
                 htmlFor="calendar-event-type"
