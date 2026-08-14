@@ -37,6 +37,7 @@ export class DashboardService {
       totalApplications,
       totalCompanies,
       totalJobOffers,
+      overdueFollowUps,
       upcomingFollowUps,
       upcomingInterviews,
       applicationsLast7Days,
@@ -65,6 +66,18 @@ export class DashboardService {
         where: {
           company: {
             userId,
+          },
+        },
+      }),
+
+      this.prisma.application.count({
+        where: {
+          userId,
+          status: {
+            notIn: [ApplicationStatus.ACCEPTED, ApplicationStatus.REJECTED],
+          },
+          followUpAt: {
+            lt: now,
           },
         },
       }),
@@ -264,6 +277,7 @@ export class DashboardService {
       totalApplications,
       totalCompanies,
       totalJobOffers,
+      overdueFollowUps,
       upcomingFollowUps,
       upcomingInterviews,
       recentApplications: applicationsLast30Days,

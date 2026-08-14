@@ -29,6 +29,7 @@ export interface DashboardStats {
   totalApplications: number;
   totalCompanies: number;
   totalJobOffers: number;
+  overdueFollowUps: number;
   upcomingFollowUps: number;
   upcomingInterviews: number;
   recentApplications: number;

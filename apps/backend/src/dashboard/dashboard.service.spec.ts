@@ -45,6 +45,7 @@ describe('DashboardService', () => {
 
     prismaServiceMock.application.count
       .mockResolvedValueOnce(2) // totalApplications
+      .mockResolvedValueOnce(2) // overdueFollowUps
       .mockResolvedValueOnce(1) // upcomingFollowUps
       .mockResolvedValueOnce(1) // upcomingInterviews
       .mockResolvedValueOnce(1) // applicationsLast7Days
@@ -100,6 +101,7 @@ describe('DashboardService', () => {
       totalApplications: 2,
       totalCompanies: 3,
       totalJobOffers: 1,
+      overdueFollowUps: 2,
       upcomingFollowUps: 1,
       upcomingInterviews: 1,
       recentApplications: 2,
@@ -150,7 +152,7 @@ describe('DashboardService', () => {
       ],
     });
 
-    expect(prismaServiceMock.application.count).toHaveBeenCalledTimes(8);
+    expect(prismaServiceMock.application.count).toHaveBeenCalledTimes(9);
     expect(prismaServiceMock.application.count).toHaveBeenNthCalledWith(1, {
       where: {
         userId: 7,
@@ -159,12 +161,23 @@ describe('DashboardService', () => {
     expect(prismaServiceMock.application.count).toHaveBeenNthCalledWith(2, {
       where: {
         userId: 7,
+        status: {
+          notIn: ['ACCEPTED', 'REJECTED'],
+        },
+        followUpAt: {
+          lt: new Date('2026-08-11T10:00:00.000Z'),
+        },
+      },
+    });
+    expect(prismaServiceMock.application.count).toHaveBeenNthCalledWith(3, {
+      where: {
+        userId: 7,
         followUpAt: {
           gte: new Date('2026-08-11T10:00:00.000Z'),
         },
       },
     });
-    expect(prismaServiceMock.application.count).toHaveBeenNthCalledWith(3, {
+    expect(prismaServiceMock.application.count).toHaveBeenNthCalledWith(4, {
       where: {
         userId: 7,
         interviewAt: {
@@ -172,7 +185,7 @@ describe('DashboardService', () => {
         },
       },
     });
-    expect(prismaServiceMock.application.count).toHaveBeenNthCalledWith(4, {
+    expect(prismaServiceMock.application.count).toHaveBeenNthCalledWith(5, {
       where: {
         userId: 7,
         createdAt: {
@@ -181,7 +194,7 @@ describe('DashboardService', () => {
         },
       },
     });
-    expect(prismaServiceMock.application.count).toHaveBeenNthCalledWith(5, {
+    expect(prismaServiceMock.application.count).toHaveBeenNthCalledWith(6, {
       where: {
         userId: 7,
         createdAt: {
@@ -190,7 +203,7 @@ describe('DashboardService', () => {
         },
       },
     });
-    expect(prismaServiceMock.application.count).toHaveBeenNthCalledWith(6, {
+    expect(prismaServiceMock.application.count).toHaveBeenNthCalledWith(7, {
       where: {
         userId: 7,
         followUpAt: {
@@ -199,7 +212,7 @@ describe('DashboardService', () => {
         },
       },
     });
-    expect(prismaServiceMock.application.count).toHaveBeenNthCalledWith(7, {
+    expect(prismaServiceMock.application.count).toHaveBeenNthCalledWith(8, {
       where: {
         userId: 7,
         interviewAt: {
@@ -208,7 +221,7 @@ describe('DashboardService', () => {
         },
       },
     });
-    expect(prismaServiceMock.application.count).toHaveBeenNthCalledWith(8, {
+    expect(prismaServiceMock.application.count).toHaveBeenNthCalledWith(9, {
       where: {
         userId: 7,
         interviewAt: {

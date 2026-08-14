@@ -13,6 +13,7 @@ const dashboardStats: DashboardStats = {
   totalApplications: 12,
   totalCompanies: 5,
   totalJobOffers: 8,
+  overdueFollowUps: 2,
   upcomingFollowUps: 3,
   upcomingInterviews: 2,
   recentApplications: 99,
@@ -90,6 +91,7 @@ describe("DashboardPage", () => {
       ["Candidatures", "12"],
       ["Entreprises", "5"],
       ["Offres", "8"],
+      ["Relances en retard", "2"],
       ["Relances à venir", "3"],
       ["Entretiens à venir", "2"],
       ["Taux d'entretien", "33,3 %"],
@@ -290,6 +292,12 @@ describe("DashboardPage", () => {
         name: /Offres\s+8/,
       }),
     ).toHaveAttribute("href", "/job-offers");
+
+    expect(
+      screen.getByRole("link", {
+        name: /Relances en retard\s+2/,
+      }),
+    ).toHaveAttribute("href", "/applications");
 
     expect(
       screen.getByRole("link", {

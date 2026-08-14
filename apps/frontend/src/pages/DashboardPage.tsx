@@ -85,6 +85,15 @@ function DashboardPage() {
             </article>
           </Link>
 
+          <Link to="/applications" className="block">
+            <article className="rounded-lg border border-red-200 bg-red-50 p-5 shadow-sm transition hover:border-red-300 hover:shadow">
+              <p className="text-sm text-red-700">Relances en retard</p>
+              <p className="mt-2 text-3xl font-bold text-red-900">
+                {stats.overdueFollowUps}
+              </p>
+            </article>
+          </Link>
+
           <Link to="/calendar" className="block">
             <article className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm transition hover:border-gray-300 hover:shadow">
               <p className="text-sm text-gray-600">Relances à venir</p>
