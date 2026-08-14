@@ -51,7 +51,9 @@ function renderAuthenticatedLayout() {
           {
             element: <AppLayout />,
             children: [
+              { path: "/", element: <p>Private home</p> },
               { path: "/dashboard", element: <p>Private dashboard</p> },
+              { path: "/applications", element: <p>Private applications</p> },
             ],
           },
         ],
@@ -67,6 +69,58 @@ function renderAuthenticatedLayout() {
 
   return { router, ...result };
 }
+
+describe("AppLayout navigation", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    vi.mocked(me).mockReset();
+    vi.mocked(logout).mockReset();
+    vi.mocked(me).mockResolvedValue(authenticatedUser);
+  });
+
+  it("exposes a responsive navigation menu with coherent accessibility attributes", async () => {
+    const user = userEvent.setup();
+
+    renderAuthenticatedLayout();
+
+    await screen.findByText("Private dashboard");
+
+    const menuButton = screen.getByRole("button", { name: "Ouvrir le menu" });
+    const navigation = screen.getByRole("navigation", {
+      name: "Navigation principale",
+    });
+
+    expect(menuButton).toHaveAttribute("aria-expanded", "false");
+    expect(menuButton).toHaveAttribute("aria-controls", navigation.id);
+    expect(navigation).toHaveClass("hidden");
+
+    await user.click(menuButton);
+
+    expect(
+      screen.getByRole("button", { name: "Fermer le menu" }),
+    ).toHaveAttribute("aria-expanded", "true");
+    expect(navigation).toHaveClass("flex");
+    expect(navigation).not.toHaveClass("hidden");
+  });
+
+  it("closes the mobile menu after navigating", async () => {
+    const user = userEvent.setup();
+
+    renderAuthenticatedLayout();
+
+    await screen.findByText("Private dashboard");
+    await user.click(screen.getByRole("button", { name: "Ouvrir le menu" }));
+    await user.click(screen.getByRole("link", { name: "Candidatures" }));
+
+    expect(await screen.findByText("Private applications")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Ouvrir le menu" }),
+    ).toHaveAttribute("aria-expanded", "false");
+    expect(
+      screen.getByRole("navigation", { name: "Navigation principale" }),
+    ).toHaveClass("hidden");
+  });
+});
 
 describe("AppLayout logout", () => {
   beforeEach(() => {
