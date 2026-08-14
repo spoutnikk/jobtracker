@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: jobtracker_test
+          POSTGRES_USER: jobtracker
+          POSTGRES_PASSWORD: jobtracker_dev
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U jobtracker -d jobtracker_test"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      DATABASE_URL: postgresql://jobtracker:jobtracker_dev@localhost:5432/jobtracker_test?schema=public
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.20.0
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Deploy test database migrations
+        run: pnpm --filter backend prisma:test:deploy
+
+      - name: Backend lint
+        run: pnpm --filter backend lint
+
+      - name: Backend build
+        run: pnpm --filter backend build
+
+      - name: Backend unit tests
+        run: pnpm --filter backend test
+
+      - name: Backend integration tests
+        run: pnpm --filter backend test:integration
+
+      - name: Backend e2e tests
+        run: pnpm --filter backend test:e2e
+
+      - name: Frontend lint
+        run: pnpm --filter @jobtracker/frontend lint
+
+      - name: Frontend build
+        run: pnpm --filter @jobtracker/frontend build
+
+      - name: Frontend tests
+        run: pnpm --filter @jobtracker/frontend test
