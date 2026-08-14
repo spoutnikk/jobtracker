@@ -131,11 +131,6 @@ describe('Dashboard and calendar HTTP ownership integration', () => {
     const applicationIds: number[] = [];
     const fixtureNow = Date.now();
     const dayInMilliseconds = 24 * 60 * 60 * 1000;
-    const currentWeekStart = new Date(fixtureNow);
-    currentWeekStart.setUTCHours(0, 0, 0, 0);
-    currentWeekStart.setUTCDate(
-      currentWeekStart.getUTCDate() - ((currentWeekStart.getUTCDay() + 6) % 7),
-    );
 
     for (const [index, applicationFixture] of options.applications.entries()) {
       const jobOfferId = jobOfferIds[index % jobOfferIds.length];
@@ -151,9 +146,8 @@ describe('Dashboard and calendar HTTP ownership integration', () => {
           status: applicationFixture.status,
           source: `dashboard-calendar:${label}:${index}:${marker}`,
           createdAt: new Date(
-            currentWeekStart.getTime() -
-              applicationFixture.createdWeeksAgo * 7 * dayInMilliseconds +
-              12 * 60 * 60 * 1000,
+            fixtureNow -
+              applicationFixture.createdWeeksAgo * 7 * dayInMilliseconds,
           ),
           followUpAt: applicationFixture.followUp
             ? new Date(fixtureNow + (index + 1) * 6 * 60 * 60 * 1000)

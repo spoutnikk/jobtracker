@@ -42,11 +42,19 @@ interface UserFixtures {
 }
 
 function readApplications(body: unknown): Array<{ id: number }> {
-  if (!Array.isArray(body)) {
+  const items =
+    typeof body === 'object' &&
+    body !== null &&
+    !Array.isArray(body) &&
+    Array.isArray((body as Record<string, unknown>).items)
+      ? (body as Record<string, unknown>).items
+      : body;
+
+  if (!Array.isArray(items)) {
     return [];
   }
 
-  return body.flatMap((item: unknown) => {
+  return items.flatMap((item: unknown) => {
     if (typeof item !== 'object' || item === null) {
       return [];
     }
