@@ -28,6 +28,7 @@ jobs:
           --health-retries=5
 
     env:
+      TZ: Europe/Paris
       DATABASE_URL: postgresql://jobtracker:jobtracker_dev@localhost:5432/jobtracker_test?schema=public
 
     steps:
