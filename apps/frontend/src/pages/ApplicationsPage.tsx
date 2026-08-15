@@ -23,7 +23,6 @@ import {
   applicationStatusLabels,
 } from "../constants/application-status";
 import PageShell from "../components/PageShell";
-import StatusMessage from "../components/StatusMessage";
 
 function parseApplicationStatus(value: string | null): ApplicationStatus | "" {
   return value && applicationStatuses.includes(value as ApplicationStatus)
@@ -39,6 +38,26 @@ function parsePositiveInteger(value: string | null) {
   const parsed = Number(value);
 
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+function parseApplicationPageSize(value: string | null) {
+  const parsed = Number(value);
+
+  return parsed === 20 || parsed === 50 ? parsed : 10;
+}
+
+function parseApplicationSortBy(value: string | null): ApplicationSortBy {
+  return value === "appliedAt" ||
+    value === "followUpAt" ||
+    value === "interviewAt" ||
+    value === "status" ||
+    value === "createdAt"
+    ? value
+    : "createdAt";
+}
+
+function parseSortOrder(value: string | null): SortOrder {
+  return value === "asc" || value === "desc" ? value : "desc";
 }
 
 function formatApplicationDate(value: string) {
@@ -135,10 +154,54 @@ function ApplicationsPage() {
       ? filterSearchDraft.value
       : filterSearch;
 
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-  const [sortBy, setSortBy] = useState<ApplicationSortBy>("createdAt");
-  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
+  const page = parsePositiveInteger(searchParams.get("page")) ?? 1;
+  const pageSize = parseApplicationPageSize(searchParams.get("pageSize"));
+  const sortBy = parseApplicationSortBy(searchParams.get("sortBy"));
+  const sortOrder = parseSortOrder(searchParams.get("sortOrder"));
+
+  function replaceApplicationParams(
+    updates: Partial<
+      Record<
+        | "status"
+        | "companyId"
+        | "jobOfferId"
+        | "search"
+        | "createdFrom"
+        | "createdTo"
+        | "page"
+        | "pageSize"
+        | "sortBy"
+        | "sortOrder",
+        string
+      >
+    >,
+  ) {
+    setSearchParams(
+      (currentSearchParams) => {
+        const nextSearchParams = new URLSearchParams(currentSearchParams);
+
+        for (const [key, value] of Object.entries(updates)) {
+          if (value) {
+            nextSearchParams.set(key, value);
+          } else {
+            nextSearchParams.delete(key);
+          }
+        }
+
+        return nextSearchParams;
+      },
+      { replace: true },
+    );
+  }
+
+  function setPage(nextPage: number | ((currentPage: number) => number)) {
+    const resolvedPage =
+      typeof nextPage === "function" ? nextPage(page) : nextPage;
+
+    replaceApplicationParams({
+      page: resolvedPage <= 1 ? "" : String(resolvedPage),
+    });
+  }
   const [editingApplicationId, setEditingApplicationId] = useState<
     number | null
   >(null);
@@ -156,7 +219,6 @@ function ApplicationsPage() {
   const [eventType, setEventType] = useState<ApplicationEventType>("NOTE");
   const [eventTitle, setEventTitle] = useState("");
   const [eventDescription, setEventDescription] = useState("");
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const jobOffersQuery = useQuery({
     queryKey: ["job-offers", "all"],
@@ -171,9 +233,6 @@ function ApplicationsPage() {
 
   const createApplicationMutation = useMutation({
     mutationFn: createApplication,
-    onMutate: () => {
-      setSuccessMessage(null);
-    },
     onSuccess: async () => {
       setStatus("DRAFT");
       setSource("");
@@ -183,7 +242,6 @@ function ApplicationsPage() {
       setContactEmail("");
       setFollowUpAt("");
       setInterviewAt("");
-      setSuccessMessage("Candidature créée avec succès.");
 
       await queryClient.invalidateQueries({
         queryKey: ["applications"],
@@ -205,12 +263,8 @@ function ApplicationsPage() {
         interviewAt?: string;
       };
     }) => updateApplication(id, input),
-    onMutate: () => {
-      setSuccessMessage(null);
-    },
     onSuccess: async () => {
       setEditingApplicationId(null);
-      setSuccessMessage("Candidature modifiée avec succès.");
 
       await Promise.all([
         queryClient.invalidateQueries({
@@ -228,11 +282,7 @@ function ApplicationsPage() {
 
   const deleteApplicationMutation = useMutation({
     mutationFn: deleteApplication,
-    onMutate: () => {
-      setSuccessMessage(null);
-    },
     onSuccess: async () => {
-      setSuccessMessage("Candidature supprimée avec succès.");
       await queryClient.invalidateQueries({
         queryKey: ["applications"],
       });
@@ -241,14 +291,10 @@ function ApplicationsPage() {
 
   const createApplicationEventMutation = useMutation({
     mutationFn: createApplicationEvent,
-    onMutate: () => {
-      setSuccessMessage(null);
-    },
     onSuccess: async () => {
       setEventType("NOTE");
       setEventTitle("");
       setEventDescription("");
-      setSuccessMessage("Événement ajouté au journal.");
 
       await queryClient.invalidateQueries({
         queryKey: ["application-events", journalApplicationId],
@@ -330,11 +376,6 @@ function ApplicationsPage() {
   return (
     <PageShell>
       <h1 className="text-3xl font-bold">Candidatures</h1>
-      {successMessage && (
-        <StatusMessage variant="success" className="mt-4">
-          {successMessage}
-        </StatusMessage>
-      )}
       <CollapsibleSection title="Filtrer les candidatures" defaultOpen>
         <form
           className="mt-4"
@@ -342,21 +383,15 @@ function ApplicationsPage() {
             event.preventDefault();
 
             const nextSearch = filterSearchInput.trim();
-            const nextSearchParams = new URLSearchParams(searchParams);
 
             setFilterSearchDraft({
               base: nextSearch,
               value: nextSearch,
             });
-            setPage(1);
-
-            if (nextSearch) {
-              nextSearchParams.set("search", nextSearch);
-            } else {
-              nextSearchParams.delete("search");
-            }
-
-            setSearchParams(nextSearchParams, { replace: true });
+            replaceApplicationParams({
+              search: nextSearch,
+              page: "",
+            });
           }}
         >
           <div className="grid gap-4 md:grid-cols-2">
@@ -386,17 +421,10 @@ function ApplicationsPage() {
                   const nextStatus = event.target.value as
                     ApplicationStatus | "";
 
-                  setPage(1);
-
-                  const nextSearchParams = new URLSearchParams(searchParams);
-
-                  if (nextStatus) {
-                    nextSearchParams.set("status", nextStatus);
-                  } else {
-                    nextSearchParams.delete("status");
-                  }
-
-                  setSearchParams(nextSearchParams, { replace: true });
+                  replaceApplicationParams({
+                    status: nextStatus,
+                    page: "",
+                  });
                 }}
                 className="rounded-md border border-gray-300 px-3 py-2"
               >
@@ -420,17 +448,11 @@ function ApplicationsPage() {
                     ? Number(event.target.value)
                     : null;
 
-                  setPage(1);
-
-                  const nextSearchParams = new URLSearchParams(searchParams);
-
-                  if (nextCompanyId !== null) {
-                    nextSearchParams.set("companyId", String(nextCompanyId));
-                  } else {
-                    nextSearchParams.delete("companyId");
-                  }
-
-                  setSearchParams(nextSearchParams, { replace: true });
+                  replaceApplicationParams({
+                    companyId:
+                      nextCompanyId === null ? "" : String(nextCompanyId),
+                    page: "",
+                  });
                 }}
                 className="rounded-md border border-gray-300 px-3 py-2"
               >
@@ -453,17 +475,11 @@ function ApplicationsPage() {
                     ? Number(event.target.value)
                     : null;
 
-                  setPage(1);
-
-                  const nextSearchParams = new URLSearchParams(searchParams);
-
-                  if (nextJobOfferId !== null) {
-                    nextSearchParams.set("jobOfferId", String(nextJobOfferId));
-                  } else {
-                    nextSearchParams.delete("jobOfferId");
-                  }
-
-                  setSearchParams(nextSearchParams, { replace: true });
+                  replaceApplicationParams({
+                    jobOfferId:
+                      nextJobOfferId === null ? "" : String(nextJobOfferId),
+                    page: "",
+                  });
                 }}
                 className="rounded-md border border-gray-300 px-3 py-2"
               >
@@ -491,20 +507,18 @@ function ApplicationsPage() {
                   value: "",
                 });
 
-                const nextSearchParams = new URLSearchParams(searchParams);
-
-                nextSearchParams.delete("status");
-                nextSearchParams.delete("companyId");
-                nextSearchParams.delete("jobOfferId");
-                nextSearchParams.delete("search");
-
-                nextSearchParams.delete("createdFrom");
-                nextSearchParams.delete("createdTo");
-                setSearchParams(nextSearchParams, { replace: true });
-                setPage(1);
-                setPageSize(10);
-                setSortBy("createdAt");
-                setSortOrder("desc");
+                replaceApplicationParams({
+                  status: "",
+                  companyId: "",
+                  jobOfferId: "",
+                  search: "",
+                  createdFrom: "",
+                  createdTo: "",
+                  page: "",
+                  pageSize: "",
+                  sortBy: "",
+                  sortOrder: "",
+                });
               }}
               className="rounded-md border border-gray-300 px-4 py-2 font-medium"
             >
@@ -519,8 +533,12 @@ function ApplicationsPage() {
               <select
                 value={sortBy}
                 onChange={(event) => {
-                  setSortBy(event.target.value as ApplicationSortBy);
-                  setPage(1);
+                  const nextSortBy = event.target.value as ApplicationSortBy;
+
+                  replaceApplicationParams({
+                    sortBy: nextSortBy === "createdAt" ? "" : nextSortBy,
+                    page: "",
+                  });
                 }}
                 className="rounded-md border border-gray-300 px-3 py-2"
               >
@@ -536,8 +554,12 @@ function ApplicationsPage() {
               <select
                 value={sortOrder}
                 onChange={(event) => {
-                  setSortOrder(event.target.value as SortOrder);
-                  setPage(1);
+                  const nextSortOrder = event.target.value as SortOrder;
+
+                  replaceApplicationParams({
+                    sortOrder: nextSortOrder === "desc" ? "" : nextSortOrder,
+                    page: "",
+                  });
                 }}
                 className="rounded-md border border-gray-300 px-3 py-2"
               >
@@ -552,8 +574,12 @@ function ApplicationsPage() {
               <select
                 value={pageSize}
                 onChange={(event) => {
-                  setPageSize(Number(event.target.value));
-                  setPage(1);
+                  const nextPageSize = Number(event.target.value);
+
+                  replaceApplicationParams({
+                    pageSize: nextPageSize === 10 ? "" : String(nextPageSize),
+                    page: "",
+                  });
                 }}
                 className="rounded-md border border-gray-300 px-3 py-2"
               >

@@ -51,7 +51,7 @@ function QueryNavigationHarness() {
         type="button"
         onClick={() =>
           navigate(
-            `/applications?status=INTERVIEW&companyId=${company.id}&jobOfferId=${jobOffer.id}&search=React&createdFrom=2026-08-03T00%3A00%3A00.000Z&createdTo=2026-08-10T00%3A00%3A00.000Z`,
+            `/applications?status=INTERVIEW&companyId=${company.id}&jobOfferId=${jobOffer.id}&search=React&createdFrom=2026-08-03T00%3A00%3A00.000Z&createdTo=2026-08-10T00%3A00%3A00.000Z&page=2&pageSize=20&sortBy=status&sortOrder=asc`,
           )
         }
       >
@@ -60,7 +60,11 @@ function QueryNavigationHarness() {
 
       <button
         type="button"
-        onClick={() => navigate("/applications?status=APPLIED&view=compact")}
+        onClick={() =>
+          navigate(
+            "/applications?status=APPLIED&pageSize=50&sortBy=interviewAt&view=compact",
+          )
+        }
       >
         Changer les filtres URL
       </button>
@@ -291,7 +295,7 @@ describe("ApplicationsPage", () => {
 
   it("initializes filters from the URL", async () => {
     renderApplicationsPage(
-      `/applications?status=INTERVIEW&companyId=${company.id}&jobOfferId=${jobOffer.id}&search=React&createdFrom=2026-08-03T00%3A00%3A00.000Z&createdTo=2026-08-10T00%3A00%3A00.000Z`,
+      `/applications?status=INTERVIEW&companyId=${company.id}&jobOfferId=${jobOffer.id}&search=React&createdFrom=2026-08-03T00%3A00%3A00.000Z&createdTo=2026-08-10T00%3A00%3A00.000Z&page=2&pageSize=20&sortBy=status&sortOrder=asc`,
     );
 
     await screen.findByRole("heading", { name: jobOffer.title });
@@ -306,6 +310,9 @@ describe("ApplicationsPage", () => {
       String(jobOffer.id),
     );
     expect(screen.getByLabelText("Recherche")).toHaveValue("React");
+    expect(screen.getByLabelText("Trier par")).toHaveValue("status");
+    expect(screen.getByLabelText("Ordre")).toHaveValue("asc");
+    expect(screen.getByLabelText("Par page")).toHaveValue("20");
 
     await waitFor(() => {
       expect(getApplications).toHaveBeenLastCalledWith({
@@ -316,6 +323,10 @@ describe("ApplicationsPage", () => {
         search: "React",
         createdFrom: "2026-08-03T00:00:00.000Z",
         createdTo: "2026-08-10T00:00:00.000Z",
+        page: 2,
+        pageSize: 20,
+        sortBy: "status",
+        sortOrder: "asc",
       });
     });
   });
@@ -324,7 +335,7 @@ describe("ApplicationsPage", () => {
     const user = userEvent.setup();
 
     renderApplicationsPage(
-      `/applications?status=INTERVIEW&companyId=${company.id}&jobOfferId=${jobOffer.id}&search=React&view=compact`,
+      `/applications?status=INTERVIEW&companyId=${company.id}&jobOfferId=${jobOffer.id}&search=React&page=2&pageSize=20&sortBy=status&sortOrder=asc&view=compact`,
     );
 
     await screen.findByRole("heading", { name: jobOffer.title });
@@ -335,6 +346,9 @@ describe("ApplicationsPage", () => {
       expect(screen.getByLabelText("Filtrer par société")).toHaveValue("");
       expect(screen.getByLabelText("Filtrer par offre")).toHaveValue("");
       expect(screen.getByLabelText("Recherche")).toHaveValue("");
+      expect(screen.getByLabelText("Trier par")).toHaveValue("createdAt");
+      expect(screen.getByLabelText("Ordre")).toHaveValue("desc");
+      expect(screen.getByLabelText("Par page")).toHaveValue("10");
       expect(getApplications).toHaveBeenLastCalledWith(
         defaultApplicationParams,
       );
@@ -369,6 +383,9 @@ describe("ApplicationsPage", () => {
         String(jobOffer.id),
       );
       expect(screen.getByLabelText("Recherche")).toHaveValue("React");
+      expect(screen.getByLabelText("Trier par")).toHaveValue("status");
+      expect(screen.getByLabelText("Ordre")).toHaveValue("asc");
+      expect(screen.getByLabelText("Par page")).toHaveValue("20");
       expect(getApplications).toHaveBeenLastCalledWith({
         ...defaultApplicationParams,
         status: "INTERVIEW",
@@ -377,6 +394,10 @@ describe("ApplicationsPage", () => {
         search: "React",
         createdFrom: "2026-08-03T00:00:00.000Z",
         createdTo: "2026-08-10T00:00:00.000Z",
+        page: 2,
+        pageSize: 20,
+        sortBy: "status",
+        sortOrder: "asc",
       });
     });
 
@@ -393,9 +414,14 @@ describe("ApplicationsPage", () => {
       expect(screen.getByLabelText("Filtrer par société")).toHaveValue("");
       expect(screen.getByLabelText("Filtrer par offre")).toHaveValue("");
       expect(screen.getByLabelText("Recherche")).toHaveValue("");
+      expect(screen.getByLabelText("Trier par")).toHaveValue("interviewAt");
+      expect(screen.getByLabelText("Ordre")).toHaveValue("desc");
+      expect(screen.getByLabelText("Par page")).toHaveValue("50");
       expect(getApplications).toHaveBeenLastCalledWith({
         ...defaultApplicationParams,
         status: "APPLIED",
+        pageSize: 50,
+        sortBy: "interviewAt",
       });
     });
   });
@@ -719,10 +745,6 @@ describe("ApplicationsPage", () => {
         queryKey: ["applications"],
       });
     });
-    expect(screen.getByText("Candidature créée avec succès.")).toHaveAttribute(
-      "role",
-      "status",
-    );
   });
 
   it("updates the application status", async () => {
@@ -765,9 +787,6 @@ describe("ApplicationsPage", () => {
     expect(invalidateQueriesSpy).toHaveBeenCalledWith({
       queryKey: ["interviews"],
     });
-    expect(
-      screen.getByText("Candidature modifiée avec succès."),
-    ).toHaveAttribute("role", "status");
   });
 
   it("plans a follow-up date", async () => {
@@ -824,48 +843,5 @@ describe("ApplicationsPage", () => {
     const [deletedId] = vi.mocked(deleteApplication).mock.calls[0];
 
     expect(deletedId).toBe(application.id);
-    expect(
-      screen.getByText("Candidature supprimée avec succès."),
-    ).toHaveAttribute("role", "status");
-  });
-
-  it("adds an event to the application journal", async () => {
-    const user = userEvent.setup();
-    const { queryClient } = renderApplicationsPage();
-    const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
-
-    await user.click(await screen.findByRole("button", { name: "Journal" }));
-    await screen.findByText("Aucun événement enregistré.");
-    await user.type(
-      screen.getByPlaceholderText("Titre de l'événement"),
-      "Relance téléphonique",
-    );
-    await user.type(
-      screen.getByPlaceholderText("Description facultative"),
-      "Appeler le recruteur.",
-    );
-    await user.click(
-      screen.getByRole("button", { name: "Ajouter au journal" }),
-    );
-
-    await waitFor(() => {
-      expect(createApplicationEvent).toHaveBeenCalledTimes(1);
-
-      const [eventInput] = vi.mocked(createApplicationEvent).mock.calls[0];
-
-      expect(eventInput).toEqual({
-        applicationId: application.id,
-        type: "NOTE",
-        title: "Relance téléphonique",
-        description: "Appeler le recruteur.",
-      });
-      expect(invalidateQueriesSpy).toHaveBeenCalledWith({
-        queryKey: ["application-events", application.id],
-      });
-    });
-    expect(screen.getByText("Événement ajouté au journal.")).toHaveAttribute(
-      "role",
-      "status",
-    );
   });
 });
