@@ -21,6 +21,7 @@ describe('AuthService', () => {
     user: {
       findUnique: jest.fn(),
       create: jest.fn(),
+      update: jest.fn(),
     },
     session: {
       create: jest.fn(),
@@ -217,6 +218,87 @@ describe('AuthService', () => {
     expect(verifyPassword).toHaveBeenCalledTimes(1);
     expect(verifyPassword).toHaveBeenCalledWith('argon2id-hash', 'invalid');
     expect(prismaServiceMock.session.create).not.toHaveBeenCalled();
+  });
+
+  it('updates only the authenticated user profile and returns public fields', async () => {
+    const updatedUser = {
+      ...publicUser,
+      email: 'ada@example.com',
+    };
+    prismaServiceMock.user.update.mockResolvedValue(updatedUser);
+
+    await expect(
+      service.updateProfile(publicUser.id, {
+        firstName: '  Ada ',
+        lastName: ' Lovelace  ',
+        email: ' ADA@Example.com ',
+      }),
+    ).resolves.toEqual(updatedUser);
+
+    expect(prismaServiceMock.user.update).toHaveBeenCalledWith({
+      where: { id: publicUser.id },
+      data: {
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+        email: 'ada@example.com',
+      },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+      },
+    });
+  });
+
+  it('supports a partial profile update', async () => {
+    prismaServiceMock.user.update.mockResolvedValue({
+      ...publicUser,
+      firstName: 'Grace',
+    });
+
+    await service.updateProfile(publicUser.id, {
+      firstName: ' Grace ',
+    });
+
+    expect(prismaServiceMock.user.update).toHaveBeenCalledWith({
+      where: { id: publicUser.id },
+      data: {
+        firstName: 'Grace',
+      },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+      },
+    });
+  });
+
+  it('returns a stable conflict when a profile email already exists', async () => {
+    prismaServiceMock.user.update.mockRejectedValue({ code: 'P2002' });
+
+    const error: unknown = await service
+      .updateProfile(publicUser.id, {
+        email: ' existing@example.com ',
+      })
+      .catch((caughtError: unknown) => caughtError);
+
+    expect(error).toBeInstanceOf(ConflictException);
+    expect((error as ConflictException).message).toBe(
+      'Un compte existe déjà avec cette adresse email',
+    );
+  });
+
+  it('propagates an unexpected profile update failure', async () => {
+    const updateError = new Error('Database unavailable');
+    prismaServiceMock.user.update.mockRejectedValue(updateError);
+
+    await expect(
+      service.updateProfile(publicUser.id, {
+        firstName: 'Grace',
+      }),
+    ).rejects.toBe(updateError);
   });
 
   it('deletes a session by the hash of its opaque token', async () => {

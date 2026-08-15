@@ -11,6 +11,7 @@ describe('AuthController', () => {
     sessionTtlSeconds: 3600,
     register: jest.fn(),
     login: jest.fn(),
+    updateProfile: jest.fn(),
     logout: jest.fn(),
   };
   const user = {
@@ -108,6 +109,25 @@ describe('AuthController', () => {
         path: '/',
       },
     );
+  });
+
+  it('updates the authenticated profile through the service', async () => {
+    const updatedUser = {
+      ...user,
+      firstName: 'Grace',
+    };
+    const dto = {
+      firstName: 'Grace',
+      lastName: 'Lovelace',
+      email: user.email,
+    };
+    authServiceMock.updateProfile.mockResolvedValue(updatedUser);
+
+    await expect(controller.updateProfile(user, dto)).resolves.toEqual(
+      updatedUser,
+    );
+
+    expect(authServiceMock.updateProfile).toHaveBeenCalledWith(user.id, dto);
   });
 
   it('returns exactly the authenticated user from me', () => {

@@ -10,6 +10,7 @@ import type { AuthenticatedUser } from './authenticated-user';
 import { readAuthSessionTtlSeconds } from './auth-cookie';
 import type { LoginDto } from './dto/login.dto';
 import type { RegisterDto } from './dto/register.dto';
+import type { UpdateProfileDto } from './dto/update-profile.dto';
 
 const INVALID_CREDENTIALS_MESSAGE = 'Email ou mot de passe incorrect';
 export const DUMMY_PASSWORD_HASH =
@@ -130,6 +131,49 @@ export class AuthService {
         lastName: user.lastName,
       },
     };
+  }
+
+  async updateProfile(
+    userId: number,
+    updateProfileDto: UpdateProfileDto,
+  ): Promise<AuthenticatedUser> {
+    const data = {
+      ...(updateProfileDto.firstName !== undefined
+        ? { firstName: updateProfileDto.firstName.trim() }
+        : {}),
+      ...(updateProfileDto.lastName !== undefined
+        ? { lastName: updateProfileDto.lastName.trim() }
+        : {}),
+      ...(updateProfileDto.email !== undefined
+        ? { email: updateProfileDto.email.trim().toLowerCase() }
+        : {}),
+    };
+
+    try {
+      return await this.prisma.user.update({
+        where: { id: userId },
+        data,
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+        },
+      });
+    } catch (error: unknown) {
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        (error as { code?: unknown }).code === 'P2002'
+      ) {
+        throw new ConflictException(
+          'Un compte existe déjà avec cette adresse email',
+        );
+      }
+
+      throw error;
+    }
   }
 
   async logout(token: string): Promise<void> {

@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   HttpCode,
+  Patch,
   Post,
   Req,
   Res,
@@ -19,6 +20,7 @@ import { AuthService } from './auth.service';
 import { CurrentUser } from './current-user.decorator';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { Public } from './public.decorator';
 
 @Controller('auth')
@@ -82,6 +84,14 @@ export class AuthController {
       AUTH_SESSION_COOKIE_NAME,
       getAuthSessionClearCookieOptions(process.env.NODE_ENV),
     );
+  }
+
+  @Patch('me')
+  updateProfile(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() updateProfileDto: UpdateProfileDto,
+  ): Promise<AuthenticatedUser> {
+    return this.authService.updateProfile(user.id, updateProfileDto);
   }
 
   @Get('me')
