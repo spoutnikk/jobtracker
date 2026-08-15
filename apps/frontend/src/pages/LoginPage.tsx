@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { login } from "../api/auth";
 import { authMeQueryKey, clearSensitiveQueries } from "../auth/auth-cache";
 
@@ -116,6 +116,16 @@ function LoginPage() {
         {errorMessage && (
           <p className="mt-4 text-sm text-red-600">{errorMessage}</p>
         )}
+
+        <p className="mt-6 text-center text-sm text-gray-600">
+          Pas encore de compte ?{" "}
+          <Link
+            to="/register"
+            className="font-medium text-blue-700 hover:underline"
+          >
+            Créer un compte
+          </Link>
+        </p>
       </form>
     </main>
   );

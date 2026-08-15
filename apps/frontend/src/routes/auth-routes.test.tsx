@@ -44,7 +44,10 @@ function renderAuthRoutes(
       },
       {
         element: <AnonymousOnlyRoute />,
-        children: [{ path: "/login", element: <p>Login content</p> }],
+        children: [
+          { path: "/login", element: <p>Login content</p> },
+          { path: "/register", element: <p>Register content</p> },
+        ],
       },
     ],
     { initialEntries: [initialEntry] },
@@ -98,6 +101,18 @@ describe("Auth routes", () => {
 
   it("redirects an authenticated login request to the dashboard", async () => {
     renderAuthRoutes("authenticated", "/login");
+
+    expect(await screen.findByText("Dashboard content")).toBeInTheDocument();
+  });
+
+  it("renders registration for an anonymous user", async () => {
+    renderAuthRoutes("anonymous", "/register");
+
+    expect(await screen.findByText("Register content")).toBeInTheDocument();
+  });
+
+  it("redirects an authenticated registration request to the dashboard", async () => {
+    renderAuthRoutes("authenticated", "/register");
 
     expect(await screen.findByText("Dashboard content")).toBeInTheDocument();
   });

@@ -7,7 +7,12 @@ import { authMeQueryKey, setAnonymousAuthState } from "./auth-cache";
 import { AuthContext, type AuthContextValue, type AuthStatus } from "./useAuth";
 
 function isLocallyHandledAuthRequest(url: string | undefined): boolean {
-  return url === "/auth/login" || url === "/auth/me" || url === "/auth/logout";
+  return (
+    url === "/auth/login" ||
+    url === "/auth/register" ||
+    url === "/auth/me" ||
+    url === "/auth/logout"
+  );
 }
 
 async function restoreAuthenticatedUser(): Promise<AuthenticatedUser | null> {

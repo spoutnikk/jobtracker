@@ -12,6 +12,24 @@ export interface LoginInput {
   password: string;
 }
 
+export interface RegisterInput {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+}
+
+export async function register(
+  input: RegisterInput,
+): Promise<AuthenticatedUser> {
+  const response = await apiClient.post<AuthenticatedUser>(
+    "/auth/register",
+    input,
+  );
+
+  return response.data;
+}
+
 export async function login(input: LoginInput): Promise<AuthenticatedUser> {
   const response = await apiClient.post<AuthenticatedUser>(
     "/auth/login",

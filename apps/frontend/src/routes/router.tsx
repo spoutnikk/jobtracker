@@ -9,6 +9,7 @@ import DashboardPage from "../pages/DashboardPage";
 import DocumentsPage from "../pages/DocumentsPage";
 import JobOffersPage from "../pages/JobOffersPage";
 import LoginPage from "../pages/LoginPage";
+import RegisterPage from "../pages/RegisterPage";
 import AnonymousOnlyRoute from "./AnonymousOnlyRoute";
 import ProtectedRoute from "./ProtectedRoute";
 
@@ -19,6 +20,10 @@ export const router = createBrowserRouter([
       {
         path: "/login",
         element: <LoginPage />,
+      },
+      {
+        path: "/register",
+        element: <RegisterPage />,
       },
     ],
   },

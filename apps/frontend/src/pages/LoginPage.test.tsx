@@ -46,6 +46,7 @@ function renderLogin(initialEntry: InitialEntry = "/login") {
   const router = createMemoryRouter(
     [
       { path: "/login", element: <LoginPage /> },
+      { path: "/register", element: <p>Register destination</p> },
       { path: "/dashboard", element: <p>Dashboard destination</p> },
       { path: "/applications", element: <p>Applications destination</p> },
     ],
@@ -153,6 +154,16 @@ describe("LoginPage", () => {
     expect(router.state.location.pathname).toBe("/dashboard");
     expect(queryClient.getQueryData(["job-offers"])).toBeUndefined();
     expect(queryClient.getQueryData(["auth", "me"])).toEqual(authenticatedUser);
+  });
+
+  it("links to registration", async () => {
+    const user = userEvent.setup();
+    const { router } = renderLogin();
+
+    await user.click(screen.getByRole("link", { name: "Créer un compte" }));
+
+    expect(await screen.findByText("Register destination")).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/register");
   });
 
   it("shows the stable invalid credentials message for a 401", async () => {
