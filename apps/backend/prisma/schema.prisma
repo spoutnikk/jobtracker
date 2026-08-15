@@ -68,6 +68,8 @@ model JobOffer {
   companyId    Int
   company      Company       @relation(fields: [companyId], references: [id])
   applications Application[]
+
+  @@index([companyId])
 }
 
 model Application {
@@ -91,6 +93,12 @@ model Application {
   jobOffer   JobOffer @relation(fields: [jobOfferId], references: [id])
 
   events ApplicationEvent[]
+
+  @@index([userId, createdAt])
+  @@index([userId, status])
+  @@index([userId, followUpAt])
+  @@index([userId, interviewAt])
+  @@index([jobOfferId])
 }
 
 model Document {
@@ -111,6 +119,7 @@ model Document {
   user   User @relation(fields: [userId], references: [id], onDelete: Restrict)
 
   @@index([userId])
+  @@index([userId, applicationId])
 }
 
 model ApplicationEvent {
