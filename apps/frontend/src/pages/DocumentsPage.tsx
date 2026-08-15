@@ -12,6 +12,7 @@ import {
 } from "../api/documents";
 import { getAllApplications } from "../api/applications";
 import PageShell from "../components/PageShell";
+import StatusMessage from "../components/StatusMessage";
 
 function DocumentsPage() {
   const queryClient = useQueryClient();
@@ -79,6 +80,7 @@ function DocumentsPage() {
     "createdAt" | "updatedAt" | "name" | "type"
   >("createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const applicationsQuery = useQuery({
     queryKey: ["applications"],
@@ -103,11 +105,15 @@ function DocumentsPage() {
 
   const uploadDocumentMutation = useMutation({
     mutationFn: uploadDocument,
+    onMutate: () => {
+      setSuccessMessage(null);
+    },
     onSuccess: async (_, variables) => {
       setFile(null);
       setName("");
       setType("OTHER");
       setApplicationId(null);
+      setSuccessMessage("Document ajouté avec succès.");
 
       await queryClient.invalidateQueries({
         queryKey: ["documents"],
@@ -159,7 +165,11 @@ function DocumentsPage() {
 
   const deleteDocumentMutation = useMutation({
     mutationFn: deleteDocument,
+    onMutate: () => {
+      setSuccessMessage(null);
+    },
     onSuccess: async () => {
+      setSuccessMessage("Document supprimé avec succès.");
       await queryClient.invalidateQueries({
         queryKey: ["documents"],
       });
@@ -200,6 +210,11 @@ function DocumentsPage() {
   return (
     <PageShell>
       <h1 className="text-3xl font-bold">Documents</h1>
+      {successMessage && (
+        <StatusMessage variant="success" className="mt-4">
+          {successMessage}
+        </StatusMessage>
+      )}
 
       <CollapsibleSection title="Ajouter un document" defaultOpen={false}>
         <form onSubmit={handleSubmit} className="mt-4">

@@ -23,6 +23,7 @@ import {
 } from "../api/documents";
 import { applicationStatusLabels } from "../constants/application-status";
 import PageShell from "../components/PageShell";
+import StatusMessage from "../components/StatusMessage";
 
 const contractTypeLabels: Record<ContractType, string> = {
   CDI: "CDI",
@@ -177,6 +178,7 @@ function ApplicationDetailPage() {
 
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<EditApplicationForm | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const applicationQuery = useQuery({
     queryKey: ["applications", "detail", applicationId],
@@ -235,6 +237,9 @@ function ApplicationDetailPage() {
   const updateMutation = useMutation({
     mutationFn: (input: UpdateApplicationInput) =>
       updateApplication(applicationId, input),
+    onMutate: () => {
+      setSuccessMessage(null);
+    },
     onSuccess: async (updatedApplication) => {
       queryClient.setQueryData(
         ["applications", "detail", applicationId],
@@ -243,6 +248,7 @@ function ApplicationDetailPage() {
 
       setIsEditing(false);
       setEditForm(null);
+      setSuccessMessage("Candidature modifiée avec succès.");
 
       await Promise.all([
         queryClient.invalidateQueries({
@@ -344,6 +350,12 @@ function ApplicationDetailPage() {
       >
         Retour aux candidatures
       </Link>
+
+      {successMessage && (
+        <StatusMessage variant="success" className="mt-4">
+          {successMessage}
+        </StatusMessage>
+      )}
 
       <header className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
         <div className="flex items-start justify-between gap-4">

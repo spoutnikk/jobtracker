@@ -619,6 +619,9 @@ describe("ApplicationDetailPage", () => {
       followUpAt: expect.any(String),
       interviewAt: expect.any(String),
     });
+    expect(
+      screen.getByText("Candidature modifiée avec succès."),
+    ).toHaveAttribute("role", "status");
   });
   it("cancels application editing without saving", async () => {
     const user = userEvent.setup();

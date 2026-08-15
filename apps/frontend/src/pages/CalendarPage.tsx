@@ -9,6 +9,7 @@ import {
   type Application,
 } from "../api/applications";
 import PageShell from "../components/PageShell";
+import StatusMessage from "../components/StatusMessage";
 
 type CalendarEventType = "FOLLOW_UP" | "INTERVIEW";
 
@@ -465,6 +466,7 @@ function CalendarPage() {
   >("FOLLOW_UP");
   const [selectedEventTime, setSelectedEventTime] = useState("08:00");
   const [selectedApplicationId, setSelectedApplicationId] = useState("");
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const eventFormHeadingRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
@@ -505,7 +507,15 @@ function CalendarPage() {
           : { interviewAt: scheduledAt },
       ),
 
-    onSuccess: async () => {
+    onMutate: () => {
+      setSuccessMessage(null);
+    },
+    onSuccess: async (_updatedApplication, variables) => {
+      setSuccessMessage(
+        variables.eventType === "FOLLOW_UP"
+          ? "Relance programmée avec succès."
+          : "Entretien programmé avec succès.",
+      );
       setSelectedEventDate(null);
       setSelectedApplicationId("");
       setSelectedEventType("FOLLOW_UP");
@@ -564,6 +574,11 @@ function CalendarPage() {
   return (
     <PageShell>
       <h1 className="text-3xl font-bold">Calendrier</h1>
+      {successMessage && (
+        <StatusMessage variant="success" className="mt-4">
+          {successMessage}
+        </StatusMessage>
+      )}
 
       <MonthlyCalendar
         events={events}

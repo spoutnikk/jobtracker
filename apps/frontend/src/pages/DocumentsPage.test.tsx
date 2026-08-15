@@ -390,6 +390,10 @@ describe("DocumentsPage", () => {
         queryKey: ["application-events", application.id],
       });
     });
+    expect(screen.getByText("Document ajouté avec succès.")).toHaveAttribute(
+      "role",
+      "status",
+    );
   });
 
   it("does not invalidate application events when uploading without an application", async () => {
@@ -550,6 +554,10 @@ describe("DocumentsPage", () => {
     const [deletedId] = vi.mocked(deleteDocument).mock.calls[0];
 
     expect(deletedId).toBe(document.id);
+    expect(screen.getByText("Document supprimé avec succès.")).toHaveAttribute(
+      "role",
+      "status",
+    );
   });
 
   it("keeps the document when deletion fails", async () => {

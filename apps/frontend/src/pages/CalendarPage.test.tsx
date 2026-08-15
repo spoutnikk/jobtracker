@@ -592,6 +592,10 @@ describe("CalendarPage", () => {
     expect(updateApplication).toHaveBeenCalledWith(interview.id, {
       followUpAt: new Date("2026-08-20T08:00:00").toISOString(),
     });
+    expect(screen.getByText("Relance programmée avec succès.")).toHaveAttribute(
+      "role",
+      "status",
+    );
   });
   it("schedules an interview with the selected date and time", async () => {
     const user = userEvent.setup();
@@ -636,6 +640,9 @@ describe("CalendarPage", () => {
     expect(updateApplication).toHaveBeenCalledWith(followUp.id, {
       interviewAt: new Date("2026-08-20T14:30:00").toISOString(),
     });
+    expect(
+      screen.getByText("Entretien programmé avec succès."),
+    ).toHaveAttribute("role", "status");
   });
   it("closes the follow-up form after a successful update", async () => {
     const user = userEvent.setup();
