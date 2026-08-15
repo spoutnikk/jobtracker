@@ -6,4 +6,4 @@
 ✅ Sprint 5 : relances et calendrier.
 ✅ Sprint 6 : tableau de bord et statistiques.
 ✅ Sprint 7 : gestion des documents.
-🚧 Sprint 8 : gestion des comptes utilisateurs.
+✅ Sprint 8 : gestion des comptes utilisateurs.
