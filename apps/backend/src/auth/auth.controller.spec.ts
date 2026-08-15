@@ -1,3 +1,4 @@
+import { UnauthorizedException } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
 import type { Request, Response } from 'express';
 import { AuthController } from './auth.controller';
@@ -12,6 +13,7 @@ describe('AuthController', () => {
     register: jest.fn(),
     login: jest.fn(),
     updateProfile: jest.fn(),
+    changePassword: jest.fn(),
     logout: jest.fn(),
   };
   const user = {
@@ -109,6 +111,41 @@ describe('AuthController', () => {
         path: '/',
       },
     );
+  });
+
+  it('changes the password for the authenticated user and preserves the current session', async () => {
+    authServiceMock.changePassword.mockResolvedValue(undefined);
+    const request = {
+      cookies: { [AUTH_SESSION_COOKIE_NAME]: 'current-session-token' },
+    } as Request;
+    const dto = {
+      currentPassword: 'current-password',
+      newPassword: 'new-secure-password',
+    };
+
+    await expect(
+      controller.changePassword(user, request, dto),
+    ).resolves.toBeUndefined();
+
+    expect(authServiceMock.changePassword).toHaveBeenCalledWith(
+      user.id,
+      'current-session-token',
+      dto,
+    );
+  });
+
+  it('rejects a password change without the current session cookie', async () => {
+    const request = { cookies: {} } as Request;
+    const dto = {
+      currentPassword: 'current-password',
+      newPassword: 'new-secure-password',
+    };
+
+    await expect(
+      controller.changePassword(user, request, dto),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+
+    expect(authServiceMock.changePassword).not.toHaveBeenCalled();
   });
 
   it('updates the authenticated profile through the service', async () => {

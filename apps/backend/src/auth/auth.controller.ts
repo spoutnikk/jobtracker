@@ -7,6 +7,7 @@ import {
   Post,
   Req,
   Res,
+  UnauthorizedException,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import type { AuthenticatedUser } from './authenticated-user';
@@ -18,6 +19,7 @@ import {
 } from './auth-cookie';
 import { AuthService } from './auth.service';
 import { CurrentUser } from './current-user.decorator';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
@@ -84,6 +86,22 @@ export class AuthController {
       AUTH_SESSION_COOKIE_NAME,
       getAuthSessionClearCookieOptions(process.env.NODE_ENV),
     );
+  }
+
+  @Patch('me/password')
+  @HttpCode(204)
+  async changePassword(
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request,
+    @Body() changePasswordDto: ChangePasswordDto,
+  ): Promise<void> {
+    const token = getAuthSessionToken(request);
+
+    if (token === undefined) {
+      throw new UnauthorizedException();
+    }
+
+    await this.authService.changePassword(user.id, token, changePasswordDto);
   }
 
   @Patch('me')

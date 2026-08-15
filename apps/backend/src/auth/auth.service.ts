@@ -8,6 +8,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import type { AuthenticatedUser } from './authenticated-user';
 import { readAuthSessionTtlSeconds } from './auth-cookie';
+import type { ChangePasswordDto } from './dto/change-password.dto';
 import type { LoginDto } from './dto/login.dto';
 import type { RegisterDto } from './dto/register.dto';
 import type { UpdateProfileDto } from './dto/update-profile.dto';
@@ -174,6 +175,53 @@ export class AuthService {
 
       throw error;
     }
+  }
+
+  async changePassword(
+    userId: number,
+    currentSessionToken: string,
+    changePasswordDto: ChangePasswordDto,
+  ): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        passwordHash: true,
+      },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('Mot de passe actuel incorrect');
+    }
+
+    const passwordMatches = await argon2.verify(
+      user.passwordHash,
+      changePasswordDto.currentPassword,
+    );
+
+    if (!passwordMatches) {
+      throw new UnauthorizedException('Mot de passe actuel incorrect');
+    }
+
+    const newPasswordHash = await argon2.hash(changePasswordDto.newPassword);
+    const currentTokenHash = hashSessionToken(currentSessionToken);
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          passwordHash: newPasswordHash,
+        },
+      });
+
+      await tx.session.deleteMany({
+        where: {
+          userId,
+          tokenHash: {
+            not: currentTokenHash,
+          },
+        },
+      });
+    });
   }
 
   async logout(token: string): Promise<void> {

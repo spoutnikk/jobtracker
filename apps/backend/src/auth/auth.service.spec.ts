@@ -220,6 +220,81 @@ describe('AuthService', () => {
     expect(prismaServiceMock.session.create).not.toHaveBeenCalled();
   });
 
+  it('changes the password and revokes every other session', async () => {
+    prismaServiceMock.user.findUnique.mockResolvedValue({
+      passwordHash: 'current-password-hash',
+    });
+    verifyPassword.mockResolvedValue(true);
+    hashPassword.mockResolvedValue('new-password-hash');
+    prismaServiceMock.user.update.mockResolvedValue(publicUser);
+    prismaServiceMock.session.deleteMany.mockResolvedValue({ count: 2 });
+
+    await expect(
+      service.changePassword(7, 'current-session-token', {
+        currentPassword: 'current-password',
+        newPassword: 'new-secure-password',
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(verifyPassword).toHaveBeenCalledWith(
+      'current-password-hash',
+      'current-password',
+    );
+    expect(hashPassword).toHaveBeenCalledWith('new-secure-password');
+    expect(prismaServiceMock.$transaction).toHaveBeenCalledTimes(1);
+    expect(prismaServiceMock.user.update).toHaveBeenCalledWith({
+      where: { id: 7 },
+      data: {
+        passwordHash: 'new-password-hash',
+      },
+    });
+    expect(prismaServiceMock.session.deleteMany).toHaveBeenCalledWith({
+      where: {
+        userId: 7,
+        tokenHash: {
+          not: createHash('sha256')
+            .update('current-session-token')
+            .digest('hex'),
+        },
+      },
+    });
+  });
+
+  it('rejects a password change when the current password is invalid', async () => {
+    prismaServiceMock.user.findUnique.mockResolvedValue({
+      passwordHash: 'current-password-hash',
+    });
+    verifyPassword.mockResolvedValue(false);
+
+    const error: unknown = await service
+      .changePassword(7, 'current-session-token', {
+        currentPassword: 'wrong-password',
+        newPassword: 'new-secure-password',
+      })
+      .catch((caughtError: unknown) => caughtError);
+
+    expect(error).toBeInstanceOf(UnauthorizedException);
+    expect((error as UnauthorizedException).message).toBe(
+      'Mot de passe actuel incorrect',
+    );
+    expect(hashPassword).not.toHaveBeenCalled();
+    expect(prismaServiceMock.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects a password change when the user no longer exists', async () => {
+    prismaServiceMock.user.findUnique.mockResolvedValue(null);
+
+    await expect(
+      service.changePassword(7, 'current-session-token', {
+        currentPassword: 'current-password',
+        newPassword: 'new-secure-password',
+      }),
+    ).rejects.toThrow('Mot de passe actuel incorrect');
+
+    expect(verifyPassword).not.toHaveBeenCalled();
+    expect(hashPassword).not.toHaveBeenCalled();
+  });
+
   it('updates only the authenticated user profile and returns public fields', async () => {
     const updatedUser = {
       ...publicUser,
