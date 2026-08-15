@@ -394,6 +394,10 @@ describe("JobOffersPage", () => {
       expect(screen.getByLabelText("Type de contrat")).toHaveValue("");
       expect(screen.getByLabelText("Salaire")).toHaveValue("");
     });
+    expect(screen.getByText("Offre créée avec succès.")).toHaveAttribute(
+      "role",
+      "status",
+    );
     expect(
       screen.queryByText("Impossible de créer l'offre."),
     ).not.toBeInTheDocument();
@@ -532,6 +536,10 @@ describe("JobOffersPage", () => {
         screen.queryByRole("button", { name: "Annuler" }),
       ).not.toBeInTheDocument();
     });
+    expect(screen.getByText("Offre modifiée avec succès.")).toHaveAttribute(
+      "role",
+      "status",
+    );
     expect(
       screen.queryByText("Impossible de modifier l'offre."),
     ).not.toBeInTheDocument();
@@ -614,6 +622,10 @@ describe("JobOffersPage", () => {
     expect(invalidateQueriesSpy).not.toHaveBeenCalledWith({
       queryKey: ["applications"],
     });
+    expect(screen.getByText("Offre supprimée avec succès.")).toHaveAttribute(
+      "role",
+      "status",
+    );
     expect(
       screen.queryByText("Impossible de supprimer l'offre."),
     ).not.toBeInTheDocument();

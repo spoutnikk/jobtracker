@@ -23,6 +23,7 @@ import {
   applicationStatusLabels,
 } from "../constants/application-status";
 import PageShell from "../components/PageShell";
+import StatusMessage from "../components/StatusMessage";
 
 function parseApplicationStatus(value: string | null): ApplicationStatus | "" {
   return value && applicationStatuses.includes(value as ApplicationStatus)
@@ -155,6 +156,7 @@ function ApplicationsPage() {
   const [eventType, setEventType] = useState<ApplicationEventType>("NOTE");
   const [eventTitle, setEventTitle] = useState("");
   const [eventDescription, setEventDescription] = useState("");
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const jobOffersQuery = useQuery({
     queryKey: ["job-offers", "all"],
@@ -169,6 +171,9 @@ function ApplicationsPage() {
 
   const createApplicationMutation = useMutation({
     mutationFn: createApplication,
+    onMutate: () => {
+      setSuccessMessage(null);
+    },
     onSuccess: async () => {
       setStatus("DRAFT");
       setSource("");
@@ -178,6 +183,7 @@ function ApplicationsPage() {
       setContactEmail("");
       setFollowUpAt("");
       setInterviewAt("");
+      setSuccessMessage("Candidature créée avec succès.");
 
       await queryClient.invalidateQueries({
         queryKey: ["applications"],
@@ -199,8 +205,12 @@ function ApplicationsPage() {
         interviewAt?: string;
       };
     }) => updateApplication(id, input),
+    onMutate: () => {
+      setSuccessMessage(null);
+    },
     onSuccess: async () => {
       setEditingApplicationId(null);
+      setSuccessMessage("Candidature modifiée avec succès.");
 
       await Promise.all([
         queryClient.invalidateQueries({
@@ -218,7 +228,11 @@ function ApplicationsPage() {
 
   const deleteApplicationMutation = useMutation({
     mutationFn: deleteApplication,
+    onMutate: () => {
+      setSuccessMessage(null);
+    },
     onSuccess: async () => {
+      setSuccessMessage("Candidature supprimée avec succès.");
       await queryClient.invalidateQueries({
         queryKey: ["applications"],
       });
@@ -227,10 +241,14 @@ function ApplicationsPage() {
 
   const createApplicationEventMutation = useMutation({
     mutationFn: createApplicationEvent,
+    onMutate: () => {
+      setSuccessMessage(null);
+    },
     onSuccess: async () => {
       setEventType("NOTE");
       setEventTitle("");
       setEventDescription("");
+      setSuccessMessage("Événement ajouté au journal.");
 
       await queryClient.invalidateQueries({
         queryKey: ["application-events", journalApplicationId],
@@ -312,6 +330,11 @@ function ApplicationsPage() {
   return (
     <PageShell>
       <h1 className="text-3xl font-bold">Candidatures</h1>
+      {successMessage && (
+        <StatusMessage variant="success" className="mt-4">
+          {successMessage}
+        </StatusMessage>
+      )}
       <CollapsibleSection title="Filtrer les candidatures" defaultOpen>
         <form
           className="mt-4"

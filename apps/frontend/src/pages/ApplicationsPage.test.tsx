@@ -719,6 +719,10 @@ describe("ApplicationsPage", () => {
         queryKey: ["applications"],
       });
     });
+    expect(screen.getByText("Candidature créée avec succès.")).toHaveAttribute(
+      "role",
+      "status",
+    );
   });
 
   it("updates the application status", async () => {
@@ -761,6 +765,9 @@ describe("ApplicationsPage", () => {
     expect(invalidateQueriesSpy).toHaveBeenCalledWith({
       queryKey: ["interviews"],
     });
+    expect(
+      screen.getByText("Candidature modifiée avec succès."),
+    ).toHaveAttribute("role", "status");
   });
 
   it("plans a follow-up date", async () => {
@@ -817,5 +824,48 @@ describe("ApplicationsPage", () => {
     const [deletedId] = vi.mocked(deleteApplication).mock.calls[0];
 
     expect(deletedId).toBe(application.id);
+    expect(
+      screen.getByText("Candidature supprimée avec succès."),
+    ).toHaveAttribute("role", "status");
+  });
+
+  it("adds an event to the application journal", async () => {
+    const user = userEvent.setup();
+    const { queryClient } = renderApplicationsPage();
+    const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
+
+    await user.click(await screen.findByRole("button", { name: "Journal" }));
+    await screen.findByText("Aucun événement enregistré.");
+    await user.type(
+      screen.getByPlaceholderText("Titre de l'événement"),
+      "Relance téléphonique",
+    );
+    await user.type(
+      screen.getByPlaceholderText("Description facultative"),
+      "Appeler le recruteur.",
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Ajouter au journal" }),
+    );
+
+    await waitFor(() => {
+      expect(createApplicationEvent).toHaveBeenCalledTimes(1);
+
+      const [eventInput] = vi.mocked(createApplicationEvent).mock.calls[0];
+
+      expect(eventInput).toEqual({
+        applicationId: application.id,
+        type: "NOTE",
+        title: "Relance téléphonique",
+        description: "Appeler le recruteur.",
+      });
+      expect(invalidateQueriesSpy).toHaveBeenCalledWith({
+        queryKey: ["application-events", application.id],
+      });
+    });
+    expect(screen.getByText("Événement ajouté au journal.")).toHaveAttribute(
+      "role",
+      "status",
+    );
   });
 });

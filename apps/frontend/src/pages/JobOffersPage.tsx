@@ -18,6 +18,7 @@ import {
   type UpdateJobOfferInput,
 } from "../api/job-offers";
 import PageShell from "../components/PageShell";
+import StatusMessage from "../components/StatusMessage";
 
 const contractTypeLabels: Record<ContractType, string> = {
   CDI: "CDI",
@@ -132,6 +133,7 @@ function JobOffersPage() {
     jobOfferId: number;
     message: string;
   } | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const companiesQuery = useQuery({
     queryKey: ["companies", "all"],
@@ -156,6 +158,7 @@ function JobOffersPage() {
     mutationFn: createJobOffer,
     onMutate: () => {
       setCreateError(null);
+      setSuccessMessage(null);
     },
     onSuccess: async () => {
       setTitle("");
@@ -167,6 +170,7 @@ function JobOffersPage() {
       setSalary("");
       setPublishedAt("");
       setCreateError(null);
+      setSuccessMessage("Offre créée avec succès.");
 
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["job-offers"] }),
@@ -193,10 +197,12 @@ function JobOffersPage() {
       updateJobOffer(id, input),
     onMutate: () => {
       setEditError(null);
+      setSuccessMessage(null);
     },
     onSuccess: async () => {
       setEditingJobOfferId(null);
       setEditError(null);
+      setSuccessMessage("Offre modifiée avec succès.");
 
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["job-offers"] }),
@@ -225,9 +231,11 @@ function JobOffersPage() {
     mutationFn: deleteJobOffer,
     onMutate: () => {
       setDeleteError(null);
+      setSuccessMessage(null);
     },
     onSuccess: async (_deletedJobOffer, jobOfferId) => {
       setDeleteError(null);
+      setSuccessMessage("Offre supprimée avec succès.");
       setEditingJobOfferId((currentId) =>
         currentId === jobOfferId ? null : currentId,
       );
@@ -365,6 +373,11 @@ function JobOffersPage() {
   return (
     <PageShell>
       <h1 className="text-3xl font-bold">Offres d’emploi</h1>
+      {successMessage && (
+        <StatusMessage variant="success" className="mt-4">
+          {successMessage}
+        </StatusMessage>
+      )}
 
       <CollapsibleSection title="Filtrer les offres" defaultOpen>
         <form
