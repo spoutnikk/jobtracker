@@ -1,9 +1,14 @@
 import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import { unlink } from 'fs/promises';
 import { createHash } from 'node:crypto';
 import { Test, type TestingModule } from '@nestjs/testing';
 import argon2 from 'argon2';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthService, DUMMY_PASSWORD_HASH } from './auth.service';
+
+jest.mock('fs/promises', () => ({
+  unlink: jest.fn(),
+}));
 
 jest.mock('argon2', () => ({
   __esModule: true,
@@ -22,6 +27,20 @@ describe('AuthService', () => {
       findUnique: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      delete: jest.fn(),
+    },
+    document: {
+      findMany: jest.fn(),
+      deleteMany: jest.fn(),
+    },
+    application: {
+      deleteMany: jest.fn(),
+    },
+    jobOffer: {
+      deleteMany: jest.fn(),
+    },
+    company: {
+      deleteMany: jest.fn(),
     },
     session: {
       create: jest.fn(),
@@ -40,6 +59,7 @@ describe('AuthService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    jest.mocked(unlink).mockResolvedValue(undefined);
     process.env.AUTH_SESSION_TTL_SECONDS = '3600';
     prismaServiceMock.$transaction.mockImplementation(
       (callback: (transaction: typeof prismaServiceMock) => Promise<unknown>) =>
@@ -376,6 +396,140 @@ describe('AuthService', () => {
     ).rejects.toBe(updateError);
   });
 
+  it('deletes the authenticated account data transactionally and then removes files', async () => {
+    prismaServiceMock.user.findUnique.mockResolvedValue({
+      passwordHash: 'current-password-hash',
+    });
+    verifyPassword.mockResolvedValue(true);
+    prismaServiceMock.document.findMany.mockResolvedValue([
+      { path: 'uploads/cv.pdf' },
+      { path: 'uploads/cover-letter.pdf' },
+    ]);
+    prismaServiceMock.document.deleteMany.mockResolvedValue({ count: 2 });
+    prismaServiceMock.application.deleteMany.mockResolvedValue({ count: 3 });
+    prismaServiceMock.jobOffer.deleteMany.mockResolvedValue({ count: 2 });
+    prismaServiceMock.company.deleteMany.mockResolvedValue({ count: 1 });
+    prismaServiceMock.user.delete.mockResolvedValue(publicUser);
+
+    await expect(
+      service.deleteAccount(7, {
+        password: 'current-password',
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(verifyPassword).toHaveBeenCalledWith(
+      'current-password-hash',
+      'current-password',
+    );
+    expect(prismaServiceMock.document.findMany).toHaveBeenCalledWith({
+      where: { userId: 7 },
+      select: { path: true },
+    });
+    expect(prismaServiceMock.$transaction).toHaveBeenCalledTimes(1);
+    expect(prismaServiceMock.document.deleteMany).toHaveBeenCalledWith({
+      where: { userId: 7 },
+    });
+    expect(prismaServiceMock.application.deleteMany).toHaveBeenCalledWith({
+      where: { userId: 7 },
+    });
+    expect(prismaServiceMock.jobOffer.deleteMany).toHaveBeenCalledWith({
+      where: {
+        company: {
+          userId: 7,
+        },
+      },
+    });
+    expect(prismaServiceMock.company.deleteMany).toHaveBeenCalledWith({
+      where: { userId: 7 },
+    });
+    expect(prismaServiceMock.user.delete).toHaveBeenCalledWith({
+      where: { id: 7 },
+    });
+    expect(unlink).toHaveBeenCalledTimes(2);
+    expect(unlink).toHaveBeenCalledWith('uploads/cv.pdf');
+    expect(unlink).toHaveBeenCalledWith('uploads/cover-letter.pdf');
+  });
+
+  it('rejects account deletion when the current password is invalid', async () => {
+    prismaServiceMock.user.findUnique.mockResolvedValue({
+      passwordHash: 'current-password-hash',
+    });
+    verifyPassword.mockResolvedValue(false);
+
+    const error: unknown = await service
+      .deleteAccount(7, {
+        password: 'wrong-password',
+      })
+      .catch((caughtError: unknown) => caughtError);
+
+    expect(error).toBeInstanceOf(UnauthorizedException);
+    expect((error as UnauthorizedException).message).toBe(
+      'Mot de passe actuel incorrect',
+    );
+    expect(prismaServiceMock.document.findMany).not.toHaveBeenCalled();
+    expect(prismaServiceMock.$transaction).not.toHaveBeenCalled();
+    expect(unlink).not.toHaveBeenCalled();
+  });
+
+  it('keeps physical files when the database transaction fails', async () => {
+    const databaseError = new Error('Database deletion failed');
+    prismaServiceMock.user.findUnique.mockResolvedValue({
+      passwordHash: 'current-password-hash',
+    });
+    verifyPassword.mockResolvedValue(true);
+    prismaServiceMock.document.findMany.mockResolvedValue([
+      { path: 'uploads/cv.pdf' },
+    ]);
+    prismaServiceMock.$transaction.mockRejectedValue(databaseError);
+
+    await expect(
+      service.deleteAccount(7, {
+        password: 'current-password',
+      }),
+    ).rejects.toBe(databaseError);
+
+    expect(unlink).not.toHaveBeenCalled();
+  });
+
+  it('does not fail account deletion when physical cleanup fails', async () => {
+    prismaServiceMock.user.findUnique.mockResolvedValue({
+      passwordHash: 'current-password-hash',
+    });
+    verifyPassword.mockResolvedValue(true);
+    prismaServiceMock.document.findMany.mockResolvedValue([
+      { path: 'uploads/cv.pdf' },
+    ]);
+    prismaServiceMock.user.delete.mockResolvedValue(publicUser);
+    jest.mocked(unlink).mockRejectedValue(new Error('File cleanup failed'));
+
+    await expect(
+      service.deleteAccount(7, {
+        password: 'current-password',
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(unlink).toHaveBeenCalledWith('uploads/cv.pdf');
+  });
+
+  it('revokes every other session while preserving the current session', async () => {
+    prismaServiceMock.session.deleteMany.mockResolvedValue({ count: 2 });
+
+    await expect(
+      service.revokeOtherSessions(7, 'current-session-token'),
+    ).resolves.toBeUndefined();
+
+    expect(prismaServiceMock.session.deleteMany).toHaveBeenCalledWith({
+      where: {
+        userId: 7,
+        tokenHash: {
+          not: createHash('sha256')
+            .update('current-session-token')
+            .digest('hex'),
+        },
+      },
+    });
+  });
+
   it('deletes a session by the hash of its opaque token', async () => {
     prismaServiceMock.session.deleteMany.mockResolvedValue({ count: 1 });
 
@@ -473,23 +627,5 @@ describe('AuthService', () => {
     await expect(
       service.authenticateSessionToken('expired'),
     ).resolves.toBeNull();
-  });
-  it('revokes every other session while preserving the current session', async () => {
-    prismaServiceMock.session.deleteMany.mockResolvedValue({ count: 2 });
-
-    await expect(
-      service.revokeOtherSessions(7, 'current-session-token'),
-    ).resolves.toBeUndefined();
-
-    expect(prismaServiceMock.session.deleteMany).toHaveBeenCalledWith({
-      where: {
-        userId: 7,
-        tokenHash: {
-          not: createHash('sha256')
-            .update('current-session-token')
-            .digest('hex'),
-        },
-      },
-    });
   });
 });

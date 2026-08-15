@@ -14,6 +14,7 @@ describe('AuthController', () => {
     login: jest.fn(),
     updateProfile: jest.fn(),
     changePassword: jest.fn(),
+    deleteAccount: jest.fn(),
     logout: jest.fn(),
     revokeOtherSessions: jest.fn(),
   };
@@ -112,6 +113,47 @@ describe('AuthController', () => {
         path: '/',
       },
     );
+  });
+
+  it('deletes the authenticated account and clears the session cookie', async () => {
+    authServiceMock.deleteAccount.mockResolvedValue(undefined);
+    const responseMock = { clearCookie: jest.fn() };
+    const response = responseMock as unknown as Response;
+    const dto = {
+      password: 'current-password',
+    };
+
+    await expect(
+      controller.deleteAccount(user, dto, response),
+    ).resolves.toBeUndefined();
+
+    expect(authServiceMock.deleteAccount).toHaveBeenCalledWith(user.id, dto);
+    expect(responseMock.clearCookie).toHaveBeenCalledWith(
+      AUTH_SESSION_COOKIE_NAME,
+      {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: false,
+        path: '/',
+      },
+    );
+  });
+
+  it('does not clear the cookie when account deletion fails', async () => {
+    authServiceMock.deleteAccount.mockRejectedValue(
+      new UnauthorizedException('Mot de passe actuel incorrect'),
+    );
+    const responseMock = { clearCookie: jest.fn() };
+    const response = responseMock as unknown as Response;
+    const dto = {
+      password: 'wrong-password',
+    };
+
+    await expect(
+      controller.deleteAccount(user, dto, response),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+
+    expect(responseMock.clearCookie).not.toHaveBeenCalled();
   });
 
   it('revokes every other session while preserving the current session', async () => {

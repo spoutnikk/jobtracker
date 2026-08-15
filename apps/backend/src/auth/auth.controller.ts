@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   Patch,
@@ -20,6 +21,7 @@ import {
 import { AuthService } from './auth.service';
 import { CurrentUser } from './current-user.decorator';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { DeleteAccountDto } from './dto/delete-account.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
@@ -81,6 +83,21 @@ export class AuthController {
     if (token !== undefined) {
       await this.authService.logout(token);
     }
+
+    response.clearCookie(
+      AUTH_SESSION_COOKIE_NAME,
+      getAuthSessionClearCookieOptions(process.env.NODE_ENV),
+    );
+  }
+
+  @Delete('me')
+  @HttpCode(204)
+  async deleteAccount(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() deleteAccountDto: DeleteAccountDto,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<void> {
+    await this.authService.deleteAccount(user.id, deleteAccountDto);
 
     response.clearCookie(
       AUTH_SESSION_COOKIE_NAME,

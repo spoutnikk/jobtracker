@@ -4,11 +4,13 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import argon2 from 'argon2';
+import { unlink } from 'fs/promises';
 import { createHash, randomBytes } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import type { AuthenticatedUser } from './authenticated-user';
 import { readAuthSessionTtlSeconds } from './auth-cookie';
 import type { ChangePasswordDto } from './dto/change-password.dto';
+import type { DeleteAccountDto } from './dto/delete-account.dto';
 import type { LoginDto } from './dto/login.dto';
 import type { RegisterDto } from './dto/register.dto';
 import type { UpdateProfileDto } from './dto/update-profile.dto';
@@ -222,6 +224,66 @@ export class AuthService {
         },
       });
     });
+  }
+
+  async deleteAccount(
+    userId: number,
+    deleteAccountDto: DeleteAccountDto,
+  ): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        passwordHash: true,
+      },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('Mot de passe actuel incorrect');
+    }
+
+    const passwordMatches = await argon2.verify(
+      user.passwordHash,
+      deleteAccountDto.password,
+    );
+
+    if (!passwordMatches) {
+      throw new UnauthorizedException('Mot de passe actuel incorrect');
+    }
+
+    const documents = await this.prisma.document.findMany({
+      where: { userId },
+      select: { path: true },
+    });
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.document.deleteMany({
+        where: { userId },
+      });
+
+      await tx.application.deleteMany({
+        where: { userId },
+      });
+
+      await tx.jobOffer.deleteMany({
+        where: {
+          company: {
+            userId,
+          },
+        },
+      });
+
+      await tx.company.deleteMany({
+        where: { userId },
+      });
+
+      await tx.user.delete({
+        where: { id: userId },
+      });
+    });
+
+    await Promise.allSettled(
+      documents.map((document) => unlink(document.path)),
+    );
   }
 
   async revokeOtherSessions(
