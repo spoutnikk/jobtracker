@@ -62,9 +62,11 @@ Le frontend repose notamment sur :
 
 ## Prérequis
 
-- Node.js ;
+- Node.js 24 ;
 - `pnpm` 11.20.0 ;
 - Docker et Docker Compose pour l'exécution conteneurisée.
+
+La version Node.js supportée est déclarée dans `.nvmrc` et dans le champ `engines` du `package.json` racine. La CI et les images Docker utilisent également Node.js 24.
 
 Le gestionnaire de paquets attendu est déclaré dans `package.json` :
 
