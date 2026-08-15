@@ -9,18 +9,72 @@ import {
   type CompanySortOrder,
 } from "../api/companies";
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import CollapsibleSection from "../components/CollapsibleSection";
 import PageShell from "../components/PageShell";
 import StatusMessage from "../components/StatusMessage";
 
 function CompaniesPage() {
-  const [searchInput, setSearchInput] = useState("");
-  const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-  const [sortBy, setSortBy] = useState<CompanySortBy>("createdAt");
-  const [sortOrder, setSortOrder] = useState<CompanySortOrder>("desc");
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const search = searchParams.get("search")?.trim() ?? "";
+  const pageParam = Number(searchParams.get("page"));
+  const pageSizeParam = Number(searchParams.get("pageSize"));
+  const sortByParam = searchParams.get("sortBy");
+  const sortOrderParam = searchParams.get("sortOrder");
+
+  const page = Number.isInteger(pageParam) && pageParam > 0 ? pageParam : 1;
+  const pageSize =
+    pageSizeParam === 20 || pageSizeParam === 50 ? pageSizeParam : 10;
+  const sortBy: CompanySortBy =
+    sortByParam === "name" ||
+    sortByParam === "updatedAt" ||
+    sortByParam === "createdAt"
+      ? sortByParam
+      : "createdAt";
+  const sortOrder: CompanySortOrder =
+    sortOrderParam === "asc" || sortOrderParam === "desc"
+      ? sortOrderParam
+      : "desc";
+
+  const [searchDraft, setSearchDraft] = useState(() => ({
+    base: search,
+    value: search,
+  }));
+  const searchInput = searchDraft.base === search ? searchDraft.value : search;
+
+  function replaceCompanyParams(
+    updates: Partial<
+      Record<"search" | "page" | "pageSize" | "sortBy" | "sortOrder", string>
+    >,
+  ) {
+    setSearchParams(
+      (currentSearchParams) => {
+        const nextSearchParams = new URLSearchParams(currentSearchParams);
+
+        for (const [key, value] of Object.entries(updates)) {
+          if (value) {
+            nextSearchParams.set(key, value);
+          } else {
+            nextSearchParams.delete(key);
+          }
+        }
+
+        return nextSearchParams;
+      },
+      { replace: true },
+    );
+  }
+
+  function setPage(nextPage: number | ((currentPage: number) => number)) {
+    const resolvedPage =
+      typeof nextPage === "function" ? nextPage(page) : nextPage;
+
+    replaceCompanyParams({
+      page: resolvedPage <= 1 ? "" : String(resolvedPage),
+    });
+  }
+
   const companyFilters: CompanyFilters = {
     search: search || undefined,
     page,
@@ -143,8 +197,16 @@ function CompaniesPage() {
           className="mt-4"
           onSubmit={(event) => {
             event.preventDefault();
-            setSearch(searchInput.trim());
-            setPage(1);
+            const nextSearch = searchInput.trim();
+
+            setSearchDraft({
+              base: nextSearch,
+              value: nextSearch,
+            });
+            replaceCompanyParams({
+              search: nextSearch,
+              page: "",
+            });
           }}
         >
           <div className="grid gap-4 md:grid-cols-4">
@@ -155,7 +217,12 @@ function CompaniesPage() {
               <input
                 type="search"
                 value={searchInput}
-                onChange={(event) => setSearchInput(event.target.value)}
+                onChange={(event) =>
+                  setSearchDraft({
+                    base: search,
+                    value: event.target.value,
+                  })
+                }
                 className="rounded-md border border-gray-300 px-3 py-2"
               />
             </label>
@@ -166,8 +233,12 @@ function CompaniesPage() {
               <select
                 value={sortBy}
                 onChange={(event) => {
-                  setSortBy(event.target.value as CompanySortBy);
-                  setPage(1);
+                  const nextSortBy = event.target.value as CompanySortBy;
+
+                  replaceCompanyParams({
+                    sortBy: nextSortBy === "createdAt" ? "" : nextSortBy,
+                    page: "",
+                  });
                 }}
                 className="rounded-md border border-gray-300 px-3 py-2"
               >
@@ -181,8 +252,12 @@ function CompaniesPage() {
               <select
                 value={sortOrder}
                 onChange={(event) => {
-                  setSortOrder(event.target.value as CompanySortOrder);
-                  setPage(1);
+                  const nextSortOrder = event.target.value as CompanySortOrder;
+
+                  replaceCompanyParams({
+                    sortOrder: nextSortOrder === "desc" ? "" : nextSortOrder,
+                    page: "",
+                  });
                 }}
                 className="rounded-md border border-gray-300 px-3 py-2"
               >
@@ -197,8 +272,12 @@ function CompaniesPage() {
               <select
                 value={pageSize}
                 onChange={(event) => {
-                  setPageSize(Number(event.target.value));
-                  setPage(1);
+                  const nextPageSize = Number(event.target.value);
+
+                  replaceCompanyParams({
+                    pageSize: nextPageSize === 10 ? "" : String(nextPageSize),
+                    page: "",
+                  });
                 }}
                 className="rounded-md border border-gray-300 px-3 py-2"
               >
@@ -218,12 +297,14 @@ function CompaniesPage() {
             <button
               type="button"
               onClick={() => {
-                setSearchInput("");
-                setSearch("");
-                setPage(1);
-                setPageSize(10);
-                setSortBy("createdAt");
-                setSortOrder("desc");
+                setSearchDraft({ base: "", value: "" });
+                replaceCompanyParams({
+                  search: "",
+                  page: "",
+                  pageSize: "",
+                  sortBy: "",
+                  sortOrder: "",
+                });
               }}
               className="rounded-md border border-gray-300 px-4 py-2 font-medium"
             >

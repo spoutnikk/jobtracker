@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AxiosError, AxiosHeaders } from "axios";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -10,7 +10,11 @@ import {
   type PaginatedCompanies,
   updateCompany,
 } from "../api/companies";
-import { MemoryRouter } from "react-router-dom";
+import {
+  createMemoryRouter,
+  RouterProvider,
+  type InitialEntry,
+} from "react-router-dom";
 import { renderWithProviders } from "../test/renderWithProviders";
 import CompaniesPage from "./CompaniesPage";
 
@@ -71,6 +75,23 @@ function createAxiosError(status: number) {
   );
 }
 
+function renderCompaniesPage(initialEntry: InitialEntry = "/companies") {
+  const router = createMemoryRouter(
+    [
+      {
+        path: "/companies",
+        element: <CompaniesPage />,
+      },
+    ],
+    {
+      initialEntries: [initialEntry],
+    },
+  );
+  const result = renderWithProviders(<RouterProvider router={router} />);
+
+  return { router, ...result };
+}
+
 describe("CompaniesPage", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -81,11 +102,7 @@ describe("CompaniesPage", () => {
   });
 
   it("renders an existing company", async () => {
-    renderWithProviders(
-      <MemoryRouter>
-        <CompaniesPage />
-      </MemoryRouter>,
-    );
+    renderCompaniesPage();
 
     expect(
       await screen.findByRole("heading", { name: "Entreprises" }),
@@ -115,6 +132,62 @@ describe("CompaniesPage", () => {
     expect(screen.getByText("Page 1 sur 1")).toBeInTheDocument();
   });
 
+  it("initializes list controls from the URL", async () => {
+    vi.mocked(getCompanies).mockImplementation(async (filters) =>
+      paginatedCompanies([company], {
+        page: filters?.page ?? 1,
+        pageSize: filters?.pageSize ?? 10,
+        total: 21,
+        totalPages: 3,
+      }),
+    );
+
+    renderCompaniesPage(
+      "/companies?search=Acme&page=2&pageSize=20&sortBy=name&sortOrder=asc",
+    );
+
+    await waitFor(() => {
+      expect(getCompanies).toHaveBeenLastCalledWith({
+        search: "Acme",
+        page: 2,
+        pageSize: 20,
+        sortBy: "name",
+        sortOrder: "asc",
+      });
+    });
+    await screen.findByRole("heading", { name: "Entreprises" });
+    expect(screen.getByLabelText("Recherche")).toHaveValue("Acme");
+    expect(screen.getByLabelText("Trier par")).toHaveValue("name");
+    expect(screen.getByLabelText("Ordre")).toHaveValue("asc");
+    expect(screen.getByLabelText("Par page")).toHaveValue("20");
+  });
+
+  it("resynchronizes list controls when the URL changes without remounting", async () => {
+    const { router } = renderCompaniesPage("/companies?search=Acme");
+
+    await screen.findByRole("heading", { name: company.name });
+
+    await act(async () => {
+      await router.navigate(
+        "/companies?search=Globex&pageSize=20&sortBy=name&sortOrder=asc",
+      );
+    });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Recherche")).toHaveValue("Globex");
+      expect(screen.getByLabelText("Trier par")).toHaveValue("name");
+      expect(screen.getByLabelText("Ordre")).toHaveValue("asc");
+      expect(screen.getByLabelText("Par page")).toHaveValue("20");
+      expect(getCompanies).toHaveBeenLastCalledWith({
+        search: "Globex",
+        page: 1,
+        pageSize: 20,
+        sortBy: "name",
+        sortOrder: "asc",
+      });
+    });
+  });
+
   it("navigates through paginated companies with correct boundaries", async () => {
     vi.mocked(getCompanies).mockImplementation(async (filters) =>
       paginatedCompanies([company], {
@@ -124,11 +197,7 @@ describe("CompaniesPage", () => {
       }),
     );
     const user = userEvent.setup();
-    renderWithProviders(
-      <MemoryRouter>
-        <CompaniesPage />
-      </MemoryRouter>,
-    );
+    renderCompaniesPage();
 
     expect(await screen.findByText("21 entreprises")).toBeInTheDocument();
     expect(screen.getByText("Page 1 sur 3")).toBeInTheDocument();
@@ -161,11 +230,7 @@ describe("CompaniesPage", () => {
       }),
     );
     const user = userEvent.setup();
-    renderWithProviders(
-      <MemoryRouter>
-        <CompaniesPage />
-      </MemoryRouter>,
-    );
+    renderCompaniesPage();
 
     await screen.findByRole("heading", { name: company.name });
     await user.click(screen.getByRole("button", { name: "Suivant" }));
@@ -213,7 +278,7 @@ describe("CompaniesPage", () => {
         name: "Afficher Filtrer les entreprises",
       }),
     );
-    expect(screen.getByLabelText("Recherche")).toHaveValue("  Acme  ");
+    expect(screen.getByLabelText("Recherche")).toHaveValue("Acme");
     expect(screen.getByLabelText("Trier par")).toHaveValue("name");
   });
 
@@ -227,11 +292,7 @@ describe("CompaniesPage", () => {
       }),
     );
     const user = userEvent.setup();
-    renderWithProviders(
-      <MemoryRouter>
-        <CompaniesPage />
-      </MemoryRouter>,
-    );
+    const { router } = renderCompaniesPage();
 
     await screen.findByRole("heading", { name: company.name });
     await user.click(screen.getByRole("button", { name: "Suivant" }));
@@ -249,17 +310,14 @@ describe("CompaniesPage", () => {
       expect(screen.getByLabelText("Ordre")).toHaveValue("desc");
       expect(screen.getByLabelText("Par page")).toHaveValue("10");
       expect(getCompanies).toHaveBeenLastCalledWith(defaultCompanyParams);
+      expect(router.state.location.search).toBe("");
     });
   });
 
   it("creates a company and resets the form", async () => {
     vi.mocked(getCompanies).mockResolvedValue(paginatedCompanies([]));
     const user = userEvent.setup();
-    const { queryClient } = renderWithProviders(
-      <MemoryRouter>
-        <CompaniesPage />
-      </MemoryRouter>,
-    );
+    const { queryClient } = renderCompaniesPage();
     const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
 
     const creationSection = (
@@ -327,11 +385,7 @@ describe("CompaniesPage", () => {
     vi.mocked(createCompany).mockRejectedValue(new Error("Unexpected error"));
     const user = userEvent.setup();
 
-    renderWithProviders(
-      <MemoryRouter>
-        <CompaniesPage />
-      </MemoryRouter>,
-    );
+    renderCompaniesPage();
 
     const creationSection = (
       await screen.findByRole("heading", { name: "Nouvelle entreprise" })
@@ -358,11 +412,7 @@ describe("CompaniesPage", () => {
   it("prefills the edit form with the company", async () => {
     const user = userEvent.setup();
 
-    renderWithProviders(
-      <MemoryRouter>
-        <CompaniesPage />
-      </MemoryRouter>,
-    );
+    renderCompaniesPage();
 
     await user.click(await screen.findByRole("button", { name: "Modifier" }));
     const cancelButton = screen.getByRole("button", { name: "Annuler" });
@@ -385,11 +435,7 @@ describe("CompaniesPage", () => {
   it("cancels editing without updating the company", async () => {
     const user = userEvent.setup();
 
-    renderWithProviders(
-      <MemoryRouter>
-        <CompaniesPage />
-      </MemoryRouter>,
-    );
+    renderCompaniesPage();
 
     await user.click(await screen.findByRole("button", { name: "Modifier" }));
     const cancelButton = screen.getByRole("button", { name: "Annuler" });
@@ -423,11 +469,7 @@ describe("CompaniesPage", () => {
     };
     vi.mocked(updateCompany).mockResolvedValue(updatedCompany);
     const user = userEvent.setup();
-    const { queryClient } = renderWithProviders(
-      <MemoryRouter>
-        <CompaniesPage />
-      </MemoryRouter>,
-    );
+    const { queryClient } = renderCompaniesPage();
     const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
 
     await user.click(await screen.findByRole("button", { name: "Modifier" }));
@@ -475,11 +517,7 @@ describe("CompaniesPage", () => {
   it("does not delete a company when confirmation is cancelled", async () => {
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
     const user = userEvent.setup();
-    const { queryClient } = renderWithProviders(
-      <MemoryRouter>
-        <CompaniesPage />
-      </MemoryRouter>,
-    );
+    const { queryClient } = renderCompaniesPage();
     const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
 
     await user.click(await screen.findByRole("button", { name: "Supprimer" }));
@@ -503,11 +541,7 @@ describe("CompaniesPage", () => {
       .mockRejectedValueOnce(createAxiosError(404));
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     const user = userEvent.setup();
-    const { queryClient } = renderWithProviders(
-      <MemoryRouter>
-        <CompaniesPage />
-      </MemoryRouter>,
-    );
+    const { queryClient } = renderCompaniesPage();
     const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
 
     await user.click(await screen.findByRole("button", { name: "Supprimer" }));
@@ -536,11 +570,7 @@ describe("CompaniesPage", () => {
     vi.mocked(deleteCompany).mockRejectedValue(createAxiosError(409));
     vi.spyOn(window, "confirm").mockReturnValue(true);
     const user = userEvent.setup();
-    const { queryClient } = renderWithProviders(
-      <MemoryRouter>
-        <CompaniesPage />
-      </MemoryRouter>,
-    );
+    const { queryClient } = renderCompaniesPage();
     const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
 
     await user.click(await screen.findByRole("button", { name: "Supprimer" }));
