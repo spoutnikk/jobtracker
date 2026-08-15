@@ -9,6 +9,7 @@ describe('AuthController', () => {
 
   const authServiceMock = {
     sessionTtlSeconds: 3600,
+    register: jest.fn(),
     login: jest.fn(),
     logout: jest.fn(),
   };
@@ -33,6 +34,36 @@ describe('AuthController', () => {
 
   afterEach(() => {
     delete process.env.NODE_ENV;
+  });
+
+  it('sets the session cookie and returns the public user after registration', async () => {
+    authServiceMock.register.mockResolvedValue({
+      user,
+      token: 'registration-token',
+    });
+    const responseMock = { cookie: jest.fn() };
+    const response = responseMock as unknown as Response;
+    const dto = {
+      firstName: 'Ada',
+      lastName: 'Lovelace',
+      email: user.email,
+      password: 'correct-password',
+    };
+
+    await expect(controller.register(dto, response)).resolves.toEqual(user);
+
+    expect(authServiceMock.register).toHaveBeenCalledWith(dto);
+    expect(responseMock.cookie).toHaveBeenCalledWith(
+      AUTH_SESSION_COOKIE_NAME,
+      'registration-token',
+      {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: false,
+        path: '/',
+        maxAge: 3_600_000,
+      },
+    );
   });
 
   it('sets the session cookie and returns the public user after login', async () => {

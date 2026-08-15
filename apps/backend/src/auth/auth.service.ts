@@ -1,11 +1,15 @@
-import { Injectable } from '@nestjs/common';
-import { UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import argon2 from 'argon2';
 import { createHash, randomBytes } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import type { AuthenticatedUser } from './authenticated-user';
 import { readAuthSessionTtlSeconds } from './auth-cookie';
 import type { LoginDto } from './dto/login.dto';
+import type { RegisterDto } from './dto/register.dto';
 
 const INVALID_CREDENTIALS_MESSAGE = 'Email ou mot de passe incorrect';
 export const DUMMY_PASSWORD_HASH =
@@ -26,6 +30,62 @@ export class AuthService {
 
   constructor(private readonly prisma: PrismaService) {
     this.sessionTtlSeconds = readAuthSessionTtlSeconds(process.env);
+  }
+
+  async register(registerDto: RegisterDto): Promise<CreatedAuthSession> {
+    const email = registerDto.email.trim().toLowerCase();
+    const firstName = registerDto.firstName.trim();
+    const lastName = registerDto.lastName.trim();
+    const passwordHash = await argon2.hash(registerDto.password);
+    const token = randomBytes(32).toString('base64url');
+    const expiresAt = new Date(Date.now() + this.sessionTtlSeconds * 1000);
+
+    try {
+      const user = await this.prisma.$transaction(async (tx) => {
+        const createdUser = await tx.user.create({
+          data: {
+            email,
+            firstName,
+            lastName,
+            passwordHash,
+          },
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        });
+
+        await tx.session.create({
+          data: {
+            tokenHash: hashSessionToken(token),
+            expiresAt,
+            userId: createdUser.id,
+          },
+        });
+
+        return createdUser;
+      });
+
+      return {
+        token,
+        user,
+      };
+    } catch (error: unknown) {
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        (error as { code?: unknown }).code === 'P2002'
+      ) {
+        throw new ConflictException(
+          'Un compte existe déjà avec cette adresse email',
+        );
+      }
+
+      throw error;
+    }
   }
 
   async login(loginDto: LoginDto): Promise<CreatedAuthSession> {

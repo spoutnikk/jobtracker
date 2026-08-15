@@ -1,4 +1,4 @@
-import { UnauthorizedException } from '@nestjs/common';
+import { ConflictException, UnauthorizedException } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import { Test, type TestingModule } from '@nestjs/testing';
 import argon2 from 'argon2';
@@ -9,6 +9,7 @@ jest.mock('argon2', () => ({
   __esModule: true,
   default: {
     verify: jest.fn(),
+    hash: jest.fn(),
   },
 }));
 
@@ -16,8 +17,10 @@ describe('AuthService', () => {
   let service: AuthService;
 
   const prismaServiceMock = {
+    $transaction: jest.fn(),
     user: {
       findUnique: jest.fn(),
+      create: jest.fn(),
     },
     session: {
       create: jest.fn(),
@@ -26,6 +29,7 @@ describe('AuthService', () => {
     },
   };
   const verifyPassword = jest.mocked(argon2.verify);
+  const hashPassword = jest.mocked(argon2.hash);
   const publicUser = {
     id: 7,
     email: 'user@example.com',
@@ -36,6 +40,10 @@ describe('AuthService', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     process.env.AUTH_SESSION_TTL_SECONDS = '3600';
+    prismaServiceMock.$transaction.mockImplementation(
+      (callback: (transaction: typeof prismaServiceMock) => Promise<unknown>) =>
+        callback(prismaServiceMock),
+    );
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -50,6 +58,81 @@ describe('AuthService', () => {
   afterEach(() => {
     jest.useRealTimers();
     delete process.env.AUTH_SESSION_TTL_SECONDS;
+  });
+
+  it('creates a user and a server session atomically on registration', async () => {
+    const now = new Date('2026-08-11T12:00:00.000Z');
+    jest.useFakeTimers().setSystemTime(now);
+    hashPassword.mockResolvedValue('new-password-hash');
+    prismaServiceMock.user.create.mockResolvedValue(publicUser);
+    prismaServiceMock.session.create.mockResolvedValue({ id: 'session-id' });
+
+    const result = await service.register({
+      firstName: '  Ada ',
+      lastName: ' Lovelace  ',
+      email: '  USER@Example.com ',
+      password: 'correct-password',
+    });
+
+    expect(hashPassword).toHaveBeenCalledWith('correct-password');
+    expect(prismaServiceMock.$transaction).toHaveBeenCalledTimes(1);
+    expect(prismaServiceMock.user.create).toHaveBeenCalledWith({
+      data: {
+        email: 'user@example.com',
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+        passwordHash: 'new-password-hash',
+      },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+      },
+    });
+    expect(result.user).toEqual(publicUser);
+    expect(result.token).toEqual(expect.any(String));
+    expect(prismaServiceMock.session.create).toHaveBeenCalledWith({
+      data: {
+        tokenHash: createHash('sha256').update(result.token).digest('hex'),
+        expiresAt: new Date('2026-08-11T13:00:00.000Z'),
+        userId: publicUser.id,
+      },
+    });
+  });
+
+  it('returns a stable conflict when the normalized email already exists', async () => {
+    hashPassword.mockResolvedValue('new-password-hash');
+    prismaServiceMock.$transaction.mockRejectedValue({ code: 'P2002' });
+
+    const error: unknown = await service
+      .register({
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+        email: '  USER@Example.com ',
+        password: 'correct-password',
+      })
+      .catch((caughtError: unknown) => caughtError);
+
+    expect(error).toBeInstanceOf(ConflictException);
+    expect((error as ConflictException).message).toBe(
+      'Un compte existe déjà avec cette adresse email',
+    );
+  });
+
+  it('propagates an unexpected registration failure', async () => {
+    const registrationError = new Error('Database unavailable');
+    hashPassword.mockResolvedValue('new-password-hash');
+    prismaServiceMock.$transaction.mockRejectedValue(registrationError);
+
+    await expect(
+      service.register({
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+        email: 'user@example.com',
+        password: 'correct-password',
+      }),
+    ).rejects.toBe(registrationError);
   });
 
   it('creates a server session and returns a public user for valid credentials', async () => {

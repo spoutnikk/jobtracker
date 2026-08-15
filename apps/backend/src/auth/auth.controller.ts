@@ -18,11 +18,32 @@ import {
 import { AuthService } from './auth.service';
 import { CurrentUser } from './current-user.decorator';
 import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
 import { Public } from './public.decorator';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+
+  @Public()
+  @Post('register')
+  async register(
+    @Body() registerDto: RegisterDto,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<AuthenticatedUser> {
+    const session = await this.authService.register(registerDto);
+
+    response.cookie(
+      AUTH_SESSION_COOKIE_NAME,
+      session.token,
+      getAuthSessionCookieOptions(
+        this.authService.sessionTtlSeconds,
+        process.env.NODE_ENV,
+      ),
+    );
+
+    return session.user;
+  }
 
   @Public()
   @Post('login')
