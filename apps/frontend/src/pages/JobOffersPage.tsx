@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { useState } from "react";
 import CollapsibleSection from "../components/CollapsibleSection";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { getAllCompanies } from "../api/companies";
 import {
   createJobOffer,
@@ -31,48 +31,20 @@ const contractTypeLabels: Record<ContractType, string> = {
 
 const contractTypes = Object.keys(contractTypeLabels) as ContractType[];
 
-function getInitialJobOfferFilters(): {
-  search: string;
-  companyId: string;
-  contractType: ContractType | "";
-} {
-  const searchParams = new URLSearchParams(window.location.search);
-  const search = searchParams.get("search")?.trim() ?? "";
-  const companyIdParam = searchParams.get("companyId");
-  const companyIdNumber = companyIdParam ? Number(companyIdParam) : NaN;
-  const companyId =
-    Number.isInteger(companyIdNumber) && companyIdNumber > 0
-      ? String(companyIdNumber)
-      : "";
-  const contractTypeParam = searchParams.get("contractType");
-  const contractType =
-    contractTypeParam &&
-    contractTypes.includes(contractTypeParam as ContractType)
-      ? (contractTypeParam as ContractType)
-      : "";
-
-  return { search, companyId, contractType };
-}
-
-function replaceJobOfferFilterParams(
-  updates: Partial<Record<"search" | "companyId" | "contractType", string>>,
-) {
-  const searchParams = new URLSearchParams(window.location.search);
-
-  for (const [key, value] of Object.entries(updates)) {
-    if (value) {
-      searchParams.set(key, value);
-    } else {
-      searchParams.delete(key);
-    }
+function parsePositiveInteger(value: string | null) {
+  if (!value) {
+    return null;
   }
 
-  const query = searchParams.toString();
-  window.history.replaceState(
-    window.history.state,
-    "",
-    `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`,
-  );
+  const parsedValue = Number(value);
+
+  return Number.isInteger(parsedValue) && parsedValue > 0 ? parsedValue : null;
+}
+
+function parseContractType(value: string | null): ContractType | "" {
+  return value && contractTypes.includes(value as ContractType)
+    ? (value as ContractType)
+    : "";
 }
 
 function toDatetimeLocal(value: string | null) {
@@ -88,22 +60,66 @@ function toDatetimeLocal(value: string | null) {
 
 function JobOffersPage() {
   const queryClient = useQueryClient();
-  const initialFilters = getInitialJobOfferFilters();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [filterSearchInput, setFilterSearchInput] = useState(
-    initialFilters.search,
+  const filterSearch = searchParams.get("search")?.trim() ?? "";
+  const filterCompanyId = parsePositiveInteger(searchParams.get("companyId"));
+  const filterContractType = parseContractType(
+    searchParams.get("contractType"),
   );
-  const [filterSearch, setFilterSearch] = useState(initialFilters.search);
-  const [filterCompanyId, setFilterCompanyId] = useState(
-    initialFilters.companyId,
-  );
-  const [filterContractType, setFilterContractType] = useState<
-    ContractType | ""
-  >(initialFilters.contractType);
-  const [page, setPage] = useState(1);
+  const [filterSearchDraft, setFilterSearchDraft] = useState(() => ({
+    base: filterSearch,
+    value: filterSearch,
+  }));
+  const filterSearchInput =
+    filterSearchDraft.base === filterSearch
+      ? filterSearchDraft.value
+      : filterSearch;
+  const filterKey = `${filterSearch}\u0000${filterCompanyId ?? ""}\u0000${filterContractType}`;
+
+  const [pageState, setPageState] = useState({
+    filterKey,
+    page: 1,
+  });
+
+  const page = pageState.filterKey === filterKey ? pageState.page : 1;
+
+  function setPage(nextPage: number | ((currentPage: number) => number)) {
+    setPageState((currentState) => {
+      const currentPage =
+        currentState.filterKey === filterKey ? currentState.page : 1;
+
+      return {
+        filterKey,
+        page: typeof nextPage === "function" ? nextPage(currentPage) : nextPage,
+      };
+    });
+  }
+
   const [pageSize, setPageSize] = useState(10);
   const [sortBy, setSortBy] = useState<JobOfferSortBy>("createdAt");
   const [sortOrder, setSortOrder] = useState<JobOfferSortOrder>("desc");
+
+  function replaceJobOfferFilterParams(
+    updates: Partial<Record<"search" | "companyId" | "contractType", string>>,
+  ) {
+    setSearchParams(
+      (currentSearchParams) => {
+        const nextSearchParams = new URLSearchParams(currentSearchParams);
+
+        for (const [key, value] of Object.entries(updates)) {
+          if (value) {
+            nextSearchParams.set(key, value);
+          } else {
+            nextSearchParams.delete(key);
+          }
+        }
+
+        return nextSearchParams;
+      },
+      { replace: true },
+    );
+  }
 
   const [title, setTitle] = useState("");
   const [companyId, setCompanyId] = useState("");
@@ -142,7 +158,7 @@ function JobOffersPage() {
 
   const jobOfferFilters: FindJobOffersParams = {
     search: filterSearch || undefined,
-    companyId: filterCompanyId ? Number(filterCompanyId) : undefined,
+    companyId: filterCompanyId ?? undefined,
     contractType: filterContractType || undefined,
     page,
     pageSize,
@@ -386,8 +402,10 @@ function JobOffersPage() {
             event.preventDefault();
             const nextSearch = filterSearchInput.trim();
 
-            setFilterSearchInput(nextSearch);
-            setFilterSearch(nextSearch);
+            setFilterSearchDraft({
+              base: nextSearch,
+              value: nextSearch,
+            });
             setPage(1);
             replaceJobOfferFilterParams({ search: nextSearch });
           }}
@@ -400,7 +418,12 @@ function JobOffersPage() {
               <input
                 type="search"
                 value={filterSearchInput}
-                onChange={(event) => setFilterSearchInput(event.target.value)}
+                onChange={(event) =>
+                  setFilterSearchDraft({
+                    base: filterSearch,
+                    value: event.target.value,
+                  })
+                }
                 className="rounded-md border border-gray-300 px-3 py-2"
               />
             </label>
@@ -409,11 +432,10 @@ function JobOffersPage() {
                 Filtrer par société
               </span>
               <select
-                value={filterCompanyId}
+                value={filterCompanyId ?? ""}
                 onChange={(event) => {
                   const nextCompanyId = event.target.value;
 
-                  setFilterCompanyId(nextCompanyId);
                   setPage(1);
                   replaceJobOfferFilterParams({ companyId: nextCompanyId });
                 }}
@@ -437,7 +459,6 @@ function JobOffersPage() {
                   const nextContractType = event.target.value as
                     ContractType | "";
 
-                  setFilterContractType(nextContractType);
                   setPage(1);
                   replaceJobOfferFilterParams({
                     contractType: nextContractType,
@@ -513,10 +534,7 @@ function JobOffersPage() {
             <button
               type="button"
               onClick={() => {
-                setFilterSearchInput("");
-                setFilterSearch("");
-                setFilterCompanyId("");
-                setFilterContractType("");
+                setFilterSearchDraft({ base: "", value: "" });
                 replaceJobOfferFilterParams({
                   search: "",
                   companyId: "",

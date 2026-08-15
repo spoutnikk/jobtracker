@@ -2,7 +2,11 @@ import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AxiosError, AxiosHeaders } from "axios";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { MemoryRouter } from "react-router-dom";
+import {
+  createMemoryRouter,
+  RouterProvider,
+  type InitialEntry,
+} from "react-router-dom";
 import { getAllCompanies } from "../api/companies";
 import {
   createJobOffer,
@@ -128,18 +132,26 @@ function createAxiosError(status: number) {
   );
 }
 
-function renderJobOffersPage() {
-  return renderWithProviders(
-    <MemoryRouter>
-      <JobOffersPage />
-    </MemoryRouter>,
+function renderJobOffersPage(initialEntry: InitialEntry = "/job-offers") {
+  const router = createMemoryRouter(
+    [
+      {
+        path: "/job-offers",
+        element: <JobOffersPage />,
+      },
+    ],
+    {
+      initialEntries: [initialEntry],
+    },
   );
+  const result = renderWithProviders(<RouterProvider router={router} />);
+
+  return { router, ...result };
 }
 
 describe("JobOffersPage", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    window.history.replaceState({}, "", "/job-offers");
     vi.mocked(getJobOffers).mockResolvedValue(paginatedJobOffers([]));
     vi.mocked(getAllCompanies).mockResolvedValue([company, secondCompany]);
     vi.mocked(createJobOffer).mockResolvedValue(jobOffer);
@@ -160,15 +172,11 @@ describe("JobOffersPage", () => {
   });
 
   it("initializes filters from the URL", async () => {
-    window.history.pushState(
-      {},
-      "",
-      "/job-offers?search=React&companyId=1&contractType=CDI",
-    );
-
     vi.mocked(getJobOffers).mockResolvedValue(paginatedJobOffers([jobOffer]));
 
-    renderJobOffersPage();
+    renderJobOffersPage(
+      "/job-offers?search=React&companyId=1&contractType=CDI",
+    );
 
     await waitFor(() => {
       expect(getJobOffers).toHaveBeenLastCalledWith({
@@ -184,6 +192,34 @@ describe("JobOffersPage", () => {
     expect(screen.getByLabelText("Filtrer par contrat")).toHaveValue("CDI");
   });
 
+  it("resynchronizes filters when the URL changes without remounting", async () => {
+    vi.mocked(getJobOffers).mockResolvedValue(paginatedJobOffers([jobOffer]));
+
+    const { router } = renderJobOffersPage(
+      "/job-offers?search=React&companyId=1&contractType=CDI",
+    );
+
+    await screen.findByRole("heading", { name: "Offres d’emploi" });
+
+    await act(async () => {
+      await router.navigate(
+        "/job-offers?search=TypeScript&companyId=2&contractType=CDD",
+      );
+    });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Recherche")).toHaveValue("TypeScript");
+      expect(screen.getByLabelText("Filtrer par société")).toHaveValue("2");
+      expect(screen.getByLabelText("Filtrer par contrat")).toHaveValue("CDD");
+      expect(getJobOffers).toHaveBeenLastCalledWith({
+        ...defaultJobOfferParams,
+        search: "TypeScript",
+        companyId: secondCompany.id,
+        contractType: "CDD",
+      });
+    });
+  });
+
   it("navigates through pages and sends all filters", async () => {
     vi.mocked(getJobOffers).mockImplementation(async (filters) =>
       paginatedJobOffers([jobOffer], {
@@ -193,7 +229,7 @@ describe("JobOffersPage", () => {
       }),
     );
     const user = userEvent.setup();
-    renderJobOffersPage();
+    const { router } = renderJobOffersPage();
 
     expect(await screen.findByText("21 offres")).toBeInTheDocument();
     expect(screen.getByText("Page 1 sur 3")).toBeInTheDocument();
@@ -231,9 +267,9 @@ describe("JobOffersPage", () => {
     });
     const [filters] = vi.mocked(getJobOffers).mock.calls.at(-1) ?? [];
     expect(filters).not.toHaveProperty("userId");
-    expect(window.location.search).toContain("search=React");
-    expect(window.location.search).toContain(`companyId=${company.id}`);
-    expect(window.location.search).toContain("contractType=CDI");
+    expect(router.state.location.search).toContain("search=React");
+    expect(router.state.location.search).toContain(`companyId=${company.id}`);
+    expect(router.state.location.search).toContain("contractType=CDI");
 
     const filtersSection = screen
       .getByRole("heading", { name: "Filtrer les offres" })
@@ -267,7 +303,7 @@ describe("JobOffersPage", () => {
       }),
     );
     const user = userEvent.setup();
-    renderJobOffersPage();
+    const { router } = renderJobOffersPage();
 
     await screen.findByRole("heading", { name: jobOffer.title });
     await user.type(screen.getByLabelText("Recherche"), "React");
@@ -293,7 +329,7 @@ describe("JobOffersPage", () => {
       expect(screen.getByLabelText("Trier par")).toHaveValue("createdAt");
       expect(screen.getByLabelText("Ordre")).toHaveValue("desc");
       expect(screen.getByLabelText("Par page")).toHaveValue("10");
-      expect(window.location.search).toBe("");
+      expect(router.state.location.search).toBe("");
     });
   });
 
