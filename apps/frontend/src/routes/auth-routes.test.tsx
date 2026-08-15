@@ -1,6 +1,6 @@
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { createMemoryRouter, RouterProvider } from "react-router-dom";
+import { createMemoryRouter, Outlet, RouterProvider } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import type { AuthenticatedUser } from "../api/auth";
 import {
@@ -19,6 +19,15 @@ const authenticatedUser: AuthenticatedUser = {
   lastName: "Lovelace",
 };
 
+function TestLayout() {
+  return (
+    <div>
+      <p>Application layout</p>
+      <Outlet />
+    </div>
+  );
+}
+
 function renderAuthRoutes(
   status: AuthStatus,
   initialEntry: string,
@@ -34,11 +43,17 @@ function renderAuthRoutes(
       {
         element: <ProtectedRoute />,
         children: [
-          { path: "/private", element: <p>Private content</p> },
-          { path: "/dashboard", element: <p>Dashboard content</p> },
           {
-            path: "/applications/:id",
-            element: <p>Application detail content</p>,
+            element: <TestLayout />,
+            children: [
+              { path: "/private", element: <p>Private content</p> },
+              { path: "/dashboard", element: <p>Dashboard content</p> },
+              {
+                path: "/applications/:id",
+                element: <p>Application detail content</p>,
+              },
+              { path: "*", element: <p>Not found content</p> },
+            ],
           },
         ],
       },
@@ -115,6 +130,23 @@ describe("Auth routes", () => {
     renderAuthRoutes("authenticated", "/register");
 
     expect(await screen.findByText("Dashboard content")).toBeInTheDocument();
+  });
+
+  it("renders an unknown route inside the authenticated application layout", async () => {
+    renderAuthRoutes("authenticated", "/does-not-exist");
+
+    expect(await screen.findByText("Application layout")).toBeInTheDocument();
+    expect(screen.getByText("Not found content")).toBeInTheDocument();
+  });
+
+  it("redirects an anonymous unknown route to login", async () => {
+    const { router } = renderAuthRoutes("anonymous", "/does-not-exist");
+
+    expect(await screen.findByText("Login content")).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/login");
+    expect(router.state.location.state).toMatchObject({
+      from: { pathname: "/does-not-exist" },
+    });
   });
 
   it("does not render private content while authentication initializes", () => {

@@ -11,6 +11,7 @@ import JobOffersPage from "../pages/JobOffersPage";
 import LoginPage from "../pages/LoginPage";
 import RegisterPage from "../pages/RegisterPage";
 import ProfilePage from "../pages/ProfilePage";
+import NotFoundPage from "../pages/NotFoundPage";
 import AnonymousOnlyRoute from "./AnonymousOnlyRoute";
 import ProtectedRoute from "./ProtectedRoute";
 
@@ -69,6 +70,10 @@ export const router = createBrowserRouter([
           {
             path: "/profile",
             element: <ProfilePage />,
+          },
+          {
+            path: "*",
+            element: <NotFoundPage />,
           },
         ],
       },
