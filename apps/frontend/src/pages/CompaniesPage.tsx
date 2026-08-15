@@ -12,6 +12,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import CollapsibleSection from "../components/CollapsibleSection";
 import PageShell from "../components/PageShell";
+import StatusMessage from "../components/StatusMessage";
 
 function CompaniesPage() {
   const [searchInput, setSearchInput] = useState("");
@@ -45,13 +46,16 @@ function CompaniesPage() {
   const [deleteErrorCompanyId, setDeleteErrorCompanyId] = useState<
     number | null
   >(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const createCompanyMutation = useMutation({
     mutationFn: createCompany,
+    onMutate: () => setSuccessMessage(null),
     onSuccess: async () => {
       setName("");
       setWebsite("");
       setCity("");
+      setSuccessMessage("Entreprise créée avec succès.");
 
       await queryClient.invalidateQueries({
         queryKey: ["companies"],
@@ -71,8 +75,10 @@ function CompaniesPage() {
         city?: string;
       };
     }) => updateCompany(id, input),
+    onMutate: () => setSuccessMessage(null),
     onSuccess: async () => {
       setEditingCompanyId(null);
+      setSuccessMessage("Entreprise modifiée avec succès.");
 
       await queryClient.invalidateQueries({
         queryKey: ["companies"],
@@ -82,9 +88,11 @@ function CompaniesPage() {
 
   const deleteCompanyMutation = useMutation({
     mutationFn: deleteCompany,
+    onMutate: () => setSuccessMessage(null),
 
     onSuccess: async () => {
       setDeleteErrorCompanyId(null);
+      setSuccessMessage("Entreprise supprimée avec succès.");
 
       await queryClient.invalidateQueries({
         queryKey: ["companies"],
@@ -125,6 +133,11 @@ function CompaniesPage() {
   return (
     <PageShell>
       <h1 className="text-3xl font-bold">Entreprises</h1>
+      {successMessage && (
+        <StatusMessage variant="success" className="mt-4">
+          {successMessage}
+        </StatusMessage>
+      )}
       <CollapsibleSection title="Filtrer les entreprises" defaultOpen>
         <form
           className="mt-4"

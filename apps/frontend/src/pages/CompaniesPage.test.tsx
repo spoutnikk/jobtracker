@@ -313,6 +313,10 @@ describe("CompaniesPage", () => {
         queryKey: ["companies"],
       });
     });
+    expect(screen.getByText("Entreprise créée avec succès.")).toHaveAttribute(
+      "role",
+      "status",
+    );
     expect(
       screen.queryByText("Impossible de créer l'entreprise."),
     ).not.toBeInTheDocument();
@@ -463,6 +467,9 @@ describe("CompaniesPage", () => {
         queryKey: ["companies"],
       });
     });
+    expect(
+      screen.getByText("Entreprise modifiée avec succès."),
+    ).toHaveAttribute("role", "status");
   });
 
   it("does not delete a company when confirmation is cancelled", async () => {
@@ -515,6 +522,9 @@ describe("CompaniesPage", () => {
     const [deletedId] = vi.mocked(deleteCompany).mock.calls[0];
 
     expect(deletedId).toBe(company.id);
+    expect(
+      screen.getByText("Entreprise supprimée avec succès."),
+    ).toHaveAttribute("role", "status");
     expect(
       screen.queryByText(
         "Impossible de supprimer cette entreprise. Vérifiez qu'aucune offre d'emploi ne lui est encore associée.",
