@@ -36,6 +36,10 @@ export async function changePassword(
   await apiClient.patch("/auth/me/password", input);
 }
 
+export async function revokeOtherSessions(): Promise<void> {
+  await apiClient.post("/auth/sessions/others");
+}
+
 export async function updateProfile(
   input: UpdateProfileInput,
 ): Promise<AuthenticatedUser> {

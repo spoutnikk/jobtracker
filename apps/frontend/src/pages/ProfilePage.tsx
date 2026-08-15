@@ -3,6 +3,7 @@ import axios from "axios";
 import { useState } from "react";
 import {
   changePassword,
+  revokeOtherSessions,
   updateProfile,
   type AuthenticatedUser,
   type ChangePasswordInput,
@@ -55,6 +56,10 @@ function ProfileForm({ user }: { user: AuthenticatedUser }) {
     },
   });
 
+  const revokeOtherSessionsMutation = useMutation({
+    mutationFn: revokeOtherSessions,
+  });
+
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -90,6 +95,18 @@ function ProfileForm({ user }: { user: AuthenticatedUser }) {
     };
 
     changePasswordMutation.mutate(input);
+  }
+
+  function handleRevokeOtherSessions() {
+    const confirmed = window.confirm(
+      "Déconnecter tous les autres appareils ? Votre session actuelle restera active.",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    revokeOtherSessionsMutation.mutate();
   }
 
   const errorMessage =
@@ -252,6 +269,37 @@ function ProfileForm({ user }: { user: AuthenticatedUser }) {
               : "Modifier le mot de passe"}
           </button>
         </form>
+      </section>
+
+      <section className="mt-8 rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+        <h2 className="text-xl font-semibold">Sessions</h2>
+        <p className="mt-2 text-sm text-gray-600">
+          Déconnectez tous les autres appareils sur lesquels votre compte est
+          actuellement connecté. Votre session actuelle restera active.
+        </p>
+
+        {revokeOtherSessionsMutation.isSuccess && (
+          <StatusMessage variant="success" className="mt-4">
+            Les autres appareils ont été déconnectés.
+          </StatusMessage>
+        )}
+
+        {revokeOtherSessionsMutation.isError && (
+          <StatusMessage variant="error" className="mt-4">
+            Impossible de déconnecter les autres appareils.
+          </StatusMessage>
+        )}
+
+        <button
+          type="button"
+          onClick={handleRevokeOtherSessions}
+          disabled={revokeOtherSessionsMutation.isPending}
+          className="mt-4 rounded-md border border-red-300 px-4 py-2 font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+        >
+          {revokeOtherSessionsMutation.isPending
+            ? "Déconnexion..."
+            : "Déconnecter les autres appareils"}
+        </button>
       </section>
     </PageShell>
   );

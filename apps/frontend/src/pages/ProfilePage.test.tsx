@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   changePassword,
   me,
+  revokeOtherSessions,
   updateProfile,
   type AuthenticatedUser,
 } from "../api/auth";
@@ -17,6 +18,7 @@ import ProfilePage from "./ProfilePage";
 vi.mock("../api/auth", () => ({
   changePassword: vi.fn(),
   me: vi.fn(),
+  revokeOtherSessions: vi.fn(),
   updateProfile: vi.fn(),
 }));
 
@@ -69,6 +71,7 @@ describe("ProfilePage", () => {
     vi.restoreAllMocks();
     vi.mocked(changePassword).mockReset();
     vi.mocked(me).mockReset();
+    vi.mocked(revokeOtherSessions).mockReset();
     vi.mocked(updateProfile).mockReset();
     vi.mocked(me).mockResolvedValue(authenticatedUser);
   });
@@ -325,6 +328,85 @@ describe("ProfilePage", () => {
     const resolvePendingPasswordChange = resolvePasswordChange;
     await act(async () => {
       resolvePendingPasswordChange();
+    });
+  });
+
+  it("revokes other sessions after confirmation", async () => {
+    vi.mocked(revokeOtherSessions).mockResolvedValue(undefined);
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    renderProfile();
+    const user = userEvent.setup();
+
+    await screen.findByRole("heading", { name: "Profil" });
+    await user.click(
+      screen.getByRole("button", { name: "Déconnecter les autres appareils" }),
+    );
+
+    expect(revokeOtherSessions).toHaveBeenCalledTimes(1);
+    expect(
+      await screen.findByText("Les autres appareils ont été déconnectés."),
+    ).toBeInTheDocument();
+  });
+
+  it("does not revoke other sessions when confirmation is cancelled", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+    renderProfile();
+    const user = userEvent.setup();
+
+    await screen.findByRole("heading", { name: "Profil" });
+    await user.click(
+      screen.getByRole("button", { name: "Déconnecter les autres appareils" }),
+    );
+
+    expect(revokeOtherSessions).not.toHaveBeenCalled();
+  });
+
+  it("shows a stable error when other-session revocation fails", async () => {
+    vi.mocked(revokeOtherSessions).mockRejectedValue(
+      new Error("Network unavailable"),
+    );
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    renderProfile();
+    const user = userEvent.setup();
+
+    await screen.findByRole("heading", { name: "Profil" });
+    await user.click(
+      screen.getByRole("button", { name: "Déconnecter les autres appareils" }),
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Impossible de déconnecter les autres appareils.",
+    );
+  });
+
+  it("disables other-session revocation while the request is pending", async () => {
+    let resolveRevocation: (() => void) | undefined;
+    vi.mocked(revokeOtherSessions).mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveRevocation = resolve;
+        }),
+    );
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    renderProfile();
+    const user = userEvent.setup();
+
+    await screen.findByRole("heading", { name: "Profil" });
+    await user.click(
+      screen.getByRole("button", { name: "Déconnecter les autres appareils" }),
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Déconnexion..." }),
+    ).toBeDisabled();
+
+    if (!resolveRevocation) {
+      throw new Error("Session revocation resolver was not initialized");
+    }
+
+    const resolvePendingRevocation = resolveRevocation;
+    await act(async () => {
+      resolvePendingRevocation();
     });
   });
 
