@@ -8,6 +8,7 @@ import {
   updateApplication,
   type Application,
 } from "../api/applications";
+import PageShell from "../components/PageShell";
 
 type CalendarEventType = "FOLLOW_UP" | "INTERVIEW";
 
@@ -536,19 +537,19 @@ function CalendarPage() {
 
   if (followUpsQuery.isPending || interviewsQuery.isPending) {
     return (
-      <main className="min-h-screen p-8">
+      <PageShell>
         <p>Chargement du calendrier...</p>
-      </main>
+      </PageShell>
     );
   }
 
   if (followUpsQuery.isError || interviewsQuery.isError) {
     return (
-      <main className="min-h-screen p-8">
+      <PageShell>
         <p className="text-red-600">
           Impossible de charger les relances ou les entretiens.
         </p>
-      </main>
+      </PageShell>
     );
   }
 
@@ -561,199 +562,185 @@ function CalendarPage() {
   const days = groupEventsByDay(upcomingEvents);
 
   return (
-    <main className="min-h-screen p-8">
-      <div className="mx-auto max-w-5xl">
-        <h1 className="text-3xl font-bold">Calendrier</h1>
+    <PageShell>
+      <h1 className="text-3xl font-bold">Calendrier</h1>
 
-        <MonthlyCalendar
-          events={events}
-          onAddEvent={(date) => {
-            setSelectedEventDate(getDayKey(date));
-          }}
-          onMonthChange={setActiveCalendarMonth}
-        />
-        {selectedEventDate && (
-          <section className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-            <h2
-              ref={eventFormHeadingRef}
-              tabIndex={-1}
-              className="text-xl font-semibold outline-none"
-            >
-              Ajouter un événement
-            </h2>
-            <div className="mt-4">
-              <label
-                htmlFor="calendar-event-type"
-                className="block font-medium"
-              >
-                Type d'événement
-              </label>
+      <MonthlyCalendar
+        events={events}
+        onAddEvent={(date) => {
+          setSelectedEventDate(getDayKey(date));
+        }}
+        onMonthChange={setActiveCalendarMonth}
+      />
+      {selectedEventDate && (
+        <section className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+          <h2
+            ref={eventFormHeadingRef}
+            tabIndex={-1}
+            className="text-xl font-semibold outline-none"
+          >
+            Ajouter un événement
+          </h2>
+          <div className="mt-4">
+            <label htmlFor="calendar-event-type" className="block font-medium">
+              Type d'événement
+            </label>
 
-              <select
-                id="calendar-event-type"
-                value={selectedEventType}
-                onChange={(event) => {
-                  setSelectedEventType(
-                    event.target.value as "FOLLOW_UP" | "INTERVIEW",
-                  );
-                }}
-                className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
-              >
-                <option value="FOLLOW_UP">Relance</option>
-                <option value="INTERVIEW">Entretien</option>
-              </select>
-            </div>
-            <div className="mt-4">
-              <label
-                htmlFor="calendar-application"
-                className="block font-medium"
-              >
-                Candidature
-              </label>
-              <select
-                id="calendar-application"
-                value={selectedApplicationId}
-                onChange={(event) => {
-                  setSelectedApplicationId(event.target.value);
-                }}
-                className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
-              >
-                <option value="">Sélectionner une candidature</option>
-
-                {applicationsQuery.data?.map((application) => (
-                  <option key={application.id} value={application.id}>
-                    {application.jobOffer.title} —{" "}
-                    {application.jobOffer.company.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="mt-4">
-              <label
-                htmlFor="calendar-event-date"
-                className="block font-medium"
-              >
-                Date de l'événement
-              </label>
-              <input
-                id="calendar-event-date"
-                type="date"
-                value={selectedEventDate}
-                readOnly
-                className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
-              />
-            </div>
-            <div className="mt-4">
-              <label
-                htmlFor="calendar-event-time"
-                className="block font-medium"
-              >
-                Heure
-              </label>
-
-              <input
-                id="calendar-event-time"
-                type="time"
-                value={selectedEventTime}
-                onChange={(event) => {
-                  setSelectedEventTime(event.target.value);
-                }}
-                className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
-              />
-            </div>
-            <button
-              type="button"
-              disabled={
-                selectedApplicationId === "" ||
-                selectedEventTime === "" ||
-                scheduleEventMutation.isPending
-              }
-              onClick={() => {
-                if (
-                  !selectedEventDate ||
-                  selectedApplicationId === "" ||
-                  selectedEventTime === ""
-                ) {
-                  return;
-                }
-
-                scheduleEventMutation.mutate({
-                  applicationId: Number(selectedApplicationId),
-                  eventType: selectedEventType,
-                  scheduledAt: new Date(
-                    `${selectedEventDate}T${selectedEventTime}:00`,
-                  ).toISOString(),
-                });
+            <select
+              id="calendar-event-type"
+              value={selectedEventType}
+              onChange={(event) => {
+                setSelectedEventType(
+                  event.target.value as "FOLLOW_UP" | "INTERVIEW",
+                );
               }}
-              className="mt-4 rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
             >
-              {scheduleEventMutation.isPending
-                ? "Enregistrement..."
-                : selectedEventType === "FOLLOW_UP"
-                  ? "Enregistrer la relance"
-                  : "Enregistrer l'entretien"}
-            </button>
-            <button
-              type="button"
-              onClick={closeEventForm}
-              disabled={scheduleEventMutation.isPending}
-              className="ml-3 mt-4 rounded border border-gray-300 px-4 py-2 font-medium hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+              <option value="FOLLOW_UP">Relance</option>
+              <option value="INTERVIEW">Entretien</option>
+            </select>
+          </div>
+          <div className="mt-4">
+            <label htmlFor="calendar-application" className="block font-medium">
+              Candidature
+            </label>
+            <select
+              id="calendar-application"
+              value={selectedApplicationId}
+              onChange={(event) => {
+                setSelectedApplicationId(event.target.value);
+              }}
+              className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
             >
-              Annuler
-            </button>
-            {scheduleEventMutation.isError && (
-              <p className="mt-3 text-red-600">
-                Impossible de programmer l'événement.
-              </p>
-            )}
-          </section>
-        )}
+              <option value="">Sélectionner une candidature</option>
 
-        <section className="mt-12">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <h2 className="text-2xl font-semibold">Événements à venir</h2>
-
-            <button
-              type="button"
-              onClick={() => setShowUpcomingEvents((current) => !current)}
-              aria-label={
-                showUpcomingEvents
-                  ? "Masquer les événements à venir"
-                  : "Afficher les événements à venir"
-              }
-              className="rounded border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50"
-            >
-              {showUpcomingEvents ? "Masquer" : "Afficher"}
-            </button>
+              {applicationsQuery.data?.map((application) => (
+                <option key={application.id} value={application.id}>
+                  {application.jobOffer.title} —{" "}
+                  {application.jobOffer.company.name}
+                </option>
+              ))}
+            </select>
           </div>
 
-          {showUpcomingEvents &&
-            (days.length === 0 ? (
-              <p className="mt-4 text-gray-600">Aucun événement à venir.</p>
-            ) : (
-              <div className="mt-6 space-y-10">
-                {days.map((day) => (
-                  <section key={day.key}>
-                    <h2 className="text-xl font-semibold capitalize">
-                      {formatDay(day.date)}
-                    </h2>
+          <div className="mt-4">
+            <label htmlFor="calendar-event-date" className="block font-medium">
+              Date de l'événement
+            </label>
+            <input
+              id="calendar-event-date"
+              type="date"
+              value={selectedEventDate}
+              readOnly
+              className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
+            />
+          </div>
+          <div className="mt-4">
+            <label htmlFor="calendar-event-time" className="block font-medium">
+              Heure
+            </label>
 
-                    <div className="mt-4 space-y-4">
-                      {day.events.map((event) => (
-                        <CalendarEventCard
-                          key={`${event.type}-${event.application.id}-${event.date}`}
-                          event={event}
-                        />
-                      ))}
-                    </div>
-                  </section>
-                ))}
-              </div>
-            ))}
+            <input
+              id="calendar-event-time"
+              type="time"
+              value={selectedEventTime}
+              onChange={(event) => {
+                setSelectedEventTime(event.target.value);
+              }}
+              className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
+            />
+          </div>
+          <button
+            type="button"
+            disabled={
+              selectedApplicationId === "" ||
+              selectedEventTime === "" ||
+              scheduleEventMutation.isPending
+            }
+            onClick={() => {
+              if (
+                !selectedEventDate ||
+                selectedApplicationId === "" ||
+                selectedEventTime === ""
+              ) {
+                return;
+              }
+
+              scheduleEventMutation.mutate({
+                applicationId: Number(selectedApplicationId),
+                eventType: selectedEventType,
+                scheduledAt: new Date(
+                  `${selectedEventDate}T${selectedEventTime}:00`,
+                ).toISOString(),
+              });
+            }}
+            className="mt-4 rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {scheduleEventMutation.isPending
+              ? "Enregistrement..."
+              : selectedEventType === "FOLLOW_UP"
+                ? "Enregistrer la relance"
+                : "Enregistrer l'entretien"}
+          </button>
+          <button
+            type="button"
+            onClick={closeEventForm}
+            disabled={scheduleEventMutation.isPending}
+            className="ml-3 mt-4 rounded border border-gray-300 px-4 py-2 font-medium hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Annuler
+          </button>
+          {scheduleEventMutation.isError && (
+            <p className="mt-3 text-red-600">
+              Impossible de programmer l'événement.
+            </p>
+          )}
         </section>
-      </div>
-    </main>
+      )}
+
+      <section className="mt-12">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <h2 className="text-2xl font-semibold">Événements à venir</h2>
+
+          <button
+            type="button"
+            onClick={() => setShowUpcomingEvents((current) => !current)}
+            aria-label={
+              showUpcomingEvents
+                ? "Masquer les événements à venir"
+                : "Afficher les événements à venir"
+            }
+            className="rounded border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50"
+          >
+            {showUpcomingEvents ? "Masquer" : "Afficher"}
+          </button>
+        </div>
+
+        {showUpcomingEvents &&
+          (days.length === 0 ? (
+            <p className="mt-4 text-gray-600">Aucun événement à venir.</p>
+          ) : (
+            <div className="mt-6 space-y-10">
+              {days.map((day) => (
+                <section key={day.key}>
+                  <h2 className="text-xl font-semibold capitalize">
+                    {formatDay(day.date)}
+                  </h2>
+
+                  <div className="mt-4 space-y-4">
+                    {day.events.map((event) => (
+                      <CalendarEventCard
+                        key={`${event.type}-${event.application.id}-${event.date}`}
+                        event={event}
+                      />
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          ))}
+      </section>
+    </PageShell>
   );
 }
 
