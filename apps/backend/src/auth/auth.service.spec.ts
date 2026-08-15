@@ -474,4 +474,22 @@ describe('AuthService', () => {
       service.authenticateSessionToken('expired'),
     ).resolves.toBeNull();
   });
+  it('revokes every other session while preserving the current session', async () => {
+    prismaServiceMock.session.deleteMany.mockResolvedValue({ count: 2 });
+
+    await expect(
+      service.revokeOtherSessions(7, 'current-session-token'),
+    ).resolves.toBeUndefined();
+
+    expect(prismaServiceMock.session.deleteMany).toHaveBeenCalledWith({
+      where: {
+        userId: 7,
+        tokenHash: {
+          not: createHash('sha256')
+            .update('current-session-token')
+            .digest('hex'),
+        },
+      },
+    });
+  });
 });

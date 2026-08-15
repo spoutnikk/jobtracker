@@ -15,6 +15,7 @@ describe('AuthController', () => {
     updateProfile: jest.fn(),
     changePassword: jest.fn(),
     logout: jest.fn(),
+    revokeOtherSessions: jest.fn(),
   };
   const user = {
     id: 7,
@@ -111,6 +112,32 @@ describe('AuthController', () => {
         path: '/',
       },
     );
+  });
+
+  it('revokes every other session while preserving the current session', async () => {
+    authServiceMock.revokeOtherSessions.mockResolvedValue(undefined);
+    const request = {
+      cookies: { [AUTH_SESSION_COOKIE_NAME]: 'current-session-token' },
+    } as Request;
+
+    await expect(
+      controller.revokeOtherSessions(user, request),
+    ).resolves.toBeUndefined();
+
+    expect(authServiceMock.revokeOtherSessions).toHaveBeenCalledWith(
+      user.id,
+      'current-session-token',
+    );
+  });
+
+  it('rejects other-session revocation without the current session cookie', async () => {
+    const request = { cookies: {} } as Request;
+
+    await expect(
+      controller.revokeOtherSessions(user, request),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+
+    expect(authServiceMock.revokeOtherSessions).not.toHaveBeenCalled();
   });
 
   it('changes the password for the authenticated user and preserves the current session', async () => {

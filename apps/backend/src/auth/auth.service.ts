@@ -224,6 +224,20 @@ export class AuthService {
     });
   }
 
+  async revokeOtherSessions(
+    userId: number,
+    currentSessionToken: string,
+  ): Promise<void> {
+    await this.prisma.session.deleteMany({
+      where: {
+        userId,
+        tokenHash: {
+          not: hashSessionToken(currentSessionToken),
+        },
+      },
+    });
+  }
+
   async logout(token: string): Promise<void> {
     await this.prisma.session.deleteMany({
       where: {

@@ -88,6 +88,21 @@ export class AuthController {
     );
   }
 
+  @Post('sessions/others')
+  @HttpCode(204)
+  async revokeOtherSessions(
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request,
+  ): Promise<void> {
+    const token = getAuthSessionToken(request);
+
+    if (token === undefined) {
+      throw new UnauthorizedException();
+    }
+
+    await this.authService.revokeOtherSessions(user.id, token);
+  }
+
   @Patch('me/password')
   @HttpCode(204)
   async changePassword(
