@@ -3,13 +3,19 @@ import { act, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { me, updateProfile, type AuthenticatedUser } from "../api/auth";
+import {
+  changePassword,
+  me,
+  updateProfile,
+  type AuthenticatedUser,
+} from "../api/auth";
 import { AuthProvider } from "../auth/AuthProvider";
 import ProtectedRoute from "../routes/ProtectedRoute";
 import { renderWithProviders } from "../test/renderWithProviders";
 import ProfilePage from "./ProfilePage";
 
 vi.mock("../api/auth", () => ({
+  changePassword: vi.fn(),
   me: vi.fn(),
   updateProfile: vi.fn(),
 }));
@@ -61,6 +67,7 @@ function renderProfile() {
 describe("ProfilePage", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.mocked(changePassword).mockReset();
     vi.mocked(me).mockReset();
     vi.mocked(updateProfile).mockReset();
     vi.mocked(me).mockResolvedValue(authenticatedUser);
@@ -151,6 +158,174 @@ describe("ProfilePage", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Impossible de mettre à jour le profil.",
     );
+  });
+
+  it("changes the password and clears the password fields", async () => {
+    vi.mocked(changePassword).mockResolvedValue(undefined);
+    renderProfile();
+    const user = userEvent.setup();
+
+    await screen.findByRole("heading", { name: "Profil" });
+    await user.type(
+      screen.getByLabelText("Mot de passe actuel"),
+      "current-password",
+    );
+    await user.type(
+      screen.getByLabelText("Nouveau mot de passe"),
+      "new-secure-password",
+    );
+    await user.type(
+      screen.getByLabelText("Confirmer le nouveau mot de passe"),
+      "new-secure-password",
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Modifier le mot de passe" }),
+    );
+
+    expect(changePassword).toHaveBeenCalledTimes(1);
+    const firstCall = vi.mocked(changePassword).mock.calls[0];
+
+    if (!firstCall) {
+      throw new Error("changePassword was not called");
+    }
+
+    expect(firstCall[0]).toEqual({
+      currentPassword: "current-password",
+      newPassword: "new-secure-password",
+    });
+    expect(
+      await screen.findByText("Mot de passe mis à jour."),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Mot de passe actuel")).toHaveValue("");
+    expect(screen.getByLabelText("Nouveau mot de passe")).toHaveValue("");
+    expect(
+      screen.getByLabelText("Confirmer le nouveau mot de passe"),
+    ).toHaveValue("");
+  });
+
+  it("rejects mismatched new passwords locally", async () => {
+    renderProfile();
+    const user = userEvent.setup();
+
+    await screen.findByRole("heading", { name: "Profil" });
+    await user.type(
+      screen.getByLabelText("Mot de passe actuel"),
+      "current-password",
+    );
+    await user.type(
+      screen.getByLabelText("Nouveau mot de passe"),
+      "new-secure-password",
+    );
+    await user.type(
+      screen.getByLabelText("Confirmer le nouveau mot de passe"),
+      "different-password",
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Modifier le mot de passe" }),
+    );
+
+    expect(changePassword).not.toHaveBeenCalled();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Les nouveaux mots de passe ne correspondent pas.",
+    );
+  });
+
+  it("shows a stable current-password error for a 401", async () => {
+    vi.mocked(changePassword).mockRejectedValue(createAxiosError(401));
+    renderProfile();
+    const user = userEvent.setup();
+
+    await screen.findByRole("heading", { name: "Profil" });
+    await user.type(
+      screen.getByLabelText("Mot de passe actuel"),
+      "wrong-password",
+    );
+    await user.type(
+      screen.getByLabelText("Nouveau mot de passe"),
+      "new-secure-password",
+    );
+    await user.type(
+      screen.getByLabelText("Confirmer le nouveau mot de passe"),
+      "new-secure-password",
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Modifier le mot de passe" }),
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Mot de passe actuel incorrect.",
+    );
+  });
+
+  it("shows a stable generic password-change error", async () => {
+    vi.mocked(changePassword).mockRejectedValue(
+      new Error("Network unavailable"),
+    );
+    renderProfile();
+    const user = userEvent.setup();
+
+    await screen.findByRole("heading", { name: "Profil" });
+    await user.type(
+      screen.getByLabelText("Mot de passe actuel"),
+      "current-password",
+    );
+    await user.type(
+      screen.getByLabelText("Nouveau mot de passe"),
+      "new-secure-password",
+    );
+    await user.type(
+      screen.getByLabelText("Confirmer le nouveau mot de passe"),
+      "new-secure-password",
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Modifier le mot de passe" }),
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Impossible de modifier le mot de passe.",
+    );
+  });
+
+  it("disables password submission while the request is pending", async () => {
+    let resolvePasswordChange: (() => void) | undefined;
+    vi.mocked(changePassword).mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolvePasswordChange = resolve;
+        }),
+    );
+    renderProfile();
+    const user = userEvent.setup();
+
+    await screen.findByRole("heading", { name: "Profil" });
+    await user.type(
+      screen.getByLabelText("Mot de passe actuel"),
+      "current-password",
+    );
+    await user.type(
+      screen.getByLabelText("Nouveau mot de passe"),
+      "new-secure-password",
+    );
+    await user.type(
+      screen.getByLabelText("Confirmer le nouveau mot de passe"),
+      "new-secure-password",
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Modifier le mot de passe" }),
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Modification..." }),
+    ).toBeDisabled();
+
+    if (!resolvePasswordChange) {
+      throw new Error("Password change resolver was not initialized");
+    }
+
+    const resolvePendingPasswordChange = resolvePasswordChange;
+    await act(async () => {
+      resolvePendingPasswordChange();
+    });
   });
 
   it("disables submission while the update is pending", async () => {

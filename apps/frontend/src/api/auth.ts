@@ -25,6 +25,17 @@ export interface UpdateProfileInput {
   email: string;
 }
 
+export interface ChangePasswordInput {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export async function changePassword(
+  input: ChangePasswordInput,
+): Promise<void> {
+  await apiClient.patch("/auth/me/password", input);
+}
+
 export async function updateProfile(
   input: UpdateProfileInput,
 ): Promise<AuthenticatedUser> {
