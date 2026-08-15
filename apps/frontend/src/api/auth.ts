@@ -30,6 +30,16 @@ export interface ChangePasswordInput {
   newPassword: string;
 }
 
+export interface DeleteAccountInput {
+  password: string;
+}
+
+export async function deleteAccount(input: DeleteAccountInput): Promise<void> {
+  await apiClient.delete("/auth/me", {
+    data: input,
+  });
+}
+
 export async function changePassword(
   input: ChangePasswordInput,
 ): Promise<void> {

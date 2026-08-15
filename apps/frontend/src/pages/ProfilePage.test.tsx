@@ -5,6 +5,7 @@ import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   changePassword,
+  deleteAccount,
   me,
   revokeOtherSessions,
   updateProfile,
@@ -17,6 +18,7 @@ import ProfilePage from "./ProfilePage";
 
 vi.mock("../api/auth", () => ({
   changePassword: vi.fn(),
+  deleteAccount: vi.fn(),
   me: vi.fn(),
   revokeOtherSessions: vi.fn(),
   updateProfile: vi.fn(),
@@ -70,6 +72,7 @@ describe("ProfilePage", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.mocked(changePassword).mockReset();
+    vi.mocked(deleteAccount).mockReset();
     vi.mocked(me).mockReset();
     vi.mocked(revokeOtherSessions).mockReset();
     vi.mocked(updateProfile).mockReset();
@@ -170,7 +173,7 @@ describe("ProfilePage", () => {
 
     await screen.findByRole("heading", { name: "Profil" });
     await user.type(
-      screen.getByLabelText("Mot de passe actuel"),
+      screen.getAllByLabelText("Mot de passe actuel")[0],
       "current-password",
     );
     await user.type(
@@ -199,7 +202,7 @@ describe("ProfilePage", () => {
     expect(
       await screen.findByText("Mot de passe mis à jour."),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("Mot de passe actuel")).toHaveValue("");
+    expect(screen.getAllByLabelText("Mot de passe actuel")[0]).toHaveValue("");
     expect(screen.getByLabelText("Nouveau mot de passe")).toHaveValue("");
     expect(
       screen.getByLabelText("Confirmer le nouveau mot de passe"),
@@ -212,7 +215,7 @@ describe("ProfilePage", () => {
 
     await screen.findByRole("heading", { name: "Profil" });
     await user.type(
-      screen.getByLabelText("Mot de passe actuel"),
+      screen.getAllByLabelText("Mot de passe actuel")[0],
       "current-password",
     );
     await user.type(
@@ -240,7 +243,7 @@ describe("ProfilePage", () => {
 
     await screen.findByRole("heading", { name: "Profil" });
     await user.type(
-      screen.getByLabelText("Mot de passe actuel"),
+      screen.getAllByLabelText("Mot de passe actuel")[0],
       "wrong-password",
     );
     await user.type(
@@ -269,7 +272,7 @@ describe("ProfilePage", () => {
 
     await screen.findByRole("heading", { name: "Profil" });
     await user.type(
-      screen.getByLabelText("Mot de passe actuel"),
+      screen.getAllByLabelText("Mot de passe actuel")[0],
       "current-password",
     );
     await user.type(
@@ -302,7 +305,7 @@ describe("ProfilePage", () => {
 
     await screen.findByRole("heading", { name: "Profil" });
     await user.type(
-      screen.getByLabelText("Mot de passe actuel"),
+      screen.getAllByLabelText("Mot de passe actuel")[0],
       "current-password",
     );
     await user.type(
@@ -407,6 +410,132 @@ describe("ProfilePage", () => {
     const resolvePendingRevocation = resolveRevocation;
     await act(async () => {
       resolvePendingRevocation();
+    });
+  });
+
+  it("deletes the account after confirmation and redirects to login", async () => {
+    vi.mocked(deleteAccount).mockResolvedValue(undefined);
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const { router, queryClient } = renderProfile();
+    queryClient.setQueryData(["documents"], [{ id: 1 }]);
+    const user = userEvent.setup();
+
+    await screen.findByRole("heading", { name: "Profil" });
+    await user.type(
+      screen.getAllByLabelText("Mot de passe actuel").at(-1)!,
+      "current-password",
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Supprimer mon compte" }),
+    );
+
+    expect(deleteAccount).toHaveBeenCalledTimes(1);
+    const firstCall = vi.mocked(deleteAccount).mock.calls[0];
+
+    if (!firstCall) {
+      throw new Error("deleteAccount was not called");
+    }
+
+    expect(firstCall[0]).toEqual({
+      password: "current-password",
+    });
+    expect(await screen.findByText("Login destination")).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/login");
+    expect(queryClient.getQueryData(["auth", "me"])).toBeNull();
+    expect(queryClient.getQueryData(["documents"])).toBeUndefined();
+  });
+
+  it("does not delete the account when confirmation is cancelled", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+    renderProfile();
+    const user = userEvent.setup();
+
+    await screen.findByRole("heading", { name: "Profil" });
+    await user.type(
+      screen.getAllByLabelText("Mot de passe actuel").at(-1)!,
+      "current-password",
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Supprimer mon compte" }),
+    );
+
+    expect(deleteAccount).not.toHaveBeenCalled();
+  });
+
+  it("shows a stable current-password error when account deletion returns 401", async () => {
+    vi.mocked(deleteAccount).mockRejectedValue(createAxiosError(401));
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    renderProfile();
+    const user = userEvent.setup();
+
+    await screen.findByRole("heading", { name: "Profil" });
+    await user.type(
+      screen.getAllByLabelText("Mot de passe actuel").at(-1)!,
+      "wrong-password",
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Supprimer mon compte" }),
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Mot de passe actuel incorrect.",
+    );
+  });
+
+  it("shows a stable generic account-deletion error", async () => {
+    vi.mocked(deleteAccount).mockRejectedValue(
+      new Error("Network unavailable"),
+    );
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    renderProfile();
+    const user = userEvent.setup();
+
+    await screen.findByRole("heading", { name: "Profil" });
+    await user.type(
+      screen.getAllByLabelText("Mot de passe actuel").at(-1)!,
+      "current-password",
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Supprimer mon compte" }),
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Impossible de supprimer le compte.",
+    );
+  });
+
+  it("disables account deletion while the request is pending", async () => {
+    let resolveDeletion: (() => void) | undefined;
+    vi.mocked(deleteAccount).mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveDeletion = resolve;
+        }),
+    );
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    renderProfile();
+    const user = userEvent.setup();
+
+    await screen.findByRole("heading", { name: "Profil" });
+    await user.type(
+      screen.getAllByLabelText("Mot de passe actuel").at(-1)!,
+      "current-password",
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Supprimer mon compte" }),
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Suppression..." }),
+    ).toBeDisabled();
+
+    if (!resolveDeletion) {
+      throw new Error("Account deletion resolver was not initialized");
+    }
+
+    const resolvePendingDeletion = resolveDeletion;
+    await act(async () => {
+      resolvePendingDeletion();
     });
   });
 
