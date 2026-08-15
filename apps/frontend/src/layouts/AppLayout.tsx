@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
 import { useId, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { logout } from "../api/auth";
+import { hasHttpStatus } from "../api/http-error";
 import { setAnonymousAuthState } from "../auth/auth-cache";
 
 const navigationItems = [
@@ -27,18 +27,14 @@ function AppLayout() {
       setAnonymousAuthState(queryClient);
     },
     onError: (error) => {
-      if (axios.isAxiosError(error) && error.response?.status === 401) {
+      if (hasHttpStatus(error, 401)) {
         setAnonymousAuthState(queryClient);
       }
     },
   });
 
   const logoutError =
-    logoutMutation.isError &&
-    !(
-      axios.isAxiosError(logoutMutation.error) &&
-      logoutMutation.error.response?.status === 401
-    );
+    logoutMutation.isError && !hasHttpStatus(logoutMutation.error, 401);
 
   const navigationLinkClassName = ({ isActive }: { isActive: boolean }) =>
     [

@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { login } from "../api/auth";
+import { hasHttpStatus } from "../api/http-error";
 import { authMeQueryKey, clearSensitiveQueries } from "../auth/auth-cache";
 
 interface RedirectLocation {
@@ -63,9 +63,7 @@ function LoginPage() {
   }
 
   const errorMessage =
-    loginMutation.isError &&
-    axios.isAxiosError(loginMutation.error) &&
-    loginMutation.error.response?.status === 401
+    loginMutation.isError && hasHttpStatus(loginMutation.error, 401)
       ? "Email ou mot de passe incorrect."
       : loginMutation.isError
         ? "Impossible de se connecter."

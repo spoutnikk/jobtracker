@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
 import { useState } from "react";
 import CollapsibleSection from "../components/CollapsibleSection";
 import { Link, useSearchParams } from "react-router-dom";
 import { getAllCompanies } from "../api/companies";
+import { hasHttpStatus } from "../api/http-error";
 import {
   createJobOffer,
   deleteJobOffer,
@@ -195,7 +195,7 @@ function JobOffersPage() {
       ]);
     },
     onError: async (error) => {
-      if (axios.isAxiosError(error) && error.response?.status === 404) {
+      if (hasHttpStatus(error, 404)) {
         setCreateError(
           "La société sélectionnée n'existe plus. Actualisez la liste et choisissez une autre société.",
         );
@@ -227,7 +227,7 @@ function JobOffersPage() {
       ]);
     },
     onError: async (error) => {
-      if (axios.isAxiosError(error) && error.response?.status === 404) {
+      if (hasHttpStatus(error, 404)) {
         setEditError(
           "Impossible de modifier cette offre car elle ou la société sélectionnée n'existe plus.",
         );
@@ -263,7 +263,7 @@ function JobOffersPage() {
       ]);
     },
     onError: async (error, jobOfferId) => {
-      if (axios.isAxiosError(error) && error.response?.status === 409) {
+      if (hasHttpStatus(error, 409)) {
         setDeleteError({
           jobOfferId,
           message:
@@ -272,7 +272,7 @@ function JobOffersPage() {
         return;
       }
 
-      if (axios.isAxiosError(error) && error.response?.status === 404) {
+      if (hasHttpStatus(error, 404)) {
         setDeleteError({
           jobOfferId,
           message: "Cette offre n'existe plus.",

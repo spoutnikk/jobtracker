@@ -1,5 +1,4 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -12,6 +11,7 @@ import {
   type DeleteAccountInput,
   type UpdateProfileInput,
 } from "../api/auth";
+import { hasHttpStatus } from "../api/http-error";
 import { authMeQueryKey, setAnonymousAuthState } from "../auth/auth-cache";
 import { useAuth } from "../auth/useAuth";
 import PageShell from "../components/PageShell";
@@ -141,9 +141,7 @@ function ProfileForm({ user }: { user: AuthenticatedUser }) {
   }
 
   const errorMessage =
-    updateMutation.isError &&
-    axios.isAxiosError(updateMutation.error) &&
-    updateMutation.error.response?.status === 409
+    updateMutation.isError && hasHttpStatus(updateMutation.error, 409)
       ? "Un compte existe déjà avec cette adresse email."
       : updateMutation.isError
         ? "Impossible de mettre à jour le profil."
@@ -151,8 +149,7 @@ function ProfileForm({ user }: { user: AuthenticatedUser }) {
 
   const passwordRemoteError =
     changePasswordMutation.isError &&
-    axios.isAxiosError(changePasswordMutation.error) &&
-    changePasswordMutation.error.response?.status === 401
+    hasHttpStatus(changePasswordMutation.error, 401)
       ? "Mot de passe actuel incorrect."
       : changePasswordMutation.isError
         ? "Impossible de modifier le mot de passe."
@@ -161,8 +158,7 @@ function ProfileForm({ user }: { user: AuthenticatedUser }) {
 
   const deleteAccountError =
     deleteAccountMutation.isError &&
-    axios.isAxiosError(deleteAccountMutation.error) &&
-    deleteAccountMutation.error.response?.status === 401
+    hasHttpStatus(deleteAccountMutation.error, 401)
       ? "Mot de passe actuel incorrect."
       : deleteAccountMutation.isError
         ? "Impossible de supprimer le compte."

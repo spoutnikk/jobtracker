@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { register } from "../api/auth";
+import { hasHttpStatus } from "../api/http-error";
 import { authMeQueryKey, clearSensitiveQueries } from "../auth/auth-cache";
 
 function RegisterPage() {
@@ -49,9 +49,7 @@ function RegisterPage() {
   }
 
   const remoteError =
-    registerMutation.isError &&
-    axios.isAxiosError(registerMutation.error) &&
-    registerMutation.error.response?.status === 409
+    registerMutation.isError && hasHttpStatus(registerMutation.error, 409)
       ? "Un compte existe déjà avec cette adresse email."
       : registerMutation.isError
         ? "Impossible de créer le compte."

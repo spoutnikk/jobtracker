@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
@@ -21,6 +20,7 @@ import {
   getAllDocuments,
   type DocumentType,
 } from "../api/documents";
+import { hasHttpStatus } from "../api/http-error";
 import { applicationStatusLabels } from "../constants/application-status";
 import PageShell from "../components/PageShell";
 import StatusMessage from "../components/StatusMessage";
@@ -278,9 +278,7 @@ function ApplicationDetailPage() {
   }
 
   if (applicationQuery.isError) {
-    const isNotFound =
-      axios.isAxiosError(applicationQuery.error) &&
-      applicationQuery.error.response?.status === 404;
+    const isNotFound = hasHttpStatus(applicationQuery.error, 404);
 
     return (
       <main className="min-h-screen p-8">
@@ -684,8 +682,7 @@ function ApplicationDetailPage() {
           <p className="mt-4">Chargement de l'historique...</p>
         ) : applicationEventsQuery.isError ? (
           <p className="mt-4 text-red-600">
-            {axios.isAxiosError(applicationEventsQuery.error) &&
-            applicationEventsQuery.error.response?.status === 404
+            {hasHttpStatus(applicationEventsQuery.error, 404)
               ? "Historique indisponible."
               : "Impossible de charger l'historique."}
           </p>

@@ -1,8 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
 import { useEffect, type ReactNode } from "react";
 import { me, type AuthenticatedUser } from "../api/auth";
 import { apiClient } from "../api/client";
+import { hasHttpStatus } from "../api/http-error";
 import { authMeQueryKey, setAnonymousAuthState } from "./auth-cache";
 import { AuthContext, type AuthContextValue, type AuthStatus } from "./useAuth";
 
@@ -19,7 +19,7 @@ async function restoreAuthenticatedUser(): Promise<AuthenticatedUser | null> {
   try {
     return await me();
   } catch (error: unknown) {
-    if (axios.isAxiosError(error) && error.response?.status === 401) {
+    if (hasHttpStatus(error, 401)) {
       return null;
     }
 
@@ -40,10 +40,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const interceptorId = apiClient.interceptors.response.use(
       (response) => response,
       (error: unknown) => {
+        const requestUrl =
+          typeof error === "object" &&
+          error !== null &&
+          "config" in error &&
+          typeof error.config === "object" &&
+          error.config !== null &&
+          "url" in error.config &&
+          typeof error.config.url === "string"
+            ? error.config.url
+            : undefined;
+
         if (
-          axios.isAxiosError(error) &&
-          error.response?.status === 401 &&
-          !isLocallyHandledAuthRequest(error.config?.url)
+          hasHttpStatus(error, 401) &&
+          !isLocallyHandledAuthRequest(requestUrl)
         ) {
           setAnonymousAuthState(queryClient);
         }
