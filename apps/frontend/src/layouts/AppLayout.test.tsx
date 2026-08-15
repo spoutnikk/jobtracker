@@ -54,6 +54,7 @@ function renderAuthenticatedLayout() {
               { path: "/", element: <p>Private home</p> },
               { path: "/dashboard", element: <p>Private dashboard</p> },
               { path: "/applications", element: <p>Private applications</p> },
+              { path: "/profile", element: <p>Private profile</p> },
             ],
           },
         ],
@@ -119,6 +120,17 @@ describe("AppLayout navigation", () => {
     expect(
       screen.getByRole("navigation", { name: "Navigation principale" }),
     ).toHaveClass("hidden");
+  });
+
+  it("navigates to the protected profile page", async () => {
+    const user = userEvent.setup();
+    const { router } = renderAuthenticatedLayout();
+
+    await screen.findByText("Private dashboard");
+    await user.click(screen.getByRole("link", { name: "Profil" }));
+
+    expect(await screen.findByText("Private profile")).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/profile");
   });
 });
 

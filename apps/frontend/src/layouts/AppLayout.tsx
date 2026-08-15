@@ -13,6 +13,7 @@ const navigationItems = [
   { to: "/calendar", label: "Calendrier" },
   { to: "/dashboard", label: "Tableau de bord" },
   { to: "/documents", label: "Documents" },
+  { to: "/profile", label: "Profil" },
 ];
 
 function AppLayout() {

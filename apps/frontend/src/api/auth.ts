@@ -19,6 +19,20 @@ export interface RegisterInput {
   password: string;
 }
 
+export interface UpdateProfileInput {
+  firstName: string;
+  lastName: string;
+  email: string;
+}
+
+export async function updateProfile(
+  input: UpdateProfileInput,
+): Promise<AuthenticatedUser> {
+  const response = await apiClient.patch<AuthenticatedUser>("/auth/me", input);
+
+  return response.data;
+}
+
 export async function register(
   input: RegisterInput,
 ): Promise<AuthenticatedUser> {

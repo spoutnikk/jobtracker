@@ -10,6 +10,7 @@ import DocumentsPage from "../pages/DocumentsPage";
 import JobOffersPage from "../pages/JobOffersPage";
 import LoginPage from "../pages/LoginPage";
 import RegisterPage from "../pages/RegisterPage";
+import ProfilePage from "../pages/ProfilePage";
 import AnonymousOnlyRoute from "./AnonymousOnlyRoute";
 import ProtectedRoute from "./ProtectedRoute";
 
@@ -64,6 +65,10 @@ export const router = createBrowserRouter([
           {
             path: "/documents",
             element: <DocumentsPage />,
+          },
+          {
+            path: "/profile",
+            element: <ProfilePage />,
           },
         ],
       },
