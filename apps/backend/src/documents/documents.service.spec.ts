@@ -393,10 +393,18 @@ describe('DocumentsService', () => {
       },
       include: {
         application: {
-          include: {
+          select: {
+            id: true,
             jobOffer: {
-              include: {
-                company: true,
+              select: {
+                id: true,
+                title: true,
+                company: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
               },
             },
           },
@@ -492,10 +500,18 @@ describe('DocumentsService', () => {
       where: expectedWhere,
       include: {
         application: {
-          include: {
+          select: {
+            id: true,
             jobOffer: {
-              include: {
-                company: true,
+              select: {
+                id: true,
+                title: true,
+                company: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
               },
             },
           },
@@ -560,10 +576,18 @@ describe('DocumentsService', () => {
       },
       include: {
         application: {
-          include: {
+          select: {
+            id: true,
             jobOffer: {
-              include: {
-                company: true,
+              select: {
+                id: true,
+                title: true,
+                company: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
               },
             },
           },
@@ -606,10 +630,18 @@ describe('DocumentsService', () => {
       },
       include: {
         application: {
-          include: {
+          select: {
+            id: true,
             jobOffer: {
-              include: {
-                company: true,
+              select: {
+                id: true,
+                title: true,
+                company: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
               },
             },
           },
@@ -661,10 +693,18 @@ describe('DocumentsService', () => {
       },
       include: {
         application: {
-          include: {
+          select: {
+            id: true,
             jobOffer: {
-              include: {
-                company: true,
+              select: {
+                id: true,
+                title: true,
+                company: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
               },
             },
           },

@@ -176,10 +176,18 @@ export class DocumentsService {
         where,
         include: {
           application: {
-            include: {
+            select: {
+              id: true,
               jobOffer: {
-                include: {
-                  company: true,
+                select: {
+                  id: true,
+                  title: true,
+                  company: {
+                    select: {
+                      id: true,
+                      name: true,
+                    },
+                  },
                 },
               },
             },
@@ -212,10 +220,18 @@ export class DocumentsService {
       },
       include: {
         application: {
-          include: {
+          select: {
+            id: true,
             jobOffer: {
-              include: {
-                company: true,
+              select: {
+                id: true,
+                title: true,
+                company: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
               },
             },
           },
