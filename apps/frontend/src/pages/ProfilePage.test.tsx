@@ -231,8 +231,21 @@ describe("ProfilePage", () => {
     );
 
     expect(changePassword).not.toHaveBeenCalled();
-    expect(await screen.findByRole("alert")).toHaveTextContent(
+    const alert = await screen.findByRole("alert");
+    const confirmationInput = screen.getByLabelText(
+      "Confirmer le nouveau mot de passe",
+    );
+
+    expect(alert).toHaveTextContent(
       "Les nouveaux mots de passe ne correspondent pas.",
+    );
+    expect(confirmationInput).toHaveAttribute("aria-invalid", "true");
+    expect(confirmationInput).toHaveAttribute(
+      "aria-describedby",
+      "profile-password-error",
+    );
+    expect(document.getElementById("profile-password-error")).toContainElement(
+      alert,
     );
   });
 
@@ -258,8 +271,19 @@ describe("ProfilePage", () => {
       screen.getByRole("button", { name: "Modifier le mot de passe" }),
     );
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Mot de passe actuel incorrect.",
+    const alert = await screen.findByRole("alert");
+    const currentPasswordInput = screen.getAllByLabelText(
+      "Mot de passe actuel",
+    )[0];
+
+    expect(alert).toHaveTextContent("Mot de passe actuel incorrect.");
+    expect(currentPasswordInput).toHaveAttribute("aria-invalid", "true");
+    expect(currentPasswordInput).toHaveAttribute(
+      "aria-describedby",
+      "profile-password-error",
+    );
+    expect(document.getElementById("profile-password-error")).toContainElement(
+      alert,
     );
   });
 
@@ -494,9 +518,20 @@ describe("ProfilePage", () => {
       await screen.findByRole("button", { name: "Supprimer définitivement" }),
     );
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Mot de passe actuel incorrect.",
+    const alert = await screen.findByRole("alert");
+    const deletePasswordInput = screen
+      .getAllByLabelText("Mot de passe actuel")
+      .at(-1)!;
+
+    expect(alert).toHaveTextContent("Mot de passe actuel incorrect.");
+    expect(deletePasswordInput).toHaveAttribute("aria-invalid", "true");
+    expect(deletePasswordInput).toHaveAttribute(
+      "aria-describedby",
+      "profile-delete-account-error",
     );
+    expect(
+      document.getElementById("profile-delete-account-error"),
+    ).toContainElement(alert);
   });
 
   it("shows a stable generic account-deletion error", async () => {

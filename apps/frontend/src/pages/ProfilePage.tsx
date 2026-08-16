@@ -158,6 +158,11 @@ function ProfileForm({ user }: { user: AuthenticatedUser }) {
         ? "Impossible de modifier le mot de passe."
         : null;
   const passwordErrorMessage = passwordLocalError ?? passwordRemoteError;
+  const newPasswordConfirmationInvalid =
+    passwordLocalError === "Les nouveaux mots de passe ne correspondent pas.";
+  const currentPasswordRemoteInvalid =
+    changePasswordMutation.isError &&
+    hasHttpStatus(changePasswordMutation.error, 401);
 
   const deleteAccountError =
     deleteAccountMutation.isError &&
@@ -166,6 +171,9 @@ function ProfileForm({ user }: { user: AuthenticatedUser }) {
       : deleteAccountMutation.isError
         ? "Impossible de supprimer le compte."
         : null;
+  const deleteAccountPasswordRemoteInvalid =
+    deleteAccountMutation.isError &&
+    hasHttpStatus(deleteAccountMutation.error, 401);
 
   return (
     <PageShell>
@@ -244,9 +252,11 @@ function ProfileForm({ user }: { user: AuthenticatedUser }) {
         )}
 
         {passwordErrorMessage && (
-          <StatusMessage variant="error" className="mt-4">
-            {passwordErrorMessage}
-          </StatusMessage>
+          <div id="profile-password-error">
+            <StatusMessage variant="error" className="mt-4">
+              {passwordErrorMessage}
+            </StatusMessage>
+          </div>
         )}
 
         <form onSubmit={handlePasswordSubmit} className="mt-4">
@@ -260,6 +270,12 @@ function ProfileForm({ user }: { user: AuthenticatedUser }) {
               onChange={(event) => setCurrentPassword(event.target.value)}
               required
               autoComplete="current-password"
+              aria-invalid={currentPasswordRemoteInvalid || undefined}
+              aria-describedby={
+                currentPasswordRemoteInvalid
+                  ? "profile-password-error"
+                  : undefined
+              }
               className="rounded-md border border-gray-300 px-3 py-2"
             />
           </label>
@@ -294,6 +310,12 @@ function ProfileForm({ user }: { user: AuthenticatedUser }) {
               required
               minLength={12}
               autoComplete="new-password"
+              aria-invalid={newPasswordConfirmationInvalid || undefined}
+              aria-describedby={
+                newPasswordConfirmationInvalid
+                  ? "profile-password-error"
+                  : undefined
+              }
               className="rounded-md border border-gray-300 px-3 py-2"
             />
           </label>
@@ -352,9 +374,11 @@ function ProfileForm({ user }: { user: AuthenticatedUser }) {
         </p>
 
         {deleteAccountError && (
-          <StatusMessage variant="error" className="mt-4">
-            {deleteAccountError}
-          </StatusMessage>
+          <div id="profile-delete-account-error">
+            <StatusMessage variant="error" className="mt-4">
+              {deleteAccountError}
+            </StatusMessage>
+          </div>
         )}
 
         <form onSubmit={handleDeleteAccount} className="mt-4">
@@ -368,6 +392,12 @@ function ProfileForm({ user }: { user: AuthenticatedUser }) {
               onChange={(event) => setDeleteAccountPassword(event.target.value)}
               required
               autoComplete="current-password"
+              aria-invalid={deleteAccountPasswordRemoteInvalid || undefined}
+              aria-describedby={
+                deleteAccountPasswordRemoteInvalid
+                  ? "profile-delete-account-error"
+                  : undefined
+              }
               className="rounded-md border border-red-300 bg-white px-3 py-2"
             />
           </label>

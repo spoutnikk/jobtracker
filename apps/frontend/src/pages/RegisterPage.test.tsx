@@ -115,9 +115,14 @@ describe("RegisterPage", () => {
     await user.click(screen.getByRole("button", { name: "Créer mon compte" }));
 
     expect(register).not.toHaveBeenCalled();
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "Les mots de passe ne correspondent pas.",
+    const alert = screen.getByRole("alert");
+    const confirmationInput = screen.getByLabelText(
+      "Confirmer le mot de passe",
     );
+
+    expect(alert).toHaveTextContent("Les mots de passe ne correspondent pas.");
+    expect(confirmationInput).toHaveAttribute("aria-invalid", "true");
+    expect(confirmationInput).toHaveAttribute("aria-describedby", alert.id);
   });
 
   it("shows a stable conflict message for an existing email", async () => {
@@ -127,9 +132,15 @@ describe("RegisterPage", () => {
 
     await user.click(screen.getByRole("button", { name: "Créer mon compte" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
+    const alert = await screen.findByRole("alert");
+    const emailInput = screen.getByLabelText("Email");
+
+    expect(alert).toHaveTextContent(
       "Un compte existe déjà avec cette adresse email.",
     );
+    expect(emailInput).toHaveAttribute("aria-invalid", "true");
+    expect(emailInput).toHaveAttribute("aria-describedby", "register-error");
+    expect(document.getElementById("register-error")).toBe(alert);
   });
 
   it("shows a stable generic error", async () => {

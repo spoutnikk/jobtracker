@@ -55,6 +55,10 @@ function RegisterPage() {
         ? "Impossible de créer le compte."
         : null;
   const errorMessage = localError ?? remoteError;
+  const passwordConfirmationInvalid =
+    localError === "Les mots de passe ne correspondent pas.";
+  const emailRemoteInvalid =
+    registerMutation.isError && hasHttpStatus(registerMutation.error, 409);
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-gray-50 p-8">
@@ -96,6 +100,8 @@ function RegisterPage() {
             onChange={(event) => setEmail(event.target.value)}
             required
             autoComplete="email"
+            aria-invalid={emailRemoteInvalid || undefined}
+            aria-describedby={emailRemoteInvalid ? "register-error" : undefined}
             className="rounded-md border border-gray-300 px-3 py-2"
           />
         </label>
@@ -128,6 +134,10 @@ function RegisterPage() {
             required
             minLength={12}
             autoComplete="new-password"
+            aria-invalid={passwordConfirmationInvalid || undefined}
+            aria-describedby={
+              passwordConfirmationInvalid ? "register-error" : undefined
+            }
             className="rounded-md border border-gray-300 px-3 py-2"
           />
         </label>
@@ -143,7 +153,11 @@ function RegisterPage() {
         </button>
 
         {errorMessage && (
-          <p role="alert" className="mt-4 text-sm text-red-600">
+          <p
+            id="register-error"
+            role="alert"
+            className="mt-4 text-sm text-red-600"
+          >
             {errorMessage}
           </p>
         )}
