@@ -465,6 +465,15 @@ describe("ApplicationDetailPage", () => {
       "src",
       "blob:detail-preview",
     );
+    expect(window.document.body).toHaveStyle({ overflow: "hidden" });
+
+    await user.keyboard("{Escape}");
+
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:detail-preview");
+    expect(
+      screen.queryByRole("dialog", { name: `Aperçu de ${document.name}` }),
+    ).not.toBeInTheDocument();
+    expect(window.document.body).not.toHaveStyle({ overflow: "hidden" });
   });
 
   it("renders associated documents and downloads them through the API", async () => {
