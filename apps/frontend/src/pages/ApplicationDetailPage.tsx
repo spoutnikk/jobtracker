@@ -23,6 +23,7 @@ import {
 import { hasHttpStatus } from "../api/http-error";
 import { applicationStatusLabels } from "../constants/application-status";
 import PageShell from "../components/PageShell";
+import LoadingMessage from "../components/LoadingMessage";
 import PageLoadingState from "../components/PageLoadingState";
 import StatusMessage from "../components/StatusMessage";
 import Dialog from "../components/Dialog";
@@ -655,7 +656,9 @@ function ApplicationDetailPage() {
         <h2 className="text-xl font-semibold">Historique</h2>
 
         {applicationEventsQuery.isPending ? (
-          <p className="mt-4">Chargement de l'historique...</p>
+          <LoadingMessage className="mt-4">
+            Chargement de l'historique...
+          </LoadingMessage>
         ) : applicationEventsQuery.isError ? (
           <StatusMessage variant="error" className="mt-4">
             {hasHttpStatus(applicationEventsQuery.error, 404)
@@ -700,7 +703,9 @@ function ApplicationDetailPage() {
         <h2 className="text-xl font-semibold">Documents</h2>
 
         {documentsQuery.isPending ? (
-          <p className="mt-4">Chargement des documents...</p>
+          <LoadingMessage className="mt-4">
+            Chargement des documents...
+          </LoadingMessage>
         ) : documentsQuery.isError ? (
           <StatusMessage variant="error" className="mt-4">
             Impossible de charger les documents.

@@ -23,6 +23,7 @@ import {
   applicationStatusLabels,
 } from "../constants/application-status";
 import PageShell from "../components/PageShell";
+import LoadingMessage from "../components/LoadingMessage";
 import PageLoadingState from "../components/PageLoadingState";
 import StatusMessage from "../components/StatusMessage";
 import Pagination from "../components/Pagination";
@@ -879,9 +880,9 @@ function ApplicationsPage() {
                   <h3 className="text-lg font-semibold">Journal</h3>
 
                   {applicationEventsQuery.isPending && (
-                    <p className="mt-3 text-sm text-gray-600">
+                    <LoadingMessage className="mt-3 text-sm text-gray-600">
                       Chargement du journal...
-                    </p>
+                    </LoadingMessage>
                   )}
 
                   {applicationEventsQuery.isError && (

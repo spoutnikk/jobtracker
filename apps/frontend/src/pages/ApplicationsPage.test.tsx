@@ -207,6 +207,35 @@ describe("ApplicationsPage", () => {
     expect(screen.getByText("Page 1 sur 1")).toBeInTheDocument();
   });
 
+  it("announces journal loading as an accessible status", async () => {
+    vi.mocked(getApplicationEvents).mockImplementation(
+      () => new Promise(() => undefined),
+    );
+
+    renderApplicationsPage();
+
+    const offerHeading = await screen.findByRole("heading", {
+      name: jobOffer.title,
+    });
+    const applicationCard = offerHeading.closest("article");
+
+    if (!applicationCard) {
+      throw new Error("Application card not found");
+    }
+
+    const user = userEvent.setup();
+
+    await user.click(
+      within(applicationCard).getByRole("button", {
+        name: /journal/i,
+      }),
+    );
+
+    expect(within(applicationCard).getByRole("status")).toHaveTextContent(
+      "Chargement du journal...",
+    );
+  });
+
   it("renders scheduled follow-up and interview dates", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime(new Date("2026-08-13T10:00:00.000Z"));

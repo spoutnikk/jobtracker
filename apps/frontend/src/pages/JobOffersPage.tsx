@@ -18,6 +18,7 @@ import {
   type UpdateJobOfferInput,
 } from "../api/job-offers";
 import PageShell from "../components/PageShell";
+import LoadingMessage from "../components/LoadingMessage";
 import PageLoadingState from "../components/PageLoadingState";
 import Pagination from "../components/Pagination";
 import StatusMessage from "../components/StatusMessage";
@@ -561,9 +562,9 @@ function JobOffersPage() {
       <CollapsibleSection title="Nouvelle offre" defaultOpen={false}>
         <form onSubmit={handleSubmit} className="mt-4">
           {companiesQuery.isPending && (
-            <p className="mt-4 text-sm text-gray-600">
+            <LoadingMessage className="mt-4 text-sm text-gray-600">
               Chargement des sociétés...
-            </p>
+            </LoadingMessage>
           )}
 
           {companiesQuery.isError && (

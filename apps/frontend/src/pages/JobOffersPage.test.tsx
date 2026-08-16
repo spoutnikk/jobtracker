@@ -365,6 +365,34 @@ describe("JobOffersPage", () => {
     ).toHaveAttribute("href", `/applications?jobOfferId=${jobOffer.id}`);
   });
 
+  it("announces company loading as an accessible status", async () => {
+    vi.mocked(getAllCompanies).mockImplementation(
+      () => new Promise(() => undefined),
+    );
+
+    renderJobOffersPage();
+
+    const creationSection = (
+      await screen.findByRole("heading", { name: "Nouvelle offre" })
+    ).closest("section");
+
+    if (!creationSection) {
+      throw new Error("Creation section not found");
+    }
+
+    const user = userEvent.setup();
+
+    await user.click(
+      within(creationSection).getByRole("button", {
+        name: "Afficher Nouvelle offre",
+      }),
+    );
+
+    expect(within(creationSection).getByRole("status")).toHaveTextContent(
+      "Chargement des sociétés...",
+    );
+  });
+
   it("creates a job offer and resets the form", async () => {
     const user = userEvent.setup();
     const { queryClient } = renderJobOffersPage();

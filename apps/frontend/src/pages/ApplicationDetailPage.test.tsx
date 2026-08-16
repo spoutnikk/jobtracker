@@ -345,9 +345,9 @@ describe("ApplicationDetailPage", () => {
       .closest("section");
 
     expect(historySection).not.toBeNull();
-    expect(
-      within(historySection!).getByText("Chargement de l'historique..."),
-    ).toBeInTheDocument();
+    expect(within(historySection!).getByRole("status")).toHaveTextContent(
+      "Chargement de l'historique...",
+    );
   });
 
   it("renders application events in the backend order", async () => {
@@ -426,9 +426,9 @@ describe("ApplicationDetailPage", () => {
 
     renderDetail();
 
-    expect(
-      await screen.findByText("Chargement des documents..."),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Chargement des documents...",
+    );
     expect(
       screen.getByRole("heading", { name: "Développeur React" }),
     ).toBeInTheDocument();
