@@ -16,6 +16,7 @@ import PageLoadingState from "../components/PageLoadingState";
 import Pagination from "../components/Pagination";
 import StatusMessage from "../components/StatusMessage";
 import { confirmDialog } from "../components/confirm-dialog";
+import { formControlClassName } from "../components/form-control";
 
 function CompaniesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -224,7 +225,7 @@ function CompaniesPage() {
                     value: event.target.value,
                   })
                 }
-                className="rounded-md border border-gray-300 px-3 py-2"
+                className={formControlClassName}
               />
             </label>
             <label className="flex flex-col gap-1">
@@ -241,7 +242,7 @@ function CompaniesPage() {
                     page: "",
                   });
                 }}
-                className="rounded-md border border-gray-300 px-3 py-2"
+                className={formControlClassName}
               >
                 <option value="name">Nom</option>
                 <option value="createdAt">Date de création</option>
@@ -260,7 +261,7 @@ function CompaniesPage() {
                     page: "",
                   });
                 }}
-                className="rounded-md border border-gray-300 px-3 py-2"
+                className={formControlClassName}
               >
                 <option value="desc">Décroissant</option>
                 <option value="asc">Croissant</option>
@@ -280,7 +281,7 @@ function CompaniesPage() {
                     page: "",
                   });
                 }}
-                className="rounded-md border border-gray-300 px-3 py-2"
+                className={formControlClassName}
               >
                 <option value="10">10</option>
                 <option value="20">20</option>
@@ -325,7 +326,7 @@ function CompaniesPage() {
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 required
-                className="rounded-md border border-gray-300 px-3 py-2"
+                className={formControlClassName}
               />
             </label>
 
@@ -339,7 +340,7 @@ function CompaniesPage() {
                 value={website}
                 onChange={(event) => setWebsite(event.target.value)}
                 placeholder="https://example.com"
-                className="rounded-md border border-gray-300 px-3 py-2"
+                className={formControlClassName}
               />
             </label>
 
@@ -350,7 +351,7 @@ function CompaniesPage() {
                 type="text"
                 value={city}
                 onChange={(event) => setCity(event.target.value)}
-                className="rounded-md border border-gray-300 px-3 py-2"
+                className={formControlClassName}
               />
             </label>
           </div>
@@ -471,7 +472,7 @@ function CompaniesPage() {
                       value={editName}
                       onChange={(event) => setEditName(event.target.value)}
                       required
-                      className="rounded-md border border-gray-300 px-3 py-2"
+                      className={formControlClassName}
                     />
                   </label>
 
@@ -483,7 +484,7 @@ function CompaniesPage() {
                       type="url"
                       value={editWebsite}
                       onChange={(event) => setEditWebsite(event.target.value)}
-                      className="rounded-md border border-gray-300 px-3 py-2"
+                      className={formControlClassName}
                     />
                   </label>
 
@@ -495,7 +496,7 @@ function CompaniesPage() {
                       type="text"
                       value={editCity}
                       onChange={(event) => setEditCity(event.target.value)}
-                      className="rounded-md border border-gray-300 px-3 py-2"
+                      className={formControlClassName}
                     />
                   </label>
 

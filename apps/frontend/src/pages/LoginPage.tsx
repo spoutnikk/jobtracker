@@ -5,6 +5,7 @@ import { login } from "../api/auth";
 import { hasHttpStatus } from "../api/http-error";
 import { authMeQueryKey, clearSensitiveQueries } from "../auth/auth-cache";
 import StatusMessage from "../components/StatusMessage";
+import { formControlClassName } from "../components/form-control";
 
 interface RedirectLocation {
   pathname: string;
@@ -86,7 +87,7 @@ function LoginPage() {
             onChange={(event) => setEmail(event.target.value)}
             required
             autoComplete="email"
-            className="rounded-md border border-gray-300 px-3 py-2"
+            className={formControlClassName}
           />
         </label>
 
@@ -100,7 +101,7 @@ function LoginPage() {
             onChange={(event) => setPassword(event.target.value)}
             required
             autoComplete="current-password"
-            className="rounded-md border border-gray-300 px-3 py-2"
+            className={formControlClassName}
           />
         </label>
 

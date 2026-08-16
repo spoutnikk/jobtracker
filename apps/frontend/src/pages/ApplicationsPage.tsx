@@ -28,6 +28,7 @@ import PageLoadingState from "../components/PageLoadingState";
 import StatusMessage from "../components/StatusMessage";
 import Pagination from "../components/Pagination";
 import { confirmDialog } from "../components/confirm-dialog";
+import { formControlClassName } from "../components/form-control";
 
 function parseApplicationStatus(value: string | null): ApplicationStatus | "" {
   return value && applicationStatuses.includes(value as ApplicationStatus)
@@ -411,7 +412,7 @@ function ApplicationsPage() {
                     value: event.target.value,
                   })
                 }
-                className="rounded-md border border-gray-300 px-3 py-2"
+                className={formControlClassName}
               />
             </label>
             <label className="flex flex-col gap-1">
@@ -429,7 +430,7 @@ function ApplicationsPage() {
                     page: "",
                   });
                 }}
-                className="rounded-md border border-gray-300 px-3 py-2"
+                className={formControlClassName}
               >
                 <option value="">Tous les statuts</option>
                 <option value="DRAFT">À préparer</option>
@@ -457,7 +458,7 @@ function ApplicationsPage() {
                     page: "",
                   });
                 }}
-                className="rounded-md border border-gray-300 px-3 py-2"
+                className={formControlClassName}
               >
                 <option value="">Toutes les sociétés</option>
                 {companies.map((company) => (
@@ -484,7 +485,7 @@ function ApplicationsPage() {
                     page: "",
                   });
                 }}
-                className="rounded-md border border-gray-300 px-3 py-2"
+                className={formControlClassName}
               >
                 <option value="">Toutes les offres</option>
                 {jobOffersQuery.data?.map((offer) => (
@@ -543,7 +544,7 @@ function ApplicationsPage() {
                     page: "",
                   });
                 }}
-                className="rounded-md border border-gray-300 px-3 py-2"
+                className={formControlClassName}
               >
                 <option value="createdAt">Date de création</option>
                 <option value="appliedAt">Date de candidature</option>
@@ -564,7 +565,7 @@ function ApplicationsPage() {
                     page: "",
                   });
                 }}
-                className="rounded-md border border-gray-300 px-3 py-2"
+                className={formControlClassName}
               >
                 <option value="desc">Décroissant</option>
                 <option value="asc">Croissant</option>
@@ -584,7 +585,7 @@ function ApplicationsPage() {
                     page: "",
                   });
                 }}
-                className="rounded-md border border-gray-300 px-3 py-2"
+                className={formControlClassName}
               >
                 <option value="10">10</option>
                 <option value="20">20</option>
@@ -608,7 +609,7 @@ function ApplicationsPage() {
                   event.target.value ? Number(event.target.value) : null,
                 )
               }
-              className="rounded-md border border-gray-300 px-3 py-2"
+              className={formControlClassName}
               required
             >
               <option value="">Sélectionner une offre</option>
@@ -630,7 +631,7 @@ function ApplicationsPage() {
                 onChange={(event) =>
                   setStatus(event.target.value as ApplicationStatus)
                 }
-                className="rounded-md border border-gray-300 px-3 py-2"
+                className={formControlClassName}
               >
                 <option value="DRAFT">À préparer</option>
                 <option value="APPLIED">Envoyée</option>
@@ -649,7 +650,7 @@ function ApplicationsPage() {
                 value={source}
                 onChange={(event) => setSource(event.target.value)}
                 placeholder="France Travail, LinkedIn..."
-                className="rounded-md border border-gray-300 px-3 py-2"
+                className={formControlClassName}
               />
             </label>
           </div>
@@ -663,7 +664,7 @@ function ApplicationsPage() {
                 type="date"
                 value={appliedAt}
                 onChange={(event) => setAppliedAt(event.target.value)}
-                className="rounded-md border border-gray-300 px-3 py-2"
+                className={formControlClassName}
               />
             </label>
 
@@ -675,7 +676,7 @@ function ApplicationsPage() {
                 type="text"
                 value={contactName}
                 onChange={(event) => setContactName(event.target.value)}
-                className="rounded-md border border-gray-300 px-3 py-2"
+                className={formControlClassName}
               />
             </label>
 
@@ -687,7 +688,7 @@ function ApplicationsPage() {
                 type="email"
                 value={contactEmail}
                 onChange={(event) => setContactEmail(event.target.value)}
-                className="rounded-md border border-gray-300 px-3 py-2"
+                className={formControlClassName}
               />
             </label>
 
@@ -699,7 +700,7 @@ function ApplicationsPage() {
                 type="date"
                 value={followUpAt}
                 onChange={(event) => setFollowUpAt(event.target.value)}
-                className="rounded-md border border-gray-300 px-3 py-2"
+                className={formControlClassName}
               />
             </label>
 
@@ -711,7 +712,7 @@ function ApplicationsPage() {
                 type="datetime-local"
                 value={interviewAt}
                 onChange={(event) => setInterviewAt(event.target.value)}
-                className="rounded-md border border-gray-300 px-3 py-2"
+                className={formControlClassName}
               />
             </label>
           </div>
@@ -722,7 +723,7 @@ function ApplicationsPage() {
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
               rows={4}
-              className="rounded-md border border-gray-300 px-3 py-2"
+              className={formControlClassName}
             />
           </label>
 
@@ -1034,7 +1035,7 @@ function ApplicationsPage() {
                       onChange={(event) =>
                         setEditStatus(event.target.value as ApplicationStatus)
                       }
-                      className="rounded-md border border-gray-300 px-3 py-2"
+                      className={formControlClassName}
                     >
                       <option value="DRAFT">À préparer</option>
                       <option value="APPLIED">Envoyée</option>
@@ -1053,7 +1054,7 @@ function ApplicationsPage() {
                       type="text"
                       value={editSource}
                       onChange={(event) => setEditSource(event.target.value)}
-                      className="rounded-md border border-gray-300 px-3 py-2"
+                      className={formControlClassName}
                     />
                   </label>
 
@@ -1067,7 +1068,7 @@ function ApplicationsPage() {
                       onChange={(event) =>
                         setEditContactName(event.target.value)
                       }
-                      className="rounded-md border border-gray-300 px-3 py-2"
+                      className={formControlClassName}
                     />
                   </label>
                   <label className="flex flex-col gap-1">
@@ -1081,7 +1082,7 @@ function ApplicationsPage() {
                       onChange={(event) =>
                         setEditFollowUpAt(event.target.value)
                       }
-                      className="rounded-md border border-gray-300 px-3 py-2"
+                      className={formControlClassName}
                     />
                   </label>
 
@@ -1096,7 +1097,7 @@ function ApplicationsPage() {
                       onChange={(event) =>
                         setEditInterviewAt(event.target.value)
                       }
-                      className="rounded-md border border-gray-300 px-3 py-2"
+                      className={formControlClassName}
                     />
                   </label>
                   <div className="flex gap-2">

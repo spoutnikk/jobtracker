@@ -17,6 +17,7 @@ import Pagination from "../components/Pagination";
 import StatusMessage from "../components/StatusMessage";
 import { confirmDialog } from "../components/confirm-dialog";
 import Dialog from "../components/Dialog";
+import { formControlClassName } from "../components/form-control";
 
 function DocumentsPage() {
   const queryClient = useQueryClient();
@@ -207,7 +208,7 @@ function DocumentsPage() {
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 required
-                className="rounded-md border border-gray-300 px-3 py-2"
+                className={formControlClassName}
               />
             </label>
 
@@ -219,7 +220,7 @@ function DocumentsPage() {
                 onChange={(event) =>
                   setType(event.target.value as DocumentType)
                 }
-                className="rounded-md border border-gray-300 px-3 py-2"
+                className={formControlClassName}
               >
                 <option value="CV">CV</option>
                 <option value="COVER_LETTER">Lettre de motivation</option>
@@ -236,7 +237,7 @@ function DocumentsPage() {
                 accept=".pdf,.doc,.docx,.odt,.txt"
                 onChange={(event) => setFile(event.target.files?.[0] ?? null)}
                 required
-                className="rounded-md border border-gray-300 px-3 py-2"
+                className={formControlClassName}
               />
             </label>
             <label className="flex flex-col gap-1">
@@ -251,7 +252,7 @@ function DocumentsPage() {
                     event.target.value ? Number(event.target.value) : null,
                   )
                 }
-                className="rounded-md border border-gray-300 px-3 py-2"
+                className={formControlClassName}
               >
                 <option value="">Aucune candidature</option>
 
@@ -294,7 +295,7 @@ function DocumentsPage() {
                 setSearch(event.target.value);
                 setPage(1);
               }}
-              className="rounded-md border border-gray-300 px-3 py-2"
+              className={formControlClassName}
             />
           </label>
 
@@ -308,7 +309,7 @@ function DocumentsPage() {
                 setDocumentType(event.target.value as DocumentType | "");
                 setPage(1);
               }}
-              className="rounded-md border border-gray-300 px-3 py-2"
+              className={formControlClassName}
             >
               <option value="">Tous les types</option>
               <option value="CV">CV</option>
@@ -330,7 +331,7 @@ function DocumentsPage() {
                 );
                 setPage(1);
               }}
-              className="rounded-md border border-gray-300 px-3 py-2"
+              className={formControlClassName}
             >
               <option value="">Toutes les candidatures</option>
 
@@ -354,7 +355,7 @@ function DocumentsPage() {
                 );
                 setPage(1);
               }}
-              className="rounded-md border border-gray-300 px-3 py-2"
+              className={formControlClassName}
             >
               <option value="createdAt">Date de création</option>
               <option value="updatedAt">Date de modification</option>
@@ -371,7 +372,7 @@ function DocumentsPage() {
                 setSortOrder(event.target.value as "asc" | "desc");
                 setPage(1);
               }}
-              className="rounded-md border border-gray-300 px-3 py-2"
+              className={formControlClassName}
             >
               <option value="desc">Décroissant</option>
               <option value="asc">Croissant</option>
@@ -388,7 +389,7 @@ function DocumentsPage() {
                 setPageSize(Number(event.target.value));
                 setPage(1);
               }}
-              className="rounded-md border border-gray-300 px-3 py-2"
+              className={formControlClassName}
             >
               <option value={10}>10</option>
               <option value={25}>25</option>

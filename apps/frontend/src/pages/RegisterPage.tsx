@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { register } from "../api/auth";
 import { hasHttpStatus } from "../api/http-error";
 import { authMeQueryKey, clearSensitiveQueries } from "../auth/auth-cache";
+import { formControlClassName } from "../components/form-control";
 
 function RegisterPage() {
   const queryClient = useQueryClient();
@@ -76,7 +77,7 @@ function RegisterPage() {
             onChange={(event) => setFirstName(event.target.value)}
             required
             autoComplete="given-name"
-            className="rounded-md border border-gray-300 px-3 py-2"
+            className={formControlClassName}
           />
         </label>
 
@@ -88,7 +89,7 @@ function RegisterPage() {
             onChange={(event) => setLastName(event.target.value)}
             required
             autoComplete="family-name"
-            className="rounded-md border border-gray-300 px-3 py-2"
+            className={formControlClassName}
           />
         </label>
 
@@ -102,7 +103,7 @@ function RegisterPage() {
             autoComplete="email"
             aria-invalid={emailRemoteInvalid || undefined}
             aria-describedby={emailRemoteInvalid ? "register-error" : undefined}
-            className="rounded-md border border-gray-300 px-3 py-2"
+            className={formControlClassName}
           />
         </label>
 
@@ -117,7 +118,7 @@ function RegisterPage() {
             required
             minLength={12}
             autoComplete="new-password"
-            className="rounded-md border border-gray-300 px-3 py-2"
+            className={formControlClassName}
           />
         </label>
 
@@ -138,7 +139,7 @@ function RegisterPage() {
             aria-describedby={
               passwordConfirmationInvalid ? "register-error" : undefined
             }
-            className="rounded-md border border-gray-300 px-3 py-2"
+            className={formControlClassName}
           />
         </label>
 

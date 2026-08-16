@@ -23,6 +23,7 @@ import PageLoadingState from "../components/PageLoadingState";
 import Pagination from "../components/Pagination";
 import StatusMessage from "../components/StatusMessage";
 import { confirmDialog } from "../components/confirm-dialog";
+import { formControlClassName } from "../components/form-control";
 
 const contractTypeLabels: Record<ContractType, string> = {
   CDI: "CDI",
@@ -430,7 +431,7 @@ function JobOffersPage() {
                     value: event.target.value,
                   })
                 }
-                className="rounded-md border border-gray-300 px-3 py-2"
+                className={formControlClassName}
               />
             </label>
             <label className="flex flex-col gap-1">
@@ -445,7 +446,7 @@ function JobOffersPage() {
                   setPage(1);
                   replaceJobOfferFilterParams({ companyId: nextCompanyId });
                 }}
-                className="rounded-md border border-gray-300 px-3 py-2"
+                className={formControlClassName}
               >
                 <option value="">Toutes les sociétés</option>
                 {companiesQuery.data?.map((company) => (
@@ -470,7 +471,7 @@ function JobOffersPage() {
                     contractType: nextContractType,
                   });
                 }}
-                className="rounded-md border border-gray-300 px-3 py-2"
+                className={formControlClassName}
               >
                 <option value="">Tous les contrats</option>
                 {Object.entries(contractTypeLabels).map(([value, label]) => (
@@ -490,7 +491,7 @@ function JobOffersPage() {
                   setSortBy(event.target.value as JobOfferSortBy);
                   setPage(1);
                 }}
-                className="rounded-md border border-gray-300 px-3 py-2"
+                className={formControlClassName}
               >
                 <option value="title">Titre</option>
                 <option value="createdAt">Date de création</option>
@@ -506,7 +507,7 @@ function JobOffersPage() {
                   setSortOrder(event.target.value as JobOfferSortOrder);
                   setPage(1);
                 }}
-                className="rounded-md border border-gray-300 px-3 py-2"
+                className={formControlClassName}
               >
                 <option value="desc">Décroissant</option>
                 <option value="asc">Croissant</option>
@@ -522,7 +523,7 @@ function JobOffersPage() {
                   setPageSize(Number(event.target.value));
                   setPage(1);
                 }}
-                className="rounded-md border border-gray-300 px-3 py-2"
+                className={formControlClassName}
               >
                 <option value="10">10</option>
                 <option value="20">20</option>
@@ -589,7 +590,7 @@ function JobOffersPage() {
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
                 required
-                className="rounded-md border border-gray-300 px-3 py-2"
+                className={formControlClassName}
               />
             </label>
 
@@ -618,7 +619,7 @@ function JobOffersPage() {
                 value={url}
                 onChange={(event) => setUrl(event.target.value)}
                 placeholder="https://example.com"
-                className="rounded-md border border-gray-300 px-3 py-2"
+                className={formControlClassName}
               />
             </label>
 
@@ -630,7 +631,7 @@ function JobOffersPage() {
                 type="text"
                 value={location}
                 onChange={(event) => setLocation(event.target.value)}
-                className="rounded-md border border-gray-300 px-3 py-2"
+                className={formControlClassName}
               />
             </label>
 
@@ -643,7 +644,7 @@ function JobOffersPage() {
                 onChange={(event) =>
                   setContractType(event.target.value as ContractType | "")
                 }
-                className="rounded-md border border-gray-300 px-3 py-2"
+                className={formControlClassName}
               >
                 <option value="">Non renseigné</option>
                 {Object.entries(contractTypeLabels).map(([value, label]) => (
@@ -660,7 +661,7 @@ function JobOffersPage() {
                 type="text"
                 value={salary}
                 onChange={(event) => setSalary(event.target.value)}
-                className="rounded-md border border-gray-300 px-3 py-2"
+                className={formControlClassName}
               />
             </label>
 
@@ -672,7 +673,7 @@ function JobOffersPage() {
                 type="datetime-local"
                 value={publishedAt}
                 onChange={(event) => setPublishedAt(event.target.value)}
-                className="rounded-md border border-gray-300 px-3 py-2"
+                className={formControlClassName}
               />
             </label>
           </div>
@@ -685,7 +686,7 @@ function JobOffersPage() {
               value={description}
               onChange={(event) => setDescription(event.target.value)}
               rows={4}
-              className="rounded-md border border-gray-300 px-3 py-2"
+              className={formControlClassName}
             />
           </label>
 
@@ -820,7 +821,7 @@ function JobOffersPage() {
                         value={editTitle}
                         onChange={(event) => setEditTitle(event.target.value)}
                         required
-                        className="rounded-md border border-gray-300 px-3 py-2"
+                        className={formControlClassName}
                       />
                     </label>
 
@@ -854,7 +855,7 @@ function JobOffersPage() {
                         type="url"
                         value={editUrl}
                         onChange={(event) => setEditUrl(event.target.value)}
-                        className="rounded-md border border-gray-300 px-3 py-2"
+                        className={formControlClassName}
                       />
                     </label>
 
@@ -868,7 +869,7 @@ function JobOffersPage() {
                         onChange={(event) =>
                           setEditLocation(event.target.value)
                         }
-                        className="rounded-md border border-gray-300 px-3 py-2"
+                        className={formControlClassName}
                       />
                     </label>
 
@@ -883,7 +884,7 @@ function JobOffersPage() {
                             event.target.value as ContractType | "",
                           )
                         }
-                        className="rounded-md border border-gray-300 px-3 py-2"
+                        className={formControlClassName}
                       >
                         <option value="">Non renseigné</option>
                         {Object.entries(contractTypeLabels).map(
@@ -904,7 +905,7 @@ function JobOffersPage() {
                         type="text"
                         value={editSalary}
                         onChange={(event) => setEditSalary(event.target.value)}
-                        className="rounded-md border border-gray-300 px-3 py-2"
+                        className={formControlClassName}
                       />
                     </label>
 
@@ -918,7 +919,7 @@ function JobOffersPage() {
                         onChange={(event) =>
                           setEditPublishedAt(event.target.value)
                         }
-                        className="rounded-md border border-gray-300 px-3 py-2"
+                        className={formControlClassName}
                       />
                     </label>
                   </div>
@@ -933,7 +934,7 @@ function JobOffersPage() {
                         setEditDescription(event.target.value)
                       }
                       rows={4}
-                      className="rounded-md border border-gray-300 px-3 py-2"
+                      className={formControlClassName}
                     />
                   </label>
 
