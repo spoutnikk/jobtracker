@@ -28,6 +28,7 @@ import PageLoadingState from "../components/PageLoadingState";
 import StatusMessage from "../components/StatusMessage";
 import Dialog from "../components/Dialog";
 import { formControlClassName } from "../components/form-control";
+import { secondaryButtonClassName } from "../components/button-styles";
 
 const contractTypeLabels: Record<ContractType, string> = {
   CDI: "CDI",
@@ -815,7 +816,7 @@ function ApplicationDetailPage() {
                     "noopener,noreferrer",
                   )
                 }
-                className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className={secondaryButtonClassName}
               >
                 Ouvrir dans un nouvel onglet
               </button>
@@ -839,7 +840,7 @@ function ApplicationDetailPage() {
                 type="button"
                 onClick={closePreview}
                 autoFocus
-                className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className={secondaryButtonClassName}
               >
                 Fermer l'aperçu
               </button>

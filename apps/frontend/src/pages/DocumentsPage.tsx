@@ -18,6 +18,7 @@ import StatusMessage from "../components/StatusMessage";
 import { confirmDialog } from "../components/confirm-dialog";
 import Dialog from "../components/Dialog";
 import { formControlClassName } from "../components/form-control";
+import { secondaryButtonClassName } from "../components/button-styles";
 
 function DocumentsPage() {
   const queryClient = useQueryClient();
@@ -553,7 +554,7 @@ function DocumentsPage() {
                     "noopener,noreferrer",
                   )
                 }
-                className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className={secondaryButtonClassName}
               >
                 Ouvrir dans un nouvel onglet
               </button>
@@ -577,7 +578,7 @@ function DocumentsPage() {
                 type="button"
                 onClick={closePreview}
                 autoFocus
-                className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className={secondaryButtonClassName}
               >
                 Fermer l'aperçu
               </button>

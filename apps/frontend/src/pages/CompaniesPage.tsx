@@ -17,6 +17,10 @@ import Pagination from "../components/Pagination";
 import StatusMessage from "../components/StatusMessage";
 import { confirmDialog } from "../components/confirm-dialog";
 import { formControlClassName } from "../components/form-control";
+import {
+  compactPrimaryButtonClassName,
+  primaryButtonClassName,
+} from "../components/button-styles";
 
 function CompaniesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -290,10 +294,7 @@ function CompaniesPage() {
             </label>
           </div>
           <div className="mt-4 flex gap-2">
-            <button
-              type="submit"
-              className="rounded-md bg-blue-600 px-4 py-2 font-medium text-white"
-            >
+            <button type="submit" className={primaryButtonClassName}>
               Rechercher
             </button>
             <button
@@ -504,7 +505,7 @@ function CompaniesPage() {
                     <button
                       type="submit"
                       disabled={updateCompanyMutation.isPending}
-                      className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+                      className={compactPrimaryButtonClassName}
                     >
                       Enregistrer
                     </button>

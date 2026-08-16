@@ -24,6 +24,10 @@ import Pagination from "../components/Pagination";
 import StatusMessage from "../components/StatusMessage";
 import { confirmDialog } from "../components/confirm-dialog";
 import { formControlClassName } from "../components/form-control";
+import {
+  compactPrimaryButtonClassName,
+  primaryButtonClassName,
+} from "../components/button-styles";
 
 const contractTypeLabels: Record<ContractType, string> = {
   CDI: "CDI",
@@ -532,10 +536,7 @@ function JobOffersPage() {
             </label>
           </div>
           <div className="mt-4 flex gap-2">
-            <button
-              type="submit"
-              className="rounded-md bg-blue-600 px-4 py-2 font-medium text-white"
-            >
+            <button type="submit" className={primaryButtonClassName}>
               Rechercher
             </button>
             <button
@@ -947,7 +948,7 @@ function JobOffersPage() {
                         !editCompanyId ||
                         creationUnavailable
                       }
-                      className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+                      className={compactPrimaryButtonClassName}
                     >
                       {updateJobOfferMutation.isPending
                         ? "Enregistrement..."

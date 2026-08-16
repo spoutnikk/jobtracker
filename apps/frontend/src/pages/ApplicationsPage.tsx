@@ -29,6 +29,10 @@ import StatusMessage from "../components/StatusMessage";
 import Pagination from "../components/Pagination";
 import { confirmDialog } from "../components/confirm-dialog";
 import { formControlClassName } from "../components/form-control";
+import {
+  compactPrimaryButtonClassName,
+  primaryButtonClassName,
+} from "../components/button-styles";
 
 function parseApplicationStatus(value: string | null): ApplicationStatus | "" {
   return value && applicationStatuses.includes(value as ApplicationStatus)
@@ -497,10 +501,7 @@ function ApplicationsPage() {
             </label>
           </div>
           <div className="mt-4 flex gap-2">
-            <button
-              type="submit"
-              className="rounded-md bg-blue-600 px-4 py-2 font-medium text-white"
-            >
+            <button type="submit" className={primaryButtonClassName}>
               Rechercher
             </button>
             <button
@@ -993,7 +994,7 @@ function ApplicationsPage() {
                         <button
                           type="submit"
                           disabled={createApplicationEventMutation.isPending}
-                          className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+                          className={compactPrimaryButtonClassName}
                         >
                           Ajouter au journal
                         </button>
@@ -1104,7 +1105,7 @@ function ApplicationsPage() {
                     <button
                       type="submit"
                       disabled={updateApplicationMutation.isPending}
-                      className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+                      className={compactPrimaryButtonClassName}
                     >
                       Enregistrer
                     </button>
