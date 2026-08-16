@@ -210,11 +210,17 @@ describe('Applications HTTP ownership integration', () => {
     }
   });
 
-  it('returns the same 404 for foreign and missing applications', async () => {
-    if (!app || !userA || !userB) {
+  it('returns the same 404 for foreign and missing applications without side effects', async () => {
+    if (!app || !prisma || !userA || !userB) {
       throw new Error('Integration fixtures are unavailable');
     }
 
+    const foreignApplicationBefore = await prisma.application.findUniqueOrThrow(
+      {
+        where: { id: userB.applicationId },
+        select: { status: true },
+      },
+    );
     const missingId = 2_147_483_647;
 
     for (const applicationId of [userB.applicationId, missingId]) {
@@ -235,6 +241,13 @@ describe('Applications HTTP ownership integration', () => {
       .set('Origin', DEFAULT_FRONTEND_ORIGIN)
       .set('Cookie', userA.cookie)
       .expect(404);
+
+    await expect(
+      prisma.application.findUnique({
+        where: { id: userB.applicationId },
+        select: { status: true },
+      }),
+    ).resolves.toEqual(foreignApplicationBefore);
   });
 
   it('rejects foreign and missing job offers without side effects', async () => {

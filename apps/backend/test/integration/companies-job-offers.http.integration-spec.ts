@@ -186,10 +186,15 @@ describe('Companies and JobOffers HTTP ownership integration', () => {
     }
   });
 
-  it('isolates company lists and returns the same 404 for foreign and missing companies', async () => {
-    if (!app || !userA || !userB) {
+  it('isolates company lists and returns the same 404 for foreign and missing companies without side effects', async () => {
+    if (!app || !prisma || !userA || !userB) {
       throw new Error('Integration fixtures are unavailable');
     }
+
+    const foreignCompanyBefore = await prisma.company.findUniqueOrThrow({
+      where: { id: userB.companyId },
+      select: { city: true },
+    });
 
     const companiesA = await request(app.getHttpServer())
       .get('/companies')
@@ -234,6 +239,13 @@ describe('Companies and JobOffers HTTP ownership integration', () => {
       .set('Origin', DEFAULT_FRONTEND_ORIGIN)
       .set('Cookie', userA.cookie)
       .expect(404);
+
+    await expect(
+      prisma.company.findUnique({
+        where: { id: userB.companyId },
+        select: { city: true },
+      }),
+    ).resolves.toEqual(foreignCompanyBefore);
   });
 
   it('paginates and searches companies without exposing another user', async () => {
@@ -312,10 +324,19 @@ describe('Companies and JobOffers HTTP ownership integration', () => {
       .expect(400);
   });
 
-  it('isolates job offers and rejects foreign company associations', async () => {
-    if (!app || !userA || !userB) {
+  it('isolates job offers and rejects foreign company associations without side effects', async () => {
+    if (!app || !prisma || !userA || !userB) {
       throw new Error('Integration fixtures are unavailable');
     }
+
+    const ownerOfferBefore = await prisma.jobOffer.findUniqueOrThrow({
+      where: { id: userA.jobOfferId },
+      select: { companyId: true },
+    });
+    const foreignOfferBefore = await prisma.jobOffer.findUniqueOrThrow({
+      where: { id: userB.jobOfferId },
+      select: { id: true, companyId: true },
+    });
 
     const jobOffers = await request(app.getHttpServer())
       .get('/job-offers')
@@ -346,6 +367,19 @@ describe('Companies and JobOffers HTTP ownership integration', () => {
       .set('Origin', DEFAULT_FRONTEND_ORIGIN)
       .set('Cookie', userA.cookie)
       .expect(404);
+
+    await expect(
+      prisma.jobOffer.findUnique({
+        where: { id: userA.jobOfferId },
+        select: { companyId: true },
+      }),
+    ).resolves.toEqual(ownerOfferBefore);
+    await expect(
+      prisma.jobOffer.findUnique({
+        where: { id: userB.jobOfferId },
+        select: { id: true, companyId: true },
+      }),
+    ).resolves.toEqual(foreignOfferBefore);
   });
 
   it('paginates and filters job offers without exposing another user', async () => {
