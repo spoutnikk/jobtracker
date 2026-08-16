@@ -515,17 +515,13 @@ describe("CompaniesPage", () => {
   });
 
   it("does not delete a company when confirmation is cancelled", async () => {
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
     const user = userEvent.setup();
     const { queryClient } = renderCompaniesPage();
     const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
 
     await user.click(await screen.findByRole("button", { name: "Supprimer" }));
 
-    expect(confirmSpy).toHaveBeenCalledTimes(1);
-    expect(confirmSpy).toHaveBeenCalledWith(
-      `Supprimer l'entreprise "${company.name}" ?`,
-    );
+    await user.click(await screen.findByRole("button", { name: "Annuler" }));
     expect(deleteCompany).not.toHaveBeenCalled();
     expect(invalidateQueriesSpy).not.toHaveBeenCalled();
     expect(
@@ -539,14 +535,13 @@ describe("CompaniesPage", () => {
     vi.mocked(deleteCompany)
       .mockResolvedValueOnce(company)
       .mockRejectedValueOnce(createAxiosError(404));
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     const user = userEvent.setup();
     const { queryClient } = renderCompaniesPage();
     const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
 
     await user.click(await screen.findByRole("button", { name: "Supprimer" }));
 
-    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    await user.click(await screen.findByRole("button", { name: "Confirmer" }));
     await waitFor(() => {
       expect(deleteCompany).toHaveBeenCalledTimes(1);
       expect(invalidateQueriesSpy).toHaveBeenCalledWith({
@@ -568,12 +563,13 @@ describe("CompaniesPage", () => {
 
   it("shows the current deletion error after a 409 conflict", async () => {
     vi.mocked(deleteCompany).mockRejectedValue(createAxiosError(409));
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     const user = userEvent.setup();
     const { queryClient } = renderCompaniesPage();
     const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
 
     await user.click(await screen.findByRole("button", { name: "Supprimer" }));
+
+    await user.click(await screen.findByRole("button", { name: "Confirmer" }));
 
     expect(
       await screen.findByText(

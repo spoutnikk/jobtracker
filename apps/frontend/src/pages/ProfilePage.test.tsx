@@ -336,13 +336,16 @@ describe("ProfilePage", () => {
 
   it("revokes other sessions after confirmation", async () => {
     vi.mocked(revokeOtherSessions).mockResolvedValue(undefined);
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     renderProfile();
     const user = userEvent.setup();
 
     await screen.findByRole("heading", { name: "Profil" });
     await user.click(
       screen.getByRole("button", { name: "Déconnecter les autres appareils" }),
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: "Déconnecter" }),
     );
 
     expect(revokeOtherSessions).toHaveBeenCalledTimes(1);
@@ -352,7 +355,6 @@ describe("ProfilePage", () => {
   });
 
   it("does not revoke other sessions when confirmation is cancelled", async () => {
-    vi.spyOn(window, "confirm").mockReturnValue(false);
     renderProfile();
     const user = userEvent.setup();
 
@@ -360,6 +362,8 @@ describe("ProfilePage", () => {
     await user.click(
       screen.getByRole("button", { name: "Déconnecter les autres appareils" }),
     );
+
+    await user.click(await screen.findByRole("button", { name: "Annuler" }));
 
     expect(revokeOtherSessions).not.toHaveBeenCalled();
   });
@@ -368,13 +372,16 @@ describe("ProfilePage", () => {
     vi.mocked(revokeOtherSessions).mockRejectedValue(
       new Error("Network unavailable"),
     );
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     renderProfile();
     const user = userEvent.setup();
 
     await screen.findByRole("heading", { name: "Profil" });
     await user.click(
       screen.getByRole("button", { name: "Déconnecter les autres appareils" }),
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: "Déconnecter" }),
     );
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
@@ -390,13 +397,16 @@ describe("ProfilePage", () => {
           resolveRevocation = resolve;
         }),
     );
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     renderProfile();
     const user = userEvent.setup();
 
     await screen.findByRole("heading", { name: "Profil" });
     await user.click(
       screen.getByRole("button", { name: "Déconnecter les autres appareils" }),
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: "Déconnecter" }),
     );
 
     expect(
@@ -415,7 +425,6 @@ describe("ProfilePage", () => {
 
   it("deletes the account after confirmation and redirects to login", async () => {
     vi.mocked(deleteAccount).mockResolvedValue(undefined);
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     const { router, queryClient } = renderProfile();
     queryClient.setQueryData(["documents"], [{ id: 1 }]);
     const user = userEvent.setup();
@@ -427,6 +436,10 @@ describe("ProfilePage", () => {
     );
     await user.click(
       screen.getByRole("button", { name: "Supprimer mon compte" }),
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: "Supprimer définitivement" }),
     );
 
     expect(deleteAccount).toHaveBeenCalledTimes(1);
@@ -446,7 +459,6 @@ describe("ProfilePage", () => {
   });
 
   it("does not delete the account when confirmation is cancelled", async () => {
-    vi.spyOn(window, "confirm").mockReturnValue(false);
     renderProfile();
     const user = userEvent.setup();
 
@@ -459,12 +471,13 @@ describe("ProfilePage", () => {
       screen.getByRole("button", { name: "Supprimer mon compte" }),
     );
 
+    await user.click(await screen.findByRole("button", { name: "Annuler" }));
+
     expect(deleteAccount).not.toHaveBeenCalled();
   });
 
   it("shows a stable current-password error when account deletion returns 401", async () => {
     vi.mocked(deleteAccount).mockRejectedValue(createAxiosError(401));
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     renderProfile();
     const user = userEvent.setup();
 
@@ -477,6 +490,10 @@ describe("ProfilePage", () => {
       screen.getByRole("button", { name: "Supprimer mon compte" }),
     );
 
+    await user.click(
+      await screen.findByRole("button", { name: "Supprimer définitivement" }),
+    );
+
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Mot de passe actuel incorrect.",
     );
@@ -486,7 +503,6 @@ describe("ProfilePage", () => {
     vi.mocked(deleteAccount).mockRejectedValue(
       new Error("Network unavailable"),
     );
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     renderProfile();
     const user = userEvent.setup();
 
@@ -497,6 +513,10 @@ describe("ProfilePage", () => {
     );
     await user.click(
       screen.getByRole("button", { name: "Supprimer mon compte" }),
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: "Supprimer définitivement" }),
     );
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
@@ -512,7 +532,6 @@ describe("ProfilePage", () => {
           resolveDeletion = resolve;
         }),
     );
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     renderProfile();
     const user = userEvent.setup();
 
@@ -523,6 +542,10 @@ describe("ProfilePage", () => {
     );
     await user.click(
       screen.getByRole("button", { name: "Supprimer mon compte" }),
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: "Supprimer définitivement" }),
     );
 
     expect(

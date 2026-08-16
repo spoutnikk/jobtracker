@@ -526,8 +526,6 @@ describe("DocumentsPage", () => {
     vi.mocked(deleteDocument)
       .mockResolvedValueOnce(document)
       .mockRejectedValueOnce(new Error("Unexpected second deletion"));
-
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     const user = userEvent.setup();
 
     const { queryClient } = renderWithProviders(<DocumentsPage />);
@@ -539,10 +537,7 @@ describe("DocumentsPage", () => {
       }),
     );
 
-    expect(confirmSpy).toHaveBeenCalledTimes(1);
-    expect(confirmSpy).toHaveBeenCalledWith(
-      `Supprimer le document "${document.name}" ?`,
-    );
+    await user.click(await screen.findByRole("button", { name: "Confirmer" }));
 
     await waitFor(() => {
       expect(deleteDocument).toHaveBeenCalledTimes(1);
@@ -562,8 +557,6 @@ describe("DocumentsPage", () => {
 
   it("keeps the document when deletion fails", async () => {
     vi.mocked(deleteDocument).mockRejectedValue(new Error("Delete failed"));
-
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     const user = userEvent.setup();
 
     const { queryClient } = renderWithProviders(<DocumentsPage />);
@@ -575,12 +568,12 @@ describe("DocumentsPage", () => {
       }),
     );
 
+    await user.click(await screen.findByRole("button", { name: "Confirmer" }));
+
     await waitFor(() => {
       expect(deleteDocument).toHaveBeenCalledTimes(1);
       expect(screen.getByRole("button", { name: "Supprimer" })).toBeEnabled();
     });
-
-    expect(confirmSpy).toHaveBeenCalledTimes(1);
 
     expect(
       screen.getByRole("heading", {

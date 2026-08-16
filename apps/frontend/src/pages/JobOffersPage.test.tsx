@@ -629,17 +629,13 @@ describe("JobOffersPage", () => {
 
   it("deletes a job offer after confirmation", async () => {
     vi.mocked(getJobOffers).mockResolvedValue(paginatedJobOffers([jobOffer]));
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     const user = userEvent.setup();
     const { queryClient } = renderJobOffersPage();
     const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
 
     await user.click(await screen.findByRole("button", { name: "Supprimer" }));
 
-    expect(confirmSpy).toHaveBeenCalledTimes(1);
-    expect(confirmSpy).toHaveBeenCalledWith(
-      `Supprimer l'offre "${jobOffer.title}" ?`,
-    );
+    await user.click(await screen.findByRole("button", { name: "Confirmer" }));
     await waitFor(() => {
       expect(deleteJobOffer).toHaveBeenCalledTimes(1);
     });
@@ -669,14 +665,13 @@ describe("JobOffersPage", () => {
 
   it("does not delete a job offer when confirmation is cancelled", async () => {
     vi.mocked(getJobOffers).mockResolvedValue(paginatedJobOffers([jobOffer]));
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
     const user = userEvent.setup();
     const { queryClient } = renderJobOffersPage();
     const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
 
     await user.click(await screen.findByRole("button", { name: "Supprimer" }));
 
-    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    await user.click(await screen.findByRole("button", { name: "Annuler" }));
     expect(deleteJobOffer).not.toHaveBeenCalled();
     expect(invalidateQueriesSpy).not.toHaveBeenCalled();
     expect(
@@ -687,12 +682,13 @@ describe("JobOffersPage", () => {
   it("shows a conflict when a job offer has applications", async () => {
     vi.mocked(getJobOffers).mockResolvedValue(paginatedJobOffers([jobOffer]));
     vi.mocked(deleteJobOffer).mockRejectedValue(createAxiosError(409));
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     const user = userEvent.setup();
     const { queryClient } = renderJobOffersPage();
     const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
 
     await user.click(await screen.findByRole("button", { name: "Supprimer" }));
+
+    await user.click(await screen.findByRole("button", { name: "Confirmer" }));
 
     expect(
       await screen.findByText(
@@ -711,12 +707,13 @@ describe("JobOffersPage", () => {
   it("refreshes job offers after a delete returns 404", async () => {
     vi.mocked(getJobOffers).mockResolvedValue(paginatedJobOffers([jobOffer]));
     vi.mocked(deleteJobOffer).mockRejectedValue(createAxiosError(404));
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     const user = userEvent.setup();
     const { queryClient } = renderJobOffersPage();
     const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
 
     await user.click(await screen.findByRole("button", { name: "Supprimer" }));
+
+    await user.click(await screen.findByRole("button", { name: "Confirmer" }));
 
     expect(
       await screen.findByText("Cette offre n'existe plus."),
@@ -734,12 +731,13 @@ describe("JobOffersPage", () => {
   it("shows a generic message when deleting fails unexpectedly", async () => {
     vi.mocked(getJobOffers).mockResolvedValue(paginatedJobOffers([jobOffer]));
     vi.mocked(deleteJobOffer).mockRejectedValue(new Error("Unexpected error"));
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     const user = userEvent.setup();
 
     renderJobOffersPage();
 
     await user.click(await screen.findByRole("button", { name: "Supprimer" }));
+
+    await user.click(await screen.findByRole("button", { name: "Confirmer" }));
 
     expect(
       await screen.findByText("Impossible de supprimer l'offre."),
@@ -755,7 +753,6 @@ describe("JobOffersPage", () => {
       resolveDelete = resolve;
     });
     vi.mocked(deleteJobOffer).mockReturnValue(pendingDelete);
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     const user = userEvent.setup();
 
     renderJobOffersPage();
@@ -764,6 +761,8 @@ describe("JobOffersPage", () => {
       name: "Supprimer",
     });
     await user.click(deleteButtons[0]);
+
+    await user.click(await screen.findByRole("button", { name: "Confirmer" }));
 
     await waitFor(() => {
       expect(deleteJobOffer).toHaveBeenCalledTimes(1);

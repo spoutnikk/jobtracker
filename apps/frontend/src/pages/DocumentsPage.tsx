@@ -15,6 +15,7 @@ import PageShell from "../components/PageShell";
 import PageLoadingState from "../components/PageLoadingState";
 import Pagination from "../components/Pagination";
 import StatusMessage from "../components/StatusMessage";
+import { confirmDialog } from "../components/confirm-dialog";
 
 function DocumentsPage() {
   const queryClient = useQueryClient();
@@ -521,8 +522,8 @@ function DocumentsPage() {
 
                 <button
                   type="button"
-                  onClick={() => {
-                    const confirmed = window.confirm(
+                  onClick={async () => {
+                    const confirmed = await confirmDialog(
                       `Supprimer le document "${document.name}" ?`,
                     );
 

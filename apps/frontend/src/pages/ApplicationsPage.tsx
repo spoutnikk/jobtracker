@@ -26,6 +26,7 @@ import PageShell from "../components/PageShell";
 import PageLoadingState from "../components/PageLoadingState";
 import StatusMessage from "../components/StatusMessage";
 import Pagination from "../components/Pagination";
+import { confirmDialog } from "../components/confirm-dialog";
 
 function parseApplicationStatus(value: string | null): ApplicationStatus | "" {
   return value && applicationStatuses.includes(value as ApplicationStatus)
@@ -847,8 +848,8 @@ function ApplicationsPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    const confirmed = window.confirm(
+                  onClick={async () => {
+                    const confirmed = await confirmDialog(
                       `Supprimer la candidature "${application.jobOffer.title}" ?`,
                     );
 

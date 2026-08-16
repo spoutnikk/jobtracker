@@ -16,6 +16,7 @@ import { authMeQueryKey, setAnonymousAuthState } from "../auth/auth-cache";
 import { useAuth } from "../auth/useAuth";
 import PageShell from "../components/PageShell";
 import StatusMessage from "../components/StatusMessage";
+import { confirmDialog } from "../components/confirm-dialog";
 
 function ProfilePage() {
   const { user } = useAuth();
@@ -110,9 +111,10 @@ function ProfileForm({ user }: { user: AuthenticatedUser }) {
     changePasswordMutation.mutate(input);
   }
 
-  function handleRevokeOtherSessions() {
-    const confirmed = window.confirm(
+  async function handleRevokeOtherSessions() {
+    const confirmed = await confirmDialog(
       "Déconnecter tous les autres appareils ? Votre session actuelle restera active.",
+      { confirmLabel: "Déconnecter" },
     );
 
     if (!confirmed) {
@@ -122,11 +124,12 @@ function ProfileForm({ user }: { user: AuthenticatedUser }) {
     revokeOtherSessionsMutation.mutate();
   }
 
-  function handleDeleteAccount(event: React.FormEvent<HTMLFormElement>) {
+  async function handleDeleteAccount(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const confirmed = window.confirm(
+    const confirmed = await confirmDialog(
       "Supprimer définitivement votre compte et toutes vos données ? Cette action est irréversible.",
+      { confirmLabel: "Supprimer définitivement" },
     );
 
     if (!confirmed) {

@@ -823,17 +823,13 @@ describe("ApplicationsPage", () => {
   });
 
   it("deletes an application after confirmation", async () => {
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     const user = userEvent.setup();
     const { queryClient } = renderApplicationsPage();
     const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
 
     await user.click(await screen.findByRole("button", { name: "Supprimer" }));
 
-    expect(confirmSpy).toHaveBeenCalledTimes(1);
-    expect(confirmSpy).toHaveBeenCalledWith(
-      `Supprimer la candidature "${jobOffer.title}" ?`,
-    );
+    await user.click(await screen.findByRole("button", { name: "Confirmer" }));
     await waitFor(() => {
       expect(deleteApplication).toHaveBeenCalledTimes(1);
       expect(invalidateQueriesSpy).toHaveBeenCalledWith({

@@ -21,6 +21,7 @@ import PageShell from "../components/PageShell";
 import PageLoadingState from "../components/PageLoadingState";
 import Pagination from "../components/Pagination";
 import StatusMessage from "../components/StatusMessage";
+import { confirmDialog } from "../components/confirm-dialog";
 
 const contractTypeLabels: Record<ContractType, string> = {
   CDI: "CDI",
@@ -357,8 +358,10 @@ function JobOffersPage() {
     updateJobOfferMutation.mutate({ id: jobOfferId, input });
   }
 
-  function handleDelete(jobOffer: JobOffer) {
-    const confirmed = window.confirm(`Supprimer l'offre "${jobOffer.title}" ?`);
+  async function handleDelete(jobOffer: JobOffer) {
+    const confirmed = await confirmDialog(
+      `Supprimer l'offre "${jobOffer.title}" ?`,
+    );
 
     if (!confirmed) {
       return;
