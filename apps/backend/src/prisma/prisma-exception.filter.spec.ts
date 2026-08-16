@@ -85,6 +85,27 @@ describe('PrismaExceptionFilter', () => {
     );
   });
 
+  it('should leave P2000 as a server error', () => {
+    const exception = new Prisma.PrismaClientKnownRequestError(
+      'Value too long',
+      {
+        code: 'P2000',
+        clientVersion: '7.9.1',
+      },
+    );
+
+    filter.catch(exception, hostMock);
+
+    expect(httpServerMock.reply).toHaveBeenCalledWith(
+      response,
+      {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: 'Internal server error',
+      },
+      HttpStatus.INTERNAL_SERVER_ERROR,
+    );
+  });
+
   it('should leave a non-Prisma error as a server error', () => {
     const exception = new Error('Unexpected error');
 
@@ -98,5 +119,22 @@ describe('PrismaExceptionFilter', () => {
       },
       HttpStatus.INTERNAL_SERVER_ERROR,
     );
+  });
+
+  it('should end the response when headers have already been sent', () => {
+    httpServerMock.isHeadersSent.mockReturnValueOnce(true);
+
+    const exception = new Prisma.PrismaClientKnownRequestError(
+      'Foreign key constraint failed',
+      {
+        code: 'P2003',
+        clientVersion: '7.9.1',
+      },
+    );
+
+    filter.catch(exception, hostMock);
+
+    expect(httpServerMock.end).toHaveBeenCalledWith(response);
+    expect(httpServerMock.reply).not.toHaveBeenCalled();
   });
 });
