@@ -23,6 +23,7 @@ import {
   applicationStatusLabels,
 } from "../constants/application-status";
 import PageShell from "../components/PageShell";
+import PageLoadingState from "../components/PageLoadingState";
 import StatusMessage from "../components/StatusMessage";
 import Pagination from "../components/Pagination";
 
@@ -360,11 +361,7 @@ function ApplicationsPage() {
   });
 
   if (applicationsQuery.isPending) {
-    return (
-      <PageShell>
-        <p>Chargement des candidatures...</p>
-      </PageShell>
-    );
+    return <PageLoadingState>Chargement des candidatures...</PageLoadingState>;
   }
 
   if (applicationsQuery.isError) {

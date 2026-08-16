@@ -12,6 +12,7 @@ import {
 } from "../api/documents";
 import { getAllApplications } from "../api/applications";
 import PageShell from "../components/PageShell";
+import PageLoadingState from "../components/PageLoadingState";
 import Pagination from "../components/Pagination";
 import StatusMessage from "../components/StatusMessage";
 
@@ -193,11 +194,7 @@ function DocumentsPage() {
   }
 
   if (documentsQuery.isPending && !documentsQuery.data) {
-    return (
-      <PageShell>
-        <p>Chargement des documents...</p>
-      </PageShell>
-    );
+    return <PageLoadingState>Chargement des documents...</PageLoadingState>;
   }
 
   if (documentsQuery.isError) {

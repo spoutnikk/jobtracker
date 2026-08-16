@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { getAllApplications, type Application } from "../api/applications";
 import PageShell from "../components/PageShell";
+import PageLoadingState from "../components/PageLoadingState";
 import StatusMessage from "../components/StatusMessage";
 
 type PriorityKind = "FOLLOW_UP" | "INTERVIEW";
@@ -106,11 +107,7 @@ function HomePage() {
   });
 
   if (applicationsQuery.isPending) {
-    return (
-      <PageShell>
-        <p>Chargement de votre journée...</p>
-      </PageShell>
-    );
+    return <PageLoadingState>Chargement de votre journée...</PageLoadingState>;
   }
 
   if (applicationsQuery.isError) {

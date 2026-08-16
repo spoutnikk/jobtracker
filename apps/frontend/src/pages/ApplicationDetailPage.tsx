@@ -23,6 +23,7 @@ import {
 import { hasHttpStatus } from "../api/http-error";
 import { applicationStatusLabels } from "../constants/application-status";
 import PageShell from "../components/PageShell";
+import PageLoadingState from "../components/PageLoadingState";
 import StatusMessage from "../components/StatusMessage";
 
 const contractTypeLabels: Record<ContractType, string> = {
@@ -270,11 +271,7 @@ function ApplicationDetailPage() {
   }
 
   if (applicationQuery.isPending) {
-    return (
-      <PageShell>
-        <p>Chargement de la candidature...</p>
-      </PageShell>
-    );
+    return <PageLoadingState>Chargement de la candidature...</PageLoadingState>;
   }
 
   if (applicationQuery.isError) {

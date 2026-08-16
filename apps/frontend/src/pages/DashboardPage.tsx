@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { getDashboardStats } from "../api/dashboard";
 import { getApplicationStatusLabel } from "../constants/application-status";
 import PageShell from "../components/PageShell";
+import PageLoadingState from "../components/PageLoadingState";
 import StatusMessage from "../components/StatusMessage";
 
 function formatDateTime(value: string) {
@@ -20,9 +21,7 @@ function DashboardPage() {
 
   if (dashboardQuery.isPending) {
     return (
-      <PageShell>
-        <p>Chargement du tableau de bord...</p>
-      </PageShell>
+      <PageLoadingState>Chargement du tableau de bord...</PageLoadingState>
     );
   }
 

@@ -9,6 +9,7 @@ import {
   type Application,
 } from "../api/applications";
 import PageShell from "../components/PageShell";
+import PageLoadingState from "../components/PageLoadingState";
 import StatusMessage from "../components/StatusMessage";
 
 type CalendarEventType = "FOLLOW_UP" | "INTERVIEW";
@@ -546,11 +547,7 @@ function CalendarPage() {
   }
 
   if (followUpsQuery.isPending || interviewsQuery.isPending) {
-    return (
-      <PageShell>
-        <p>Chargement du calendrier...</p>
-      </PageShell>
-    );
+    return <PageLoadingState>Chargement du calendrier...</PageLoadingState>;
   }
 
   if (followUpsQuery.isError || interviewsQuery.isError) {

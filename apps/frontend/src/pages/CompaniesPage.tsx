@@ -12,6 +12,7 @@ import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import CollapsibleSection from "../components/CollapsibleSection";
 import PageShell from "../components/PageShell";
+import PageLoadingState from "../components/PageLoadingState";
 import Pagination from "../components/Pagination";
 import StatusMessage from "../components/StatusMessage";
 
@@ -170,11 +171,7 @@ function CompaniesPage() {
   }
 
   if (companiesQuery.isPending) {
-    return (
-      <PageShell>
-        <p>Chargement des entreprises...</p>
-      </PageShell>
-    );
+    return <PageLoadingState>Chargement des entreprises...</PageLoadingState>;
   }
 
   if (companiesQuery.isError) {

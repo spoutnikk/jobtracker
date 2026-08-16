@@ -18,6 +18,7 @@ import {
   type UpdateJobOfferInput,
 } from "../api/job-offers";
 import PageShell from "../components/PageShell";
+import PageLoadingState from "../components/PageLoadingState";
 import Pagination from "../components/Pagination";
 import StatusMessage from "../components/StatusMessage";
 
@@ -368,9 +369,7 @@ function JobOffersPage() {
 
   if (jobOffersQuery.isPending) {
     return (
-      <PageShell>
-        <p>Chargement des offres d’emploi...</p>
-      </PageShell>
+      <PageLoadingState>Chargement des offres d’emploi...</PageLoadingState>
     );
   }
 
