@@ -177,6 +177,146 @@ describe('Applications HTTP ownership integration', () => {
     }
   });
 
+  it('creates, reads, updates, and removes an owned application', async () => {
+    if (!app || !prisma || !userA) {
+      throw new Error('Integration fixtures are unavailable');
+    }
+
+    const createResponse = await request(app.getHttpServer())
+      .post('/applications')
+      .set('Origin', DEFAULT_FRONTEND_ORIGIN)
+      .set('Cookie', userA.cookie)
+      .send({
+        jobOfferId: userA.jobOfferId,
+        status: 'APPLIED',
+        appliedAt: '2026-08-16T10:00:00.000Z',
+        source: `happy-path:${marker}`,
+        notes: 'Created through the HTTP integration test',
+      })
+      .expect(201);
+
+    const createdBody = createResponse.body as Record<string, unknown>;
+    const applicationId = createdBody.id;
+
+    expect(typeof applicationId).toBe('number');
+    expect(createdBody.status).toBe('APPLIED');
+    expect(createdBody.jobOfferId).toBe(userA.jobOfferId);
+
+    if (typeof applicationId !== 'number') {
+      throw new Error('Created application did not return a numeric id');
+    }
+
+    await expect(
+      prisma.application.findUnique({
+        where: { id: applicationId },
+        select: {
+          userId: true,
+          jobOfferId: true,
+          status: true,
+          source: true,
+        },
+      }),
+    ).resolves.toEqual({
+      userId: userA.userId,
+      jobOfferId: userA.jobOfferId,
+      status: 'APPLIED',
+      source: `happy-path:${marker}`,
+    });
+
+    const createdEvents = await prisma.applicationEvent.findMany({
+      where: { applicationId },
+      select: { type: true },
+      orderBy: { occurredAt: 'asc' },
+    });
+
+    expect(createdEvents.map(({ type }) => type)).toEqual(
+      expect.arrayContaining(['CREATED', 'APPLICATION_SENT']),
+    );
+
+    const getResponse = await request(app.getHttpServer())
+      .get(`/applications/${applicationId}`)
+      .set('Cookie', userA.cookie)
+      .expect(200);
+
+    expect(getResponse.body).toEqual(
+      expect.objectContaining({
+        id: applicationId,
+        status: 'APPLIED',
+        source: `happy-path:${marker}`,
+      }),
+    );
+
+    const updateResponse = await request(app.getHttpServer())
+      .patch(`/applications/${applicationId}`)
+      .set('Origin', DEFAULT_FRONTEND_ORIGIN)
+      .set('Cookie', userA.cookie)
+      .send({
+        status: 'INTERVIEW',
+        followUpAt: '2026-08-25T09:00:00.000Z',
+        interviewAt: '2026-08-30T14:00:00.000Z',
+        notes: 'Updated through the HTTP integration test',
+      })
+      .expect(200);
+
+    expect(updateResponse.body).toEqual(
+      expect.objectContaining({
+        id: applicationId,
+        status: 'INTERVIEW',
+        notes: 'Updated through the HTTP integration test',
+      }),
+    );
+
+    await expect(
+      prisma.application.findUnique({
+        where: { id: applicationId },
+        select: {
+          status: true,
+          followUpAt: true,
+          interviewAt: true,
+          notes: true,
+        },
+      }),
+    ).resolves.toEqual({
+      status: 'INTERVIEW',
+      followUpAt: new Date('2026-08-25T09:00:00.000Z'),
+      interviewAt: new Date('2026-08-30T14:00:00.000Z'),
+      notes: 'Updated through the HTTP integration test',
+    });
+
+    const updatedEvents = await prisma.applicationEvent.findMany({
+      where: { applicationId },
+      select: { type: true },
+    });
+
+    expect(updatedEvents.map(({ type }) => type)).toEqual(
+      expect.arrayContaining([
+        'CREATED',
+        'APPLICATION_SENT',
+        'STATUS_CHANGED',
+        'FOLLOW_UP',
+        'INTERVIEW',
+      ]),
+    );
+
+    await request(app.getHttpServer())
+      .delete(`/applications/${applicationId}`)
+      .set('Origin', DEFAULT_FRONTEND_ORIGIN)
+      .set('Cookie', userA.cookie)
+      .expect(200);
+
+    await expect(
+      prisma.application.findUnique({
+        where: { id: applicationId },
+      }),
+    ).resolves.toBeNull();
+
+    await expect(
+      prisma.applicationEvent.count({
+        where: { applicationId },
+      }),
+    ).resolves.toBe(0);
+  });
+
   it('returns only the authenticated user applications and deadlines', async () => {
     if (!app || !userA || !userB) {
       throw new Error('Integration fixtures are unavailable');

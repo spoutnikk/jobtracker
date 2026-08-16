@@ -186,6 +186,177 @@ describe('Companies and JobOffers HTTP ownership integration', () => {
     }
   });
 
+  it('creates, reads, updates, and removes an owned company and job offer', async () => {
+    if (!app || !prisma || !userA) {
+      throw new Error('Integration fixtures are unavailable');
+    }
+
+    const createdCompanyResponse = await request(app.getHttpServer())
+      .post('/companies')
+      .set('Cookie', userA.cookie)
+      .set('Origin', DEFAULT_FRONTEND_ORIGIN)
+      .send({
+        name: `Happy Path Company ${marker}`,
+        website: 'https://example.com',
+        city: 'Lille',
+      })
+      .expect(201);
+
+    const createdCompany = createdCompanyResponse.body as Record<
+      string,
+      unknown
+    >;
+    const companyId = createdCompany.id;
+
+    expect(typeof companyId).toBe('number');
+    expect(createdCompany).toMatchObject({
+      name: `Happy Path Company ${marker}`,
+      website: 'https://example.com',
+      city: 'Lille',
+      userId: userA.userId,
+    });
+
+    const persistedCompany = await prisma.company.findUnique({
+      where: { id: companyId as number },
+    });
+
+    expect(persistedCompany).toMatchObject({
+      id: companyId,
+      name: `Happy Path Company ${marker}`,
+      website: 'https://example.com',
+      city: 'Lille',
+      userId: userA.userId,
+    });
+
+    await request(app.getHttpServer())
+      .get(`/companies/${String(companyId)}`)
+      .set('Cookie', userA.cookie)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          id: companyId,
+          name: `Happy Path Company ${marker}`,
+          city: 'Lille',
+        });
+      });
+
+    await request(app.getHttpServer())
+      .patch(`/companies/${String(companyId)}`)
+      .set('Cookie', userA.cookie)
+      .set('Origin', DEFAULT_FRONTEND_ORIGIN)
+      .send({
+        name: `Updated Happy Path Company ${marker}`,
+        city: 'Roubaix',
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          id: companyId,
+          name: `Updated Happy Path Company ${marker}`,
+          city: 'Roubaix',
+        });
+      });
+
+    const createdJobOfferResponse = await request(app.getHttpServer())
+      .post('/job-offers')
+      .set('Cookie', userA.cookie)
+      .set('Origin', DEFAULT_FRONTEND_ORIGIN)
+      .send({
+        title: `Happy Path Offer ${marker}`,
+        companyId,
+        url: 'https://example.com/jobs/1',
+        description: 'Integration happy path',
+        location: 'Lille',
+        contractType: 'CDI',
+        salary: '45k',
+        publishedAt: '2026-08-16T10:00:00.000Z',
+      })
+      .expect(201);
+
+    const createdJobOffer = createdJobOfferResponse.body as Record<
+      string,
+      unknown
+    >;
+    const jobOfferId = createdJobOffer.id;
+
+    expect(typeof jobOfferId).toBe('number');
+    expect(createdJobOffer).toMatchObject({
+      title: `Happy Path Offer ${marker}`,
+      companyId,
+      location: 'Lille',
+      contractType: 'CDI',
+      salary: '45k',
+    });
+
+    const persistedJobOffer = await prisma.jobOffer.findUnique({
+      where: { id: jobOfferId as number },
+    });
+
+    expect(persistedJobOffer).toMatchObject({
+      id: jobOfferId,
+      title: `Happy Path Offer ${marker}`,
+      companyId,
+      location: 'Lille',
+      contractType: 'CDI',
+      salary: '45k',
+    });
+
+    await request(app.getHttpServer())
+      .get(`/job-offers/${String(jobOfferId)}`)
+      .set('Cookie', userA.cookie)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          id: jobOfferId,
+          title: `Happy Path Offer ${marker}`,
+          companyId,
+        });
+      });
+
+    await request(app.getHttpServer())
+      .patch(`/job-offers/${String(jobOfferId)}`)
+      .set('Cookie', userA.cookie)
+      .set('Origin', DEFAULT_FRONTEND_ORIGIN)
+      .send({
+        title: `Updated Happy Path Offer ${marker}`,
+        location: 'Tourcoing',
+        contractType: 'CDD',
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          id: jobOfferId,
+          title: `Updated Happy Path Offer ${marker}`,
+          location: 'Tourcoing',
+          contractType: 'CDD',
+        });
+      });
+
+    await request(app.getHttpServer())
+      .delete(`/job-offers/${String(jobOfferId)}`)
+      .set('Cookie', userA.cookie)
+      .set('Origin', DEFAULT_FRONTEND_ORIGIN)
+      .expect(200);
+
+    await expect(
+      prisma.jobOffer.findUnique({
+        where: { id: jobOfferId as number },
+      }),
+    ).resolves.toBeNull();
+
+    await request(app.getHttpServer())
+      .delete(`/companies/${String(companyId)}`)
+      .set('Cookie', userA.cookie)
+      .set('Origin', DEFAULT_FRONTEND_ORIGIN)
+      .expect(200);
+
+    await expect(
+      prisma.company.findUnique({
+        where: { id: companyId as number },
+      }),
+    ).resolves.toBeNull();
+  });
+
   it('isolates company lists and returns the same 404 for foreign and missing companies without side effects', async () => {
     if (!app || !prisma || !userA || !userB) {
       throw new Error('Integration fixtures are unavailable');
