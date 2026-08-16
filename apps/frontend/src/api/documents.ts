@@ -1,9 +1,13 @@
+import type {
+  DocumentType,
+  PaginatedResponse,
+  SortOrder,
+} from "@jobtracker/shared";
 import { apiClient } from "./client";
 
-export type DocumentType = "CV" | "COVER_LETTER" | "JOB_OFFER" | "OTHER";
+export type { DocumentType, SortOrder };
 
 export type DocumentSortField = "createdAt" | "updatedAt" | "name" | "type";
-export type SortOrder = "asc" | "desc";
 
 export interface DocumentApplication {
   id: number;
@@ -48,13 +52,7 @@ export interface DocumentFilters {
   sortOrder?: SortOrder;
 }
 
-export interface PaginatedDocuments {
-  items: Document[];
-  page: number;
-  pageSize: number;
-  total: number;
-  totalPages: number;
-}
+export type PaginatedDocuments = PaginatedResponse<Document>;
 
 export async function getDocuments(
   filters?: DocumentFilters,

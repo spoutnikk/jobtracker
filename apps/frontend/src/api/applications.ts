@@ -1,10 +1,12 @@
+import type {
+  ApplicationStatus,
+  ContractType,
+  PaginatedResponse,
+  SortOrder,
+} from "@jobtracker/shared";
 import { apiClient } from "./client";
 
-export type ApplicationStatus =
-  "DRAFT" | "APPLIED" | "FOLLOW_UP" | "INTERVIEW" | "ACCEPTED" | "REJECTED";
-
-export type ContractType =
-  "CDI" | "CDD" | "INTERNSHIP" | "FREELANCE" | "TEMPORARY" | "OTHER";
+export type { ApplicationStatus, ContractType, SortOrder };
 
 export interface Company {
   id: number;
@@ -68,15 +70,7 @@ export type ApplicationSortBy =
   | "interviewAt"
   | "status";
 
-export type SortOrder = "asc" | "desc";
-
-export interface PaginatedApplications {
-  items: Application[];
-  page: number;
-  pageSize: number;
-  total: number;
-  totalPages: number;
-}
+export type PaginatedApplications = PaginatedResponse<Application>;
 
 export async function getApplications(
   filters?: ApplicationFilters,

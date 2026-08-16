@@ -1,3 +1,4 @@
+import type { PaginatedResponse, SortOrder } from "@jobtracker/shared";
 import { apiClient } from "./client";
 import type { JobOffer } from "./job-offers";
 
@@ -20,7 +21,7 @@ export interface CreateCompanyInput {
 export type UpdateCompanyInput = Partial<CreateCompanyInput>;
 
 export type CompanySortBy = "name" | "createdAt" | "updatedAt";
-export type CompanySortOrder = "asc" | "desc";
+export type CompanySortOrder = SortOrder;
 
 export interface CompanyFilters {
   search?: string;
@@ -30,13 +31,7 @@ export interface CompanyFilters {
   sortOrder?: CompanySortOrder;
 }
 
-export interface PaginatedCompanies {
-  items: Company[];
-  page: number;
-  pageSize: number;
-  total: number;
-  totalPages: number;
-}
+export type PaginatedCompanies = PaginatedResponse<Company>;
 
 export async function getCompanies(
   filters?: CompanyFilters,

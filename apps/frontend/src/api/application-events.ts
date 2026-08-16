@@ -1,14 +1,7 @@
+import type { ApplicationEventType } from "@jobtracker/shared";
 import { apiClient } from "./client";
 
-export type ApplicationEventType =
-  | "CREATED"
-  | "STATUS_CHANGED"
-  | "APPLICATION_SENT"
-  | "FOLLOW_UP"
-  | "INTERVIEW"
-  | "DOCUMENT_ADDED"
-  | "NOTE"
-  | "OTHER";
+export type { ApplicationEventType };
 
 export interface ApplicationEvent {
   id: number;

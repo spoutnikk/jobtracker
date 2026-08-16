@@ -1,7 +1,11 @@
+import type {
+  ContractType,
+  PaginatedResponse,
+  SortOrder,
+} from "@jobtracker/shared";
 import { apiClient } from "./client";
 
-export type ContractType =
-  "CDI" | "CDD" | "INTERNSHIP" | "FREELANCE" | "TEMPORARY" | "OTHER";
+export type { ContractType };
 
 interface JobOfferCompany {
   id: number;
@@ -42,7 +46,7 @@ export type UpdateJobOfferInput = Partial<CreateJobOfferInput>;
 
 export type JobOfferSortBy =
   "createdAt" | "updatedAt" | "publishedAt" | "title";
-export type JobOfferSortOrder = "asc" | "desc";
+export type JobOfferSortOrder = SortOrder;
 
 export interface FindJobOffersParams {
   search?: string;
@@ -54,13 +58,7 @@ export interface FindJobOffersParams {
   sortOrder?: JobOfferSortOrder;
 }
 
-export interface PaginatedJobOffers {
-  items: JobOffer[];
-  page: number;
-  pageSize: number;
-  total: number;
-  totalPages: number;
-}
+export type PaginatedJobOffers = PaginatedResponse<JobOffer>;
 
 export async function getJobOffers(
   params?: FindJobOffersParams,
