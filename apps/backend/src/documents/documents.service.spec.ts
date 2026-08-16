@@ -735,6 +735,85 @@ describe('DocumentsService', () => {
       'Document with id 1 not found',
     );
   });
+
+  it('should ignore ENOENT when cleaning up a failed document creation', async () => {
+    const databaseError = new Error('Document creation failed');
+
+    const dto = {
+      name: 'CV principal',
+      type: 'CV' as const,
+    };
+
+    const file = {
+      originalname: 'cv.pdf',
+      mimetype: 'application/pdf',
+      size: 1234,
+      path: failedUploadPath,
+    };
+
+    prismaServiceMock.document.create.mockRejectedValueOnce(databaseError);
+
+    const fileError = Object.assign(new Error('File not found'), {
+      code: 'ENOENT',
+    });
+
+    jest.mocked(unlink).mockRejectedValueOnce(fileError);
+
+    await expect(service.create(7, dto, file)).rejects.toBe(databaseError);
+
+    expect(unlink).toHaveBeenCalledWith(file.path);
+  });
+
+  it('should propagate a filesystem error when cleanup after creation fails', async () => {
+    const databaseError = new Error('Document creation failed');
+
+    const dto = {
+      name: 'CV principal',
+      type: 'CV' as const,
+    };
+
+    const file = {
+      originalname: 'cv.pdf',
+      mimetype: 'application/pdf',
+      size: 1234,
+      path: failedUploadPath,
+    };
+
+    prismaServiceMock.document.create.mockRejectedValueOnce(databaseError);
+
+    const fileError = Object.assign(new Error('Permission denied'), {
+      code: 'EACCES',
+    });
+
+    jest.mocked(unlink).mockRejectedValueOnce(fileError);
+
+    await expect(service.create(7, dto, file)).rejects.toBe(fileError);
+
+    expect(unlink).toHaveBeenCalledWith(file.path);
+  });
+
+  it('should propagate a filesystem error when physical deletion fails', async () => {
+    const document = {
+      id: 1,
+      name: 'Document de test',
+      path: 'uploads/document.pdf',
+      application: null,
+    };
+
+    prismaServiceMock.document.findFirst.mockResolvedValue(document);
+    prismaServiceMock.document.delete.mockResolvedValue(document);
+
+    const fileError = Object.assign(new Error('Permission denied'), {
+      code: 'EACCES',
+    });
+
+    jest.mocked(unlink).mockRejectedValueOnce(fileError);
+
+    await expect(service.remove(7, 1)).rejects.toBe(fileError);
+
+    expect(prismaServiceMock.document.delete).toHaveBeenCalledTimes(1);
+    expect(unlink).toHaveBeenCalledWith(document.path);
+  });
 });
 
 function createFilters(
