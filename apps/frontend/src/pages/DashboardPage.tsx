@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { getDashboardStats } from "../api/dashboard";
 import { getApplicationStatusLabel } from "../constants/application-status";
 import PageShell from "../components/PageShell";
+import StatusMessage from "../components/StatusMessage";
 
 function formatDateTime(value: string) {
   return new Intl.DateTimeFormat("fr-FR", {
@@ -28,9 +29,9 @@ function DashboardPage() {
   if (dashboardQuery.isError) {
     return (
       <PageShell>
-        <p className="text-red-600">
+        <StatusMessage variant="error">
           Impossible de charger le tableau de bord.
-        </p>
+        </StatusMessage>
       </PageShell>
     );
   }

@@ -1,5 +1,6 @@
 import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "../auth/useAuth";
+import StatusMessage from "../components/StatusMessage";
 
 function AnonymousOnlyRoute() {
   const { status, retryInitialization } = useAuth();
@@ -11,7 +12,9 @@ function AnonymousOnlyRoute() {
   if (status === "error") {
     return (
       <main className="p-8">
-        <p className="text-red-600">Impossible de vérifier la session.</p>
+        <StatusMessage variant="error">
+          Impossible de vérifier la session.
+        </StatusMessage>
         <button type="button" onClick={retryInitialization}>
           Réessayer
         </button>

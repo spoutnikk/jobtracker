@@ -1,5 +1,6 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/useAuth";
+import StatusMessage from "../components/StatusMessage";
 
 function ProtectedRoute() {
   const { status, retryInitialization } = useAuth();
@@ -12,7 +13,9 @@ function ProtectedRoute() {
   if (status === "error") {
     return (
       <main className="p-8">
-        <p className="text-red-600">Impossible de vérifier la session.</p>
+        <StatusMessage variant="error">
+          Impossible de vérifier la session.
+        </StatusMessage>
         <button type="button" onClick={retryInitialization}>
           Réessayer
         </button>

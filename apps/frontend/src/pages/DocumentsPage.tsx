@@ -203,7 +203,9 @@ function DocumentsPage() {
   if (documentsQuery.isError) {
     return (
       <PageShell>
-        <p className="text-red-600">Impossible de charger les documents.</p>
+        <StatusMessage variant="error">
+          Impossible de charger les documents.
+        </StatusMessage>
       </PageShell>
     );
   }

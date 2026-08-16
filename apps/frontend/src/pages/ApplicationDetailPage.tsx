@@ -282,11 +282,11 @@ function ApplicationDetailPage() {
 
     return (
       <main className="min-h-screen p-8">
-        <p className="text-red-600">
+        <StatusMessage variant="error">
           {isNotFound
             ? "Cette candidature n'existe pas ou n'est plus disponible."
             : "Impossible de charger la candidature."}
-        </p>
+        </StatusMessage>
       </main>
     );
   }

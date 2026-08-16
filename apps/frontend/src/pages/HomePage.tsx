@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { getAllApplications, type Application } from "../api/applications";
 import PageShell from "../components/PageShell";
+import StatusMessage from "../components/StatusMessage";
 
 type PriorityKind = "FOLLOW_UP" | "INTERVIEW";
 
@@ -115,9 +116,9 @@ function HomePage() {
   if (applicationsQuery.isError) {
     return (
       <PageShell>
-        <p className="text-red-600">
+        <StatusMessage variant="error">
           Impossible de charger les actions à effectuer.
-        </p>
+        </StatusMessage>
       </PageShell>
     );
   }

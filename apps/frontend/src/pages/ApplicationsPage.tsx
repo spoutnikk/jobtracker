@@ -23,6 +23,7 @@ import {
   applicationStatusLabels,
 } from "../constants/application-status";
 import PageShell from "../components/PageShell";
+import StatusMessage from "../components/StatusMessage";
 import Pagination from "../components/Pagination";
 
 function parseApplicationStatus(value: string | null): ApplicationStatus | "" {
@@ -369,7 +370,9 @@ function ApplicationsPage() {
   if (applicationsQuery.isError) {
     return (
       <PageShell>
-        <p className="text-red-600">Impossible de charger les candidatures.</p>
+        <StatusMessage variant="error">
+          Impossible de charger les candidatures.
+        </StatusMessage>
       </PageShell>
     );
   }

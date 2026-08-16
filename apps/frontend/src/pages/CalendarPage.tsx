@@ -556,9 +556,9 @@ function CalendarPage() {
   if (followUpsQuery.isError || interviewsQuery.isError) {
     return (
       <PageShell>
-        <p className="text-red-600">
+        <StatusMessage variant="error">
           Impossible de charger les relances ou les entretiens.
-        </p>
+        </StatusMessage>
       </PageShell>
     );
   }

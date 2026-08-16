@@ -180,7 +180,9 @@ function CompaniesPage() {
   if (companiesQuery.isError) {
     return (
       <PageShell>
-        <p className="text-red-600">Impossible de charger les entreprises.</p>
+        <StatusMessage variant="error">
+          Impossible de charger les entreprises.
+        </StatusMessage>
       </PageShell>
     );
   }

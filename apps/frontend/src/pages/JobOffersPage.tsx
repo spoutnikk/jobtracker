@@ -377,7 +377,9 @@ function JobOffersPage() {
   if (jobOffersQuery.isError) {
     return (
       <PageShell>
-        <p className="text-red-600">Impossible de charger les offres.</p>
+        <StatusMessage variant="error">
+          Impossible de charger les offres.
+        </StatusMessage>
       </PageShell>
     );
   }
