@@ -238,11 +238,9 @@ describe("DocumentsPage", () => {
       within(documentCard).getByRole("button", { name: "Télécharger" }),
     );
 
-    expect(
-      await within(documentCard).findByText(
-        "Impossible de télécharger le document.",
-      ),
-    ).toBeInTheDocument();
+    expect(await within(documentCard).findByRole("alert")).toHaveTextContent(
+      "Impossible de télécharger le document.",
+    );
   });
 
   it("renders an empty state", async () => {
@@ -515,9 +513,9 @@ describe("DocumentsPage", () => {
 
     fireEvent.submit(form);
 
-    expect(
-      await screen.findByText("Impossible d'ajouter le document."),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Impossible d'ajouter le document.",
+    );
 
     expect(uploadDocument).toHaveBeenCalledTimes(1);
   });

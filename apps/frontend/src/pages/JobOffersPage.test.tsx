@@ -739,9 +739,9 @@ describe("JobOffersPage", () => {
 
     await user.click(await screen.findByRole("button", { name: "Confirmer" }));
 
-    expect(
-      await screen.findByText("Impossible de supprimer l'offre."),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Impossible de supprimer l'offre.",
+    );
   });
 
   it("disables all job offer actions while deletion is pending", async () => {

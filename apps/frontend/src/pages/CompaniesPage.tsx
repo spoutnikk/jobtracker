@@ -366,9 +366,9 @@ function CompaniesPage() {
           </button>
 
           {createCompanyMutation.isError && (
-            <p className="mt-3 text-sm text-red-600">
+            <StatusMessage variant="error" className="mt-3">
               Impossible de créer l'entreprise.
-            </p>
+            </StatusMessage>
           )}
         </form>
       </CollapsibleSection>
@@ -519,10 +519,10 @@ function CompaniesPage() {
                 </form>
               )}
               {deleteErrorCompanyId === company.id && (
-                <p className="mt-3 text-sm text-red-600">
+                <StatusMessage variant="error" className="mt-3">
                   Impossible de supprimer cette entreprise. Vérifiez qu'aucune
                   offre d'emploi ne lui est encore associée.
-                </p>
+                </StatusMessage>
               )}
             </article>
           ))}

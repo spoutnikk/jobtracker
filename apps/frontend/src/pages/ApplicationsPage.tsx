@@ -736,9 +736,9 @@ function ApplicationsPage() {
           </button>
 
           {createApplicationMutation.isError && (
-            <p className="mt-3 text-sm text-red-600">
+            <StatusMessage variant="error" className="mt-3">
               Impossible de créer la candidature.
-            </p>
+            </StatusMessage>
           )}
         </form>
       </CollapsibleSection>
@@ -885,9 +885,9 @@ function ApplicationsPage() {
                   )}
 
                   {applicationEventsQuery.isError && (
-                    <p className="mt-3 text-sm text-red-600">
+                    <StatusMessage variant="error" className="mt-3">
                       Impossible de charger le journal.
-                    </p>
+                    </StatusMessage>
                   )}
 
                   {applicationEventsQuery.isSuccess && (

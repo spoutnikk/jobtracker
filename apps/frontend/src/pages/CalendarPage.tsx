@@ -703,9 +703,9 @@ function CalendarPage() {
             Annuler
           </button>
           {scheduleEventMutation.isError && (
-            <p className="mt-3 text-red-600">
+            <StatusMessage variant="error" className="mt-3">
               Impossible de programmer l'événement.
-            </p>
+            </StatusMessage>
           )}
         </section>
       )}

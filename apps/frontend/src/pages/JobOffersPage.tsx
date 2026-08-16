@@ -567,10 +567,10 @@ function JobOffersPage() {
           )}
 
           {companiesQuery.isError && (
-            <p className="mt-4 text-sm text-red-600">
+            <StatusMessage variant="error" className="mt-4">
               Impossible de charger les sociétés. La création d'une offre est
               indisponible.
-            </p>
+            </StatusMessage>
           )}
 
           {companiesQuery.isSuccess && companiesQuery.data.length === 0 && (
@@ -702,12 +702,18 @@ function JobOffersPage() {
           </button>
 
           {createError && (
-            <p className="mt-3 text-sm text-red-600">{createError}</p>
+            <StatusMessage variant="error" className="mt-3">
+              {createError}
+            </StatusMessage>
           )}
         </form>
       </CollapsibleSection>
 
-      {editError && <p className="mt-4 text-sm text-red-600">{editError}</p>}
+      {editError && (
+        <StatusMessage variant="error" className="mt-4">
+          {editError}
+        </StatusMessage>
+      )}
 
       {jobOffersQuery.data.items.length === 0 ? (
         <p className="mt-6 text-gray-600">Aucune offre enregistrée.</p>
@@ -962,9 +968,9 @@ function JobOffersPage() {
               )}
 
               {deleteError?.jobOfferId === jobOffer.id && (
-                <p className="mt-3 text-sm text-red-600">
+                <StatusMessage variant="error" className="mt-3">
                   {deleteError.message}
-                </p>
+                </StatusMessage>
               )}
             </article>
           ))}

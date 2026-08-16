@@ -172,9 +172,9 @@ describe("LoginPage", () => {
 
     await fillAndSubmitLogin();
 
-    expect(
-      await screen.findByText("Email ou mot de passe incorrect."),
-    ).toBeInTheDocument();
+    const alert = await screen.findByRole("alert");
+
+    expect(alert).toHaveTextContent("Email ou mot de passe incorrect.");
     expect(
       screen.getByRole("heading", { name: "Connexion" }),
     ).toBeInTheDocument();
@@ -187,9 +187,9 @@ describe("LoginPage", () => {
 
     await fillAndSubmitLogin();
 
-    expect(
-      await screen.findByText("Impossible de se connecter."),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Impossible de se connecter.",
+    );
   });
 
   it("disables the submit button while login is pending", async () => {

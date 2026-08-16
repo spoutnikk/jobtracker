@@ -276,9 +276,9 @@ function DocumentsPage() {
           </button>
 
           {uploadDocumentMutation.isError && (
-            <p className="mt-3 text-sm text-red-600">
+            <StatusMessage variant="error" className="mt-3">
               Impossible d'ajouter le document.
-            </p>
+            </StatusMessage>
           )}
         </form>
       </CollapsibleSection>
@@ -519,16 +519,16 @@ function DocumentsPage() {
 
               {previewDocumentMutation.isError &&
                 previewDocumentMutation.variables?.id === document.id && (
-                  <p className="mt-3 text-sm text-red-600">
+                  <StatusMessage variant="error" className="mt-3">
                     Impossible d'afficher l'aperçu du document.
-                  </p>
+                  </StatusMessage>
                 )}
 
               {downloadDocumentMutation.isError &&
                 downloadDocumentMutation.variables?.id === document.id && (
-                  <p className="mt-3 text-sm text-red-600">
+                  <StatusMessage variant="error" className="mt-3">
                     Impossible de télécharger le document.
-                  </p>
+                  </StatusMessage>
                 )}
             </article>
           ))}

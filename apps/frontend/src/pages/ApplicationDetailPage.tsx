@@ -502,9 +502,9 @@ function ApplicationDetailPage() {
             </div>
 
             {updateMutation.isError && (
-              <p className="text-red-600">
+              <StatusMessage variant="error">
                 Impossible de modifier la candidature.
-              </p>
+              </StatusMessage>
             )}
 
             <div className="flex gap-3">
@@ -657,11 +657,11 @@ function ApplicationDetailPage() {
         {applicationEventsQuery.isPending ? (
           <p className="mt-4">Chargement de l'historique...</p>
         ) : applicationEventsQuery.isError ? (
-          <p className="mt-4 text-red-600">
+          <StatusMessage variant="error" className="mt-4">
             {hasHttpStatus(applicationEventsQuery.error, 404)
               ? "Historique indisponible."
               : "Impossible de charger l'historique."}
-          </p>
+          </StatusMessage>
         ) : applicationEventsQuery.data.length === 0 ? (
           <p className="mt-4">Aucun événement enregistré.</p>
         ) : (
@@ -702,9 +702,9 @@ function ApplicationDetailPage() {
         {documentsQuery.isPending ? (
           <p className="mt-4">Chargement des documents...</p>
         ) : documentsQuery.isError ? (
-          <p className="mt-4 text-red-600">
+          <StatusMessage variant="error" className="mt-4">
             Impossible de charger les documents.
-          </p>
+          </StatusMessage>
         ) : documentsQuery.data.length === 0 ? (
           <p className="mt-4">Aucun document associé.</p>
         ) : (
@@ -775,16 +775,16 @@ function ApplicationDetailPage() {
 
                 {previewDocumentMutation.isError &&
                   previewDocumentMutation.variables?.id === document.id && (
-                    <p className="mt-2 text-sm text-red-600">
+                    <StatusMessage variant="error" className="mt-2">
                       Impossible d'afficher l'aperçu du document.
-                    </p>
+                    </StatusMessage>
                   )}
 
                 {downloadDocumentMutation.isError &&
                   downloadDocumentMutation.variables?.id === document.id && (
-                    <p className="mt-2 text-sm text-red-600">
+                    <StatusMessage variant="error" className="mt-2">
                       Impossible de télécharger le document.
-                    </p>
+                    </StatusMessage>
                   )}
               </li>
             ))}

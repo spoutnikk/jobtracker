@@ -403,9 +403,9 @@ describe("CompaniesPage", () => {
       screen.getByRole("button", { name: "Créer l'entreprise" }),
     );
 
-    expect(
-      await screen.findByText("Impossible de créer l'entreprise."),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Impossible de créer l'entreprise.",
+    );
     expect(createCompany).toHaveBeenCalledTimes(1);
   });
 
@@ -571,11 +571,9 @@ describe("CompaniesPage", () => {
 
     await user.click(await screen.findByRole("button", { name: "Confirmer" }));
 
-    expect(
-      await screen.findByText(
-        "Impossible de supprimer cette entreprise. Vérifiez qu'aucune offre d'emploi ne lui est encore associée.",
-      ),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Impossible de supprimer cette entreprise. Vérifiez qu'aucune offre d'emploi ne lui est encore associée.",
+    );
     expect(deleteCompany).toHaveBeenCalledTimes(1);
     expect(
       screen.getByRole("heading", { name: company.name }),

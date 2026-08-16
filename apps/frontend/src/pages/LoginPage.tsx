@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { login } from "../api/auth";
 import { hasHttpStatus } from "../api/http-error";
 import { authMeQueryKey, clearSensitiveQueries } from "../auth/auth-cache";
+import StatusMessage from "../components/StatusMessage";
 
 interface RedirectLocation {
   pathname: string;
@@ -112,7 +113,9 @@ function LoginPage() {
         </button>
 
         {errorMessage && (
-          <p className="mt-4 text-sm text-red-600">{errorMessage}</p>
+          <StatusMessage variant="error" className="mt-4">
+            {errorMessage}
+          </StatusMessage>
         )}
 
         <p className="mt-6 text-center text-sm text-gray-600">

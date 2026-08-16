@@ -397,9 +397,9 @@ describe("ApplicationDetailPage", () => {
 
     renderDetail();
 
-    expect(
-      await screen.findByText("Impossible de charger l'historique."),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Impossible de charger l'historique.",
+    );
     expect(
       screen.getByRole("heading", { name: "Développeur React" }),
     ).toBeInTheDocument();
@@ -530,10 +530,8 @@ describe("ApplicationDetailPage", () => {
     );
 
     expect(
-      await within(documentsSection!).findByText(
-        "Impossible de télécharger le document.",
-      ),
-    ).toBeInTheDocument();
+      await within(documentsSection!).findByRole("alert"),
+    ).toHaveTextContent("Impossible de télécharger le document.");
   });
 
   it("renders the empty documents state", async () => {
@@ -552,9 +550,9 @@ describe("ApplicationDetailPage", () => {
 
     renderDetail();
 
-    expect(
-      await screen.findByText("Impossible de charger les documents."),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Impossible de charger les documents.",
+    );
     expect(
       screen.getByRole("heading", { name: "Développeur React" }),
     ).toBeInTheDocument();
@@ -666,9 +664,9 @@ describe("ApplicationDetailPage", () => {
     await user.click(screen.getByRole("button", { name: "Modifier" }));
     await user.click(screen.getByRole("button", { name: "Enregistrer" }));
 
-    expect(
-      await screen.findByText("Impossible de modifier la candidature."),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Impossible de modifier la candidature.",
+    );
 
     expect(
       screen.getByRole("button", { name: "Enregistrer" }),
