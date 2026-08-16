@@ -952,7 +952,7 @@ function ApplicationsPage() {
                               event.target.value as ApplicationEventType,
                             )
                           }
-                          className="w-full rounded-md border border-gray-300 px-3 py-2"
+                          className={`w-full ${formControlClassName}`}
                         >
                           <option value="NOTE">Note</option>
                           <option value="STATUS_CHANGED">
@@ -977,7 +977,7 @@ function ApplicationsPage() {
                           }
                           placeholder="Titre de l'événement"
                           required
-                          className="w-full rounded-md border border-gray-300 px-3 py-2"
+                          className={`w-full ${formControlClassName}`}
                         />
 
                         <textarea
@@ -987,7 +987,7 @@ function ApplicationsPage() {
                           }
                           placeholder="Description facultative"
                           rows={3}
-                          className="w-full rounded-md border border-gray-300 px-3 py-2"
+                          className={`w-full ${formControlClassName}`}
                         />
 
                         <button

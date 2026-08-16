@@ -27,6 +27,7 @@ import LoadingMessage from "../components/LoadingMessage";
 import PageLoadingState from "../components/PageLoadingState";
 import StatusMessage from "../components/StatusMessage";
 import Dialog from "../components/Dialog";
+import { formControlClassName } from "../components/form-control";
 
 const contractTypeLabels: Record<ContractType, string> = {
   CDI: "CDI",
@@ -375,7 +376,7 @@ function ApplicationDetailPage() {
                     event.target.value as ApplicationStatus,
                   )
                 }
-                className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
+                className={`mt-1 w-full ${formControlClassName}`}
               >
                 {Object.entries(applicationStatusLabels).map(
                   ([value, label]) => (
@@ -398,7 +399,7 @@ function ApplicationDetailPage() {
                 onChange={(event) =>
                   updateEditForm("appliedAt", event.target.value)
                 }
-                className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
+                className={`mt-1 w-full ${formControlClassName}`}
               />
             </div>
 
@@ -412,7 +413,7 @@ function ApplicationDetailPage() {
                 onChange={(event) =>
                   updateEditForm("source", event.target.value)
                 }
-                className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
+                className={`mt-1 w-full ${formControlClassName}`}
               />
             </div>
 
@@ -427,7 +428,7 @@ function ApplicationDetailPage() {
                   updateEditForm("notes", event.target.value)
                 }
                 rows={5}
-                className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
+                className={`mt-1 w-full ${formControlClassName}`}
               />
             </div>
 
@@ -444,7 +445,7 @@ function ApplicationDetailPage() {
                 onChange={(event) =>
                   updateEditForm("contactName", event.target.value)
                 }
-                className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
+                className={`mt-1 w-full ${formControlClassName}`}
               />
             </div>
 
@@ -462,7 +463,7 @@ function ApplicationDetailPage() {
                 onChange={(event) =>
                   updateEditForm("contactEmail", event.target.value)
                 }
-                className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
+                className={`mt-1 w-full ${formControlClassName}`}
               />
             </div>
 
@@ -480,7 +481,7 @@ function ApplicationDetailPage() {
                 onChange={(event) =>
                   updateEditForm("followUpAt", event.target.value)
                 }
-                className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
+                className={`mt-1 w-full ${formControlClassName}`}
               />
             </div>
 
@@ -498,7 +499,7 @@ function ApplicationDetailPage() {
                 onChange={(event) =>
                   updateEditForm("interviewAt", event.target.value)
                 }
-                className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
+                className={`mt-1 w-full ${formControlClassName}`}
               />
             </div>
 

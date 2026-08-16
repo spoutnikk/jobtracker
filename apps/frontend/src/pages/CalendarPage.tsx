@@ -11,6 +11,7 @@ import {
 import PageShell from "../components/PageShell";
 import PageLoadingState from "../components/PageLoadingState";
 import StatusMessage from "../components/StatusMessage";
+import { formControlClassName } from "../components/form-control";
 
 type CalendarEventType = "FOLLOW_UP" | "INTERVIEW";
 
@@ -606,7 +607,7 @@ function CalendarPage() {
                   event.target.value as "FOLLOW_UP" | "INTERVIEW",
                 );
               }}
-              className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
+              className={`mt-1 w-full ${formControlClassName}`}
             >
               <option value="FOLLOW_UP">Relance</option>
               <option value="INTERVIEW">Entretien</option>
@@ -622,7 +623,7 @@ function CalendarPage() {
               onChange={(event) => {
                 setSelectedApplicationId(event.target.value);
               }}
-              className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
+              className={`mt-1 w-full ${formControlClassName}`}
             >
               <option value="">Sélectionner une candidature</option>
 
@@ -644,7 +645,7 @@ function CalendarPage() {
               type="date"
               value={selectedEventDate}
               readOnly
-              className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
+              className={`mt-1 w-full ${formControlClassName}`}
             />
           </div>
           <div className="mt-4">
@@ -659,7 +660,7 @@ function CalendarPage() {
               onChange={(event) => {
                 setSelectedEventTime(event.target.value);
               }}
-              className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
+              className={`mt-1 w-full ${formControlClassName}`}
             />
           </div>
           <button
