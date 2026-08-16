@@ -23,6 +23,7 @@ import {
   applicationStatusLabels,
 } from "../constants/application-status";
 import PageShell from "../components/PageShell";
+import Pagination from "../components/Pagination";
 
 function parseApplicationStatus(value: string | null): ApplicationStatus | "" {
   return value && applicationStatuses.includes(value as ApplicationStatus)
@@ -740,13 +741,6 @@ function ApplicationsPage() {
           )}
         </form>
       </CollapsibleSection>
-      <div className="mt-6 flex items-center justify-between text-sm text-gray-600">
-        <p>{applicationsQuery.data.total} candidatures</p>
-        <p>
-          Page {applicationsQuery.data.page} sur{" "}
-          {applicationsQuery.data.totalPages}
-        </p>
-      </div>
       {applicationsQuery.data.items.length === 0 ? (
         <p className="mt-6 text-gray-600">
           {hasActiveFilters
@@ -1126,27 +1120,12 @@ function ApplicationsPage() {
           ))}
         </div>
       )}
-      <div className="mt-6 flex justify-end gap-2">
-        <button
-          type="button"
-          disabled={page <= 1}
-          onClick={() => setPage((current) => current - 1)}
-          className="rounded-md border border-gray-300 px-4 py-2 disabled:opacity-50"
-        >
-          Précédent
-        </button>
-        <button
-          type="button"
-          disabled={
-            applicationsQuery.data.totalPages === 0 ||
-            page >= applicationsQuery.data.totalPages
-          }
-          onClick={() => setPage((current) => current + 1)}
-          className="rounded-md border border-gray-300 px-4 py-2 disabled:opacity-50"
-        >
-          Suivant
-        </button>
-      </div>
+      <Pagination
+        page={applicationsQuery.data.page}
+        totalPages={applicationsQuery.data.totalPages}
+        totalLabel={`${applicationsQuery.data.total} candidatures`}
+        onPageChange={setPage}
+      />
     </PageShell>
   );
 }

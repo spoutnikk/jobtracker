@@ -12,6 +12,7 @@ import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import CollapsibleSection from "../components/CollapsibleSection";
 import PageShell from "../components/PageShell";
+import Pagination from "../components/Pagination";
 import StatusMessage from "../components/StatusMessage";
 
 function CompaniesPage() {
@@ -372,12 +373,6 @@ function CompaniesPage() {
         </form>
       </CollapsibleSection>
 
-      <div className="mt-6 flex items-center justify-between text-sm text-gray-600">
-        <p>{companiesQuery.data.total} entreprises</p>
-        <p>
-          Page {companiesQuery.data.page} sur {companiesQuery.data.totalPages}
-        </p>
-      </div>
       {companiesQuery.data.items.length === 0 ? (
         <p className="mt-6 text-gray-600">
           {search
@@ -533,27 +528,12 @@ function CompaniesPage() {
           ))}
         </div>
       )}
-      <div className="mt-6 flex justify-end gap-2">
-        <button
-          type="button"
-          disabled={page <= 1}
-          onClick={() => setPage((current) => current - 1)}
-          className="rounded-md border border-gray-300 px-4 py-2 disabled:opacity-50"
-        >
-          Précédent
-        </button>
-        <button
-          type="button"
-          disabled={
-            companiesQuery.data.totalPages === 0 ||
-            page >= companiesQuery.data.totalPages
-          }
-          onClick={() => setPage((current) => current + 1)}
-          className="rounded-md border border-gray-300 px-4 py-2 disabled:opacity-50"
-        >
-          Suivant
-        </button>
-      </div>
+      <Pagination
+        page={companiesQuery.data.page}
+        totalPages={companiesQuery.data.totalPages}
+        totalLabel={`${companiesQuery.data.total} entreprises`}
+        onPageChange={setPage}
+      />
     </PageShell>
   );
 }

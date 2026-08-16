@@ -18,6 +18,7 @@ import {
   type UpdateJobOfferInput,
 } from "../api/job-offers";
 import PageShell from "../components/PageShell";
+import Pagination from "../components/Pagination";
 import StatusMessage from "../components/StatusMessage";
 
 const contractTypeLabels: Record<ContractType, string> = {
@@ -704,12 +705,6 @@ function JobOffersPage() {
 
       {editError && <p className="mt-4 text-sm text-red-600">{editError}</p>}
 
-      <div className="mt-6 flex items-center justify-between text-sm text-gray-600">
-        <p>{jobOffersQuery.data.total} offres</p>
-        <p>
-          Page {jobOffersQuery.data.page} sur {jobOffersQuery.data.totalPages}
-        </p>
-      </div>
       {jobOffersQuery.data.items.length === 0 ? (
         <p className="mt-6 text-gray-600">Aucune offre enregistrée.</p>
       ) : (
@@ -971,27 +966,12 @@ function JobOffersPage() {
           ))}
         </div>
       )}
-      <div className="mt-6 flex justify-end gap-2">
-        <button
-          type="button"
-          disabled={page <= 1}
-          onClick={() => setPage((current) => current - 1)}
-          className="rounded-md border border-gray-300 px-4 py-2 disabled:opacity-50"
-        >
-          Précédent
-        </button>
-        <button
-          type="button"
-          disabled={
-            jobOffersQuery.data.totalPages === 0 ||
-            page >= jobOffersQuery.data.totalPages
-          }
-          onClick={() => setPage((current) => current + 1)}
-          className="rounded-md border border-gray-300 px-4 py-2 disabled:opacity-50"
-        >
-          Suivant
-        </button>
-      </div>
+      <Pagination
+        page={jobOffersQuery.data.page}
+        totalPages={jobOffersQuery.data.totalPages}
+        totalLabel={`${jobOffersQuery.data.total} offres`}
+        onPageChange={setPage}
+      />
     </PageShell>
   );
 }

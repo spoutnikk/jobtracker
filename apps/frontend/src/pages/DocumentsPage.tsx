@@ -12,6 +12,7 @@ import {
 } from "../api/documents";
 import { getAllApplications } from "../api/applications";
 import PageShell from "../components/PageShell";
+import Pagination from "../components/Pagination";
 import StatusMessage from "../components/StatusMessage";
 
 function DocumentsPage() {
@@ -622,37 +623,14 @@ function DocumentsPage() {
       )}
 
       {documentsQuery.data.total > 0 && (
-        <div className="mt-6 flex items-center justify-between gap-4">
-          <button
-            type="button"
-            onClick={() =>
-              setPage((currentPage) => Math.max(1, currentPage - 1))
-            }
-            disabled={page <= 1}
-            className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium disabled:opacity-50"
-          >
-            Précédent
-          </button>
-
-          <p className="text-sm text-gray-600">
-            Page {documentsQuery.data.page} sur {documentsQuery.data.totalPages}{" "}
-            — {documentsQuery.data.total} document
-            {documentsQuery.data.total > 1 ? "s" : ""}
-          </p>
-
-          <button
-            type="button"
-            onClick={() =>
-              setPage((currentPage) =>
-                Math.min(documentsQuery.data.totalPages, currentPage + 1),
-              )
-            }
-            disabled={page >= documentsQuery.data.totalPages}
-            className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium disabled:opacity-50"
-          >
-            Suivant
-          </button>
-        </div>
+        <Pagination
+          page={documentsQuery.data.page}
+          totalPages={documentsQuery.data.totalPages}
+          totalLabel={`${documentsQuery.data.total} document${
+            documentsQuery.data.total > 1 ? "s" : ""
+          }`}
+          onPageChange={setPage}
+        />
       )}
     </PageShell>
   );
