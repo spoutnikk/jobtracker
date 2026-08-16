@@ -24,6 +24,7 @@ import Pagination from "../components/Pagination";
 import StatusMessage from "../components/StatusMessage";
 import { confirmDialog } from "../components/confirm-dialog";
 import { formControlClassName } from "../components/form-control";
+import { cardClassName } from "../components/card-styles";
 import {
   compactPrimaryButtonClassName,
   primaryButtonClassName,
@@ -723,10 +724,7 @@ function JobOffersPage() {
       ) : (
         <div className="mt-6 space-y-4">
           {jobOffersQuery.data.items.map((jobOffer) => (
-            <article
-              key={jobOffer.id}
-              className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
-            >
+            <article key={jobOffer.id} className={cardClassName}>
               <h2 className="text-xl font-semibold">{jobOffer.title}</h2>
               <p className="mt-1 text-gray-600">{jobOffer.company.name}</p>
 

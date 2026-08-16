@@ -29,6 +29,7 @@ import StatusMessage from "../components/StatusMessage";
 import Dialog from "../components/Dialog";
 import { formControlClassName } from "../components/form-control";
 import { secondaryButtonClassName } from "../components/button-styles";
+import { sectionCardClassName } from "../components/card-styles";
 
 const contractTypeLabels: Record<ContractType, string> = {
   CDI: "CDI",
@@ -334,7 +335,7 @@ function ApplicationDetailPage() {
         </StatusMessage>
       )}
 
-      <header className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+      <header className={`mt-6 ${sectionCardClassName}`}>
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold">{jobOffer.title}</h1>
@@ -347,7 +348,7 @@ function ApplicationDetailPage() {
         </div>
       </header>
 
-      <section className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+      <section className={`mt-6 ${sectionCardClassName}`}>
         <div className="flex items-center justify-between gap-4">
           <h2 className="text-xl font-semibold">Candidature</h2>
 
@@ -583,7 +584,7 @@ function ApplicationDetailPage() {
         )}
       </section>
 
-      <section className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+      <section className={`mt-6 ${sectionCardClassName}`}>
         <h2 className="text-xl font-semibold">Offre</h2>
 
         <dl className="mt-4 space-y-3">
@@ -635,7 +636,7 @@ function ApplicationDetailPage() {
         )}
       </section>
 
-      <section className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+      <section className={`mt-6 ${sectionCardClassName}`}>
         <h2 className="text-xl font-semibold">Entreprise</h2>
 
         <p className="mt-4 font-medium">{company.name}</p>
@@ -654,7 +655,7 @@ function ApplicationDetailPage() {
         )}
       </section>
 
-      <section className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+      <section className={`mt-6 ${sectionCardClassName}`}>
         <h2 className="text-xl font-semibold">Historique</h2>
 
         {applicationEventsQuery.isPending ? (
@@ -701,7 +702,7 @@ function ApplicationDetailPage() {
         )}
       </section>
 
-      <section className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+      <section className={`mt-6 ${sectionCardClassName}`}>
         <h2 className="text-xl font-semibold">Documents</h2>
 
         {documentsQuery.isPending ? (
@@ -854,7 +855,7 @@ function ApplicationDetailPage() {
         </Dialog>
       )}
 
-      <section className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+      <section className={`mt-6 ${sectionCardClassName}`}>
         <h2 className="text-xl font-semibold">Métadonnées</h2>
 
         <dl className="mt-4 space-y-3">

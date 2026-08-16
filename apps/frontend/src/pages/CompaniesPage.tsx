@@ -17,6 +17,7 @@ import Pagination from "../components/Pagination";
 import StatusMessage from "../components/StatusMessage";
 import { confirmDialog } from "../components/confirm-dialog";
 import { formControlClassName } from "../components/form-control";
+import { cardClassName } from "../components/card-styles";
 import {
   compactPrimaryButtonClassName,
   primaryButtonClassName,
@@ -384,10 +385,7 @@ function CompaniesPage() {
       ) : (
         <div className="mt-6 space-y-4">
           {companiesQuery.data.items.map((company) => (
-            <article
-              key={company.id}
-              className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
-            >
+            <article key={company.id} className={cardClassName}>
               <h2 className="text-xl font-semibold">{company.name}</h2>
 
               <div className="mt-3 space-y-1 text-sm text-gray-600">

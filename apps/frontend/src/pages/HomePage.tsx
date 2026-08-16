@@ -4,6 +4,7 @@ import { getAllApplications, type Application } from "../api/applications";
 import PageShell from "../components/PageShell";
 import PageLoadingState from "../components/PageLoadingState";
 import StatusMessage from "../components/StatusMessage";
+import { cardClassName } from "../components/card-styles";
 
 type PriorityKind = "FOLLOW_UP" | "INTERVIEW";
 
@@ -204,7 +205,7 @@ function HomePage() {
             {priorities.map((priority) => (
               <article
                 key={`${priority.kind}-${priority.application.id}`}
-                className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
+                className={cardClassName}
               >
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>

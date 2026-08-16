@@ -18,6 +18,7 @@ import PageShell from "../components/PageShell";
 import StatusMessage from "../components/StatusMessage";
 import { confirmDialog } from "../components/confirm-dialog";
 import { formControlClassName } from "../components/form-control";
+import { cardClassName } from "../components/card-styles";
 
 function ProfilePage() {
   const { user } = useAuth();
@@ -243,7 +244,7 @@ function ProfileForm({ user }: { user: AuthenticatedUser }) {
         </button>
       </form>
 
-      <section className="mt-8 rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+      <section className={`mt-8 ${cardClassName}`}>
         <h2 className="text-xl font-semibold">Modifier mon mot de passe</h2>
 
         {changePasswordMutation.isSuccess && (
@@ -333,7 +334,7 @@ function ProfileForm({ user }: { user: AuthenticatedUser }) {
         </form>
       </section>
 
-      <section className="mt-8 rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+      <section className={`mt-8 ${cardClassName}`}>
         <h2 className="text-xl font-semibold">Sessions</h2>
         <p className="mt-2 text-sm text-gray-600">
           Déconnectez tous les autres appareils sur lesquels votre compte est

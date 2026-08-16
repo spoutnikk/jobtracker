@@ -5,6 +5,11 @@ import { getApplicationStatusLabel } from "../constants/application-status";
 import PageShell from "../components/PageShell";
 import PageLoadingState from "../components/PageLoadingState";
 import StatusMessage from "../components/StatusMessage";
+import {
+  cardClassName,
+  compactCardClassName,
+  interactiveCardClassName,
+} from "../components/card-styles";
 
 function formatDateTime(value: string) {
   return new Intl.DateTimeFormat("fr-FR", {
@@ -63,21 +68,21 @@ function DashboardPage() {
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Link to="/applications" className="block">
-          <article className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm transition hover:border-gray-300 hover:shadow">
+          <article className={interactiveCardClassName}>
             <p className="text-sm text-gray-600">Candidatures</p>
             <p className="mt-2 text-3xl font-bold">{stats.totalApplications}</p>
           </article>
         </Link>
 
         <Link to="/companies" className="block">
-          <article className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm transition hover:border-gray-300 hover:shadow">
+          <article className={interactiveCardClassName}>
             <p className="text-sm text-gray-600">Entreprises</p>
             <p className="mt-2 text-3xl font-bold">{stats.totalCompanies}</p>
           </article>
         </Link>
 
         <Link to="/job-offers" className="block">
-          <article className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm transition hover:border-gray-300 hover:shadow">
+          <article className={interactiveCardClassName}>
             <p className="text-sm text-gray-600">Offres</p>
             <p className="mt-2 text-3xl font-bold">{stats.totalJobOffers}</p>
           </article>
@@ -93,35 +98,35 @@ function DashboardPage() {
         </Link>
 
         <Link to="/calendar" className="block">
-          <article className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm transition hover:border-gray-300 hover:shadow">
+          <article className={interactiveCardClassName}>
             <p className="text-sm text-gray-600">Relances à venir</p>
             <p className="mt-2 text-3xl font-bold">{stats.upcomingFollowUps}</p>
           </article>
         </Link>
 
         <Link to="/calendar" className="block">
-          <article className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm transition hover:border-gray-300 hover:shadow">
+          <article className={interactiveCardClassName}>
             <p className="text-sm text-gray-600">Entretiens à venir</p>
             <p className="mt-2 text-3xl font-bold">
               {stats.upcomingInterviews}
             </p>
           </article>
         </Link>
-        <article className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+        <article className={cardClassName}>
           <p className="text-sm text-gray-600">Taux d'entretien</p>
           <p className="mt-2 text-3xl font-bold">
             {percentageFormatter.format(stats.interviewRate)} %
           </p>
         </article>
 
-        <article className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+        <article className={cardClassName}>
           <p className="text-sm text-gray-600">Candidatures — 7 jours</p>
           <p className="mt-2 text-3xl font-bold">
             {stats.applicationsLast7Days}
           </p>
         </article>
 
-        <article className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+        <article className={cardClassName}>
           <p className="text-sm text-gray-600">Candidatures — 30 jours</p>
           <p className="mt-2 text-3xl font-bold">
             {stats.applicationsLast30Days}
@@ -129,7 +134,7 @@ function DashboardPage() {
         </article>
 
         <Link to="/calendar" className="block">
-          <article className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm transition hover:border-gray-300 hover:shadow">
+          <article className={interactiveCardClassName}>
             <p className="text-sm text-gray-600">
               Entretiens à venir — 7 jours
             </p>
@@ -140,7 +145,7 @@ function DashboardPage() {
         </Link>
 
         <Link to="/calendar" className="block">
-          <article className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm transition hover:border-gray-300 hover:shadow">
+          <article className={interactiveCardClassName}>
             <p className="text-sm text-gray-600">Relances à venir — 7 jours</p>
             <p className="mt-2 text-3xl font-bold">
               {stats.upcomingFollowUps7Days}
@@ -224,7 +229,7 @@ function DashboardPage() {
               {stats.nextFollowUps.map((followUp) => (
                 <article
                   key={followUp.applicationId}
-                  className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
+                  className={compactCardClassName}
                 >
                   <h3 className="font-semibold">{followUp.jobTitle}</h3>
                   <p className="text-sm text-gray-600">
@@ -257,7 +262,7 @@ function DashboardPage() {
               {stats.nextInterviews.map((interview) => (
                 <article
                   key={interview.applicationId}
-                  className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
+                  className={compactCardClassName}
                 >
                   <h3 className="font-semibold">{interview.jobTitle}</h3>
                   <p className="text-sm text-gray-600">

@@ -19,6 +19,7 @@ import { confirmDialog } from "../components/confirm-dialog";
 import Dialog from "../components/Dialog";
 import { formControlClassName } from "../components/form-control";
 import { secondaryButtonClassName } from "../components/button-styles";
+import { cardClassName } from "../components/card-styles";
 
 function DocumentsPage() {
   const queryClient = useQueryClient();
@@ -425,10 +426,7 @@ function DocumentsPage() {
       ) : (
         <div className="mt-6 space-y-4">
           {documentsQuery.data.items.map((document) => (
-            <article
-              key={document.id}
-              className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
-            >
+            <article key={document.id} className={cardClassName}>
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h2 className="text-xl font-semibold">{document.name}</h2>

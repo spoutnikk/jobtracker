@@ -12,6 +12,8 @@ import PageShell from "../components/PageShell";
 import PageLoadingState from "../components/PageLoadingState";
 import StatusMessage from "../components/StatusMessage";
 import { formControlClassName } from "../components/form-control";
+import { cardClassName } from "../components/card-styles";
+import { sectionCardClassName } from "../components/card-styles";
 
 type CalendarEventType = "FOLLOW_UP" | "INTERVIEW";
 
@@ -210,7 +212,7 @@ function CalendarEventCard({ event }: { event: CalendarEvent }) {
   const { application } = event;
 
   return (
-    <article className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+    <article className={cardClassName}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-sm font-semibold text-gray-600">
@@ -586,7 +588,7 @@ function CalendarPage() {
         onMonthChange={setActiveCalendarMonth}
       />
       {selectedEventDate && (
-        <section className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+        <section className={`mt-6 ${sectionCardClassName}`}>
           <h2
             ref={eventFormHeadingRef}
             tabIndex={-1}
