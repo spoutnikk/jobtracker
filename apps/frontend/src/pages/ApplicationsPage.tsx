@@ -25,6 +25,7 @@ import {
 import PageShell from "../components/PageShell";
 import LoadingMessage from "../components/LoadingMessage";
 import PageLoadingState from "../components/PageLoadingState";
+import EmptyState from "../components/EmptyState";
 import StatusMessage from "../components/StatusMessage";
 import Pagination from "../components/Pagination";
 import { confirmDialog } from "../components/confirm-dialog";
@@ -746,11 +747,11 @@ function ApplicationsPage() {
         </form>
       </CollapsibleSection>
       {applicationsQuery.data.items.length === 0 ? (
-        <p className="mt-6 text-gray-600">
+        <EmptyState className="mt-6">
           {hasActiveFilters
             ? "Aucun résultat pour ces filtres."
             : "Aucune candidature enregistrée."}
-        </p>
+        </EmptyState>
       ) : (
         <div className="mt-6 space-y-4">
           {applicationsQuery.data.items.map((application) => (
