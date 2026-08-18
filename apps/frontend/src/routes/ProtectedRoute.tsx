@@ -1,5 +1,6 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/useAuth";
+import LoadingMessage from "../components/LoadingMessage";
 import StatusMessage from "../components/StatusMessage";
 
 function ProtectedRoute() {
@@ -7,7 +8,11 @@ function ProtectedRoute() {
   const location = useLocation();
 
   if (status === "initializing") {
-    return <p className="p-8">Vérification de la session...</p>;
+    return (
+      <LoadingMessage className="p-8">
+        Vérification de la session...
+      </LoadingMessage>
+    );
   }
 
   if (status === "error") {

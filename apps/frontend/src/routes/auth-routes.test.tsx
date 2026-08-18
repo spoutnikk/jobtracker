@@ -149,12 +149,12 @@ describe("Auth routes", () => {
     });
   });
 
-  it("does not render private content while authentication initializes", () => {
+  it("announces session verification while authentication initializes", () => {
     renderAuthRoutes("initializing", "/private");
 
-    expect(
-      screen.getByText("Vérification de la session..."),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("status", { name: "" })).toHaveTextContent(
+      "Vérification de la session...",
+    );
     expect(screen.queryByText("Private content")).not.toBeInTheDocument();
   });
 
