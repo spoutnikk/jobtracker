@@ -4,6 +4,7 @@ import { NavLink, Outlet } from "react-router-dom";
 import { logout } from "../api/auth";
 import { hasHttpStatus } from "../api/http-error";
 import { setAnonymousAuthState } from "../auth/auth-cache";
+import StatusMessage from "../components/StatusMessage";
 
 const navigationItems = [
   { to: "/", label: "Accueil", end: true },
@@ -98,9 +99,9 @@ function AppLayout() {
           </nav>
 
           {logoutError && (
-            <p className="mt-3 text-sm text-red-600">
+            <StatusMessage variant="error" className="mt-3">
               Impossible de se déconnecter.
-            </p>
+            </StatusMessage>
           )}
         </div>
       </header>

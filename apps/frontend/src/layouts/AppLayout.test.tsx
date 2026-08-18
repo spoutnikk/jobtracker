@@ -202,9 +202,9 @@ describe("AppLayout logout", () => {
     await screen.findByText("Private dashboard");
     await user.click(screen.getByRole("button", { name: "Déconnexion" }));
 
-    expect(
-      await screen.findByText("Impossible de se déconnecter."),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Impossible de se déconnecter.",
+    );
     expect(screen.getByText("Private dashboard")).toBeInTheDocument();
     expect(queryClient.getQueryData(["auth", "me"])).toEqual(authenticatedUser);
   });
