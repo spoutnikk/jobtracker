@@ -14,6 +14,7 @@ import { getAllApplications } from "../api/applications";
 import PageShell from "../components/PageShell";
 import PageLoadingState from "../components/PageLoadingState";
 import Pagination from "../components/Pagination";
+import EmptyState from "../components/EmptyState";
 import StatusMessage from "../components/StatusMessage";
 import { confirmDialog } from "../components/confirm-dialog";
 import Dialog from "../components/Dialog";
@@ -422,7 +423,7 @@ function DocumentsPage() {
         </p>
       )}
       {documentsQuery.data.items.length === 0 ? (
-        <p className="mt-6 text-gray-600">Aucun document enregistré.</p>
+        <EmptyState className="mt-6">Aucun document enregistré.</EmptyState>
       ) : (
         <div className="mt-6 space-y-4">
           {documentsQuery.data.items.map((document) => (

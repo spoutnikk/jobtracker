@@ -10,6 +10,7 @@ import {
 } from "../api/applications";
 import PageShell from "../components/PageShell";
 import PageLoadingState from "../components/PageLoadingState";
+import EmptyState from "../components/EmptyState";
 import StatusMessage from "../components/StatusMessage";
 import { formControlClassName } from "../components/form-control";
 import { cardClassName } from "../components/card-styles";
@@ -733,7 +734,7 @@ function CalendarPage() {
 
         {showUpcomingEvents &&
           (days.length === 0 ? (
-            <p className="mt-4 text-gray-600">Aucun événement à venir.</p>
+            <EmptyState className="mt-4">Aucun événement à venir.</EmptyState>
           ) : (
             <div className="mt-6 space-y-10">
               {days.map((day) => (
