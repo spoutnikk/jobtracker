@@ -1,19 +1,28 @@
+import { Suspense, type ReactNode } from "react";
 import { createBrowserRouter } from "react-router-dom";
 import AppLayout from "../layouts/AppLayout";
-import ApplicationsPage from "../pages/ApplicationsPage";
-import ApplicationDetailPage from "../pages/ApplicationDetailPage";
-import HomePage from "../pages/HomePage";
-import CompaniesPage from "../pages/CompaniesPage";
-import CalendarPage from "../pages/CalendarPage";
-import DashboardPage from "../pages/DashboardPage";
-import DocumentsPage from "../pages/DocumentsPage";
-import JobOffersPage from "../pages/JobOffersPage";
-import LoginPage from "../pages/LoginPage";
-import RegisterPage from "../pages/RegisterPage";
-import ProfilePage from "../pages/ProfilePage";
-import NotFoundPage from "../pages/NotFoundPage";
 import AnonymousOnlyRoute from "./AnonymousOnlyRoute";
+import {
+  ApplicationDetailPage,
+  ApplicationsPage,
+  CalendarPage,
+  CompaniesPage,
+  DashboardPage,
+  DocumentsPage,
+  HomePage,
+  JobOffersPage,
+  LoginPage,
+  NotFoundPage,
+  ProfilePage,
+  RegisterPage,
+} from "./lazy-pages";
 import ProtectedRoute from "./ProtectedRoute";
+
+function lazyPage(page: ReactNode) {
+  return (
+    <Suspense fallback={<p className="p-8">Chargement...</p>}>{page}</Suspense>
+  );
+}
 
 export const router = createBrowserRouter([
   {
@@ -21,11 +30,11 @@ export const router = createBrowserRouter([
     children: [
       {
         path: "/login",
-        element: <LoginPage />,
+        element: lazyPage(<LoginPage />),
       },
       {
         path: "/register",
-        element: <RegisterPage />,
+        element: lazyPage(<RegisterPage />),
       },
     ],
   },
@@ -37,43 +46,43 @@ export const router = createBrowserRouter([
         children: [
           {
             path: "/",
-            element: <HomePage />,
+            element: lazyPage(<HomePage />),
           },
           {
             path: "/applications",
-            element: <ApplicationsPage />,
+            element: lazyPage(<ApplicationsPage />),
           },
           {
             path: "/applications/:id",
-            element: <ApplicationDetailPage />,
+            element: lazyPage(<ApplicationDetailPage />),
           },
           {
             path: "/companies",
-            element: <CompaniesPage />,
+            element: lazyPage(<CompaniesPage />),
           },
           {
             path: "/job-offers",
-            element: <JobOffersPage />,
+            element: lazyPage(<JobOffersPage />),
           },
           {
             path: "/calendar",
-            element: <CalendarPage />,
+            element: lazyPage(<CalendarPage />),
           },
           {
             path: "/dashboard",
-            element: <DashboardPage />,
+            element: lazyPage(<DashboardPage />),
           },
           {
             path: "/documents",
-            element: <DocumentsPage />,
+            element: lazyPage(<DocumentsPage />),
           },
           {
             path: "/profile",
-            element: <ProfilePage />,
+            element: lazyPage(<ProfilePage />),
           },
           {
             path: "*",
-            element: <NotFoundPage />,
+            element: lazyPage(<NotFoundPage />),
           },
         ],
       },
