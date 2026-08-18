@@ -21,6 +21,7 @@ import PageShell from "../components/PageShell";
 import LoadingMessage from "../components/LoadingMessage";
 import PageLoadingState from "../components/PageLoadingState";
 import Pagination from "../components/Pagination";
+import EmptyState from "../components/EmptyState";
 import StatusMessage from "../components/StatusMessage";
 import { confirmDialog } from "../components/confirm-dialog";
 import { formControlClassName } from "../components/form-control";
@@ -720,7 +721,7 @@ function JobOffersPage() {
       )}
 
       {jobOffersQuery.data.items.length === 0 ? (
-        <p className="mt-6 text-gray-600">Aucune offre enregistrée.</p>
+        <EmptyState className="mt-6">Aucune offre enregistrée.</EmptyState>
       ) : (
         <div className="mt-6 space-y-4">
           {jobOffersQuery.data.items.map((jobOffer) => (
