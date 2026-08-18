@@ -1,5 +1,6 @@
 import { Suspense, type ReactNode } from "react";
 import { createBrowserRouter } from "react-router-dom";
+import PageLoadingState from "../components/PageLoadingState";
 import AppLayout from "../layouts/AppLayout";
 import AnonymousOnlyRoute from "./AnonymousOnlyRoute";
 import {
@@ -20,7 +21,9 @@ import ProtectedRoute from "./ProtectedRoute";
 
 function lazyPage(page: ReactNode) {
   return (
-    <Suspense fallback={<p className="p-8">Chargement...</p>}>{page}</Suspense>
+    <Suspense fallback={<PageLoadingState>Chargement...</PageLoadingState>}>
+      {page}
+    </Suspense>
   );
 }
 
