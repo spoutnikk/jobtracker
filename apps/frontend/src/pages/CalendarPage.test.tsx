@@ -95,6 +95,8 @@ describe("CalendarPage", () => {
   });
 
   it("renders upcoming follow-ups and interviews", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-08-13T10:00:00.000Z"));
     renderCalendar();
 
     expect(
@@ -164,6 +166,8 @@ describe("CalendarPage", () => {
   });
 
   it("renders all calendar events in chronological order", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-08-13T10:00:00.000Z"));
     const laterFollowUp = createApplication({
       id: 3,
       followUpAt: "2026-08-25T09:00:00.000Z",
@@ -192,6 +196,8 @@ describe("CalendarPage", () => {
   });
 
   it("groups events occurring on the same day", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-08-13T10:00:00.000Z"));
     const sameDayInterview = createApplication({
       id: 4,
       status: "INTERVIEW",
@@ -438,7 +444,9 @@ describe("CalendarPage", () => {
   });
 
   it("can collapse and reopen the upcoming events section", async () => {
-    const user = userEvent.setup();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-08-13T10:00:00.000Z"));
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
     renderCalendar();
 
