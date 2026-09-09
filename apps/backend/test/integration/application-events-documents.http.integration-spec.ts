@@ -13,6 +13,7 @@ import {
   DEFAULT_FRONTEND_ORIGIN,
 } from '../../src/http-configuration';
 import { PrismaService } from '../../src/prisma/prisma.service';
+import { DocumentsService } from '../../src/documents/documents.service';
 
 const databaseUrlValue = process.env.DATABASE_URL;
 
@@ -487,6 +488,61 @@ describe('ApplicationEvents and Documents HTTP ownership integration', () => {
     await expect(readFile(userB.documentPath, 'utf8')).resolves.toBe(
       'user-b document',
     );
+  });
+
+  it.each([
+    ['invalid type', { name: 'Rejected upload', type: 'INVALID' }],
+    ['missing type', { name: 'Rejected upload' }],
+    ['missing name', { type: 'OTHER' }],
+    [
+      'invalid applicationId',
+      { name: 'Rejected upload', type: 'OTHER', applicationId: 'abc' },
+    ],
+    [
+      'unknown property',
+      { name: 'Rejected upload', type: 'OTHER', userId: '1' },
+    ],
+  ])('cleans up a multipart upload rejected for %s', async (_label, fields) => {
+    if (!app || !prisma || !uploadFixturePath || !userA) {
+      throw new Error('Integration fixtures are unavailable');
+    }
+
+    const documentCount = await prisma.document.count();
+    const eventCount = await prisma.applicationEvent.count();
+    const uploadsBefore = await readUploadNames();
+    // Multer preserves this unique extension: only this request's artifacts
+    // are eligible for cleanup, even if another upload runs concurrently.
+    const suffix = `.${randomUUID()}`;
+    const createSpy = jest.spyOn(app.get(DocumentsService), 'create');
+
+    try {
+      const upload = request(app.getHttpServer())
+        .post('/documents')
+        .set('Origin', DEFAULT_FRONTEND_ORIGIN)
+        .set('Cookie', userA.cookie);
+      for (const [name, value] of Object.entries(fields)) {
+        upload.field(name, value);
+      }
+      await upload
+        .attach('file', uploadFixturePath, {
+          filename: `rejected-upload${suffix}`,
+          contentType: 'text/plain',
+        })
+        .expect(400);
+
+      expect(createSpy).not.toHaveBeenCalled();
+      await expect(prisma.document.count()).resolves.toBe(documentCount);
+      await expect(prisma.applicationEvent.count()).resolves.toBe(eventCount);
+      await expect(readUploadNames()).resolves.toEqual(uploadsBefore);
+    } finally {
+      createSpy.mockRestore();
+      const artifacts = (await readUploadNames()).filter(
+        (name) => name.endsWith(suffix) && !uploadsBefore.includes(name),
+      );
+      await Promise.all(
+        artifacts.map((name) => rm(join('uploads', name), { force: true })),
+      );
+    }
   });
 
   it('rejects a document associated with a foreign application without database or file side effects', async () => {

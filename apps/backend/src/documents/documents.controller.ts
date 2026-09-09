@@ -21,6 +21,7 @@ import type { Response } from 'express';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/authenticated-user';
 import { FindDocumentsQueryDto } from './dto/find-documents-query.dto';
+import { UploadCleanupInterceptor } from './upload-cleanup.interceptor';
 
 @Controller('documents')
 export class DocumentsController {
@@ -85,6 +86,7 @@ export class DocumentsController {
         callback(null, true);
       },
     }),
+    UploadCleanupInterceptor,
   )
   create(
     @CurrentUser() user: AuthenticatedUser,
