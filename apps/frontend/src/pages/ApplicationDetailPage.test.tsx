@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AxiosError, AxiosHeaders } from "axios";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
@@ -604,7 +604,7 @@ describe("ApplicationDetailPage", () => {
 
     const followUpInput = screen.getByLabelText("Date de relance");
     await user.clear(followUpInput);
-    await user.type(followUpInput, "2026-08-20");
+    await user.type(followUpInput, "2026-08-20T10:45");
 
     const interviewInput = screen.getByLabelText("Date d'entretien");
     await user.clear(interviewInput);
@@ -618,18 +618,129 @@ describe("ApplicationDetailPage", () => {
 
     expect(updateApplication).toHaveBeenCalledWith(42, {
       status: "ACCEPTED",
-      appliedAt: expect.any(String),
+      appliedAt: new Date(2026, 7, 2, 0, 0).toISOString(),
       source: "France Travail",
       notes: "Candidature mise à jour.",
       contactName: "Grace Hopper",
       contactEmail: "grace@example.com",
-      followUpAt: expect.any(String),
-      interviewAt: expect.any(String),
+      followUpAt: new Date(2026, 7, 20, 10, 45).toISOString(),
+      interviewAt: new Date(2026, 7, 21, 14, 30).toISOString(),
     });
     expect(
       screen.getByText("Candidature modifiée avec succès."),
     ).toHaveAttribute("role", "status");
   });
+  it.each([false, true])(
+    "preserves exact original dates when only notes change: %s",
+    async (changeNotes) => {
+      const user = userEvent.setup();
+      const originalDates = {
+        appliedAt: "2026-08-20T22:00:00.000Z",
+        followUpAt: "2026-08-21T08:45:37.123Z",
+        interviewAt: "2026-10-25T01:30:42.456Z",
+      };
+      vi.mocked(getApplication).mockResolvedValue({
+        ...application,
+        ...originalDates,
+      });
+      renderDetail();
+
+      await screen.findByRole("heading", { name: "Développeur React" });
+      await user.click(screen.getByRole("button", { name: "Modifier" }));
+      if (changeNotes) {
+        await user.clear(screen.getByLabelText("Notes"));
+        await user.type(screen.getByLabelText("Notes"), "Nouvelle note");
+      }
+      await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+      await waitFor(() => {
+        expect(updateApplication).toHaveBeenCalledWith(
+          42,
+          expect.objectContaining({
+            ...originalDates,
+            notes: changeNotes ? "Nouvelle note" : application.notes,
+          }),
+        );
+      });
+    },
+  );
+
+  it("prefills local dates and times near midnight and preserves the follow-up time", async () => {
+    const user = userEvent.setup();
+    // In Paris this local date is on the previous UTC day.
+    const appliedAt = new Date(2026, 7, 21, 0, 30).toISOString();
+    const followUpAt = new Date(2026, 7, 21, 10, 45).toISOString();
+    const interviewAt = new Date(2026, 7, 22, 14, 30).toISOString();
+    vi.mocked(getApplication).mockResolvedValue({
+      ...application,
+      appliedAt,
+      followUpAt,
+      interviewAt,
+    });
+    renderDetail();
+
+    await screen.findByRole("heading", { name: "Développeur React" });
+    await user.click(screen.getByRole("button", { name: "Modifier" }));
+
+    expect(screen.getByLabelText("Date de candidature")).toHaveAttribute(
+      "type",
+      "date",
+    );
+    expect(screen.getByLabelText("Date de candidature")).toHaveValue(
+      "2026-08-21",
+    );
+    expect(screen.getByLabelText("Date de relance")).toHaveAttribute(
+      "type",
+      "datetime-local",
+    );
+    expect(screen.getByLabelText("Date de relance")).toHaveValue(
+      "2026-08-21T10:45",
+    );
+    expect(screen.getByLabelText("Date d'entretien")).toHaveAttribute(
+      "type",
+      "datetime-local",
+    );
+    expect(screen.getByLabelText("Date d'entretien")).toHaveValue(
+      "2026-08-22T14:30",
+    );
+
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+    await waitFor(() => {
+      expect(updateApplication).toHaveBeenCalledWith(
+        42,
+        expect.objectContaining({ appliedAt, followUpAt, interviewAt }),
+      );
+    });
+  });
+
+  it("keeps the dates captured at edit opening when the query cache changes", async () => {
+    const user = userEvent.setup();
+    const { queryClient } = renderDetail();
+    await screen.findByRole("heading", { name: "Développeur React" });
+    await user.click(screen.getByRole("button", { name: "Modifier" }));
+
+    act(() => {
+      queryClient.setQueryData(["applications", "detail", 42], {
+        ...application,
+        appliedAt: "2026-09-01T12:00:00.000Z",
+        followUpAt: "2026-09-02T12:00:00.000Z",
+        interviewAt: "2026-09-03T12:00:00.000Z",
+      });
+    });
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+    await waitFor(() => {
+      expect(updateApplication).toHaveBeenCalledWith(
+        42,
+        expect.objectContaining({
+          appliedAt: application.appliedAt,
+          followUpAt: application.followUpAt,
+          interviewAt: application.interviewAt,
+        }),
+      );
+    });
+  });
+
   it("cancels application editing without saving", async () => {
     const user = userEvent.setup();
 

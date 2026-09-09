@@ -87,7 +87,7 @@ function toDateInputValue(value: string | null) {
     return "";
   }
 
-  return value.slice(0, 10);
+  return toDateTimeLocalInputValue(value).slice(0, 10);
 }
 
 function toDateTimeLocalInputValue(value: string | null) {
@@ -109,7 +109,7 @@ function toEditForm(application: Application): EditApplicationForm {
     notes: application.notes ?? "",
     contactName: application.contactName ?? "",
     contactEmail: application.contactEmail ?? "",
-    followUpAt: toDateInputValue(application.followUpAt),
+    followUpAt: toDateTimeLocalInputValue(application.followUpAt),
     interviewAt: toDateTimeLocalInputValue(application.interviewAt),
   };
 }
@@ -162,6 +162,10 @@ function ApplicationDetailPage() {
 
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<EditApplicationForm | null>(null);
+  const [initialEditDates, setInitialEditDates] = useState<{
+    form: Pick<EditApplicationForm, "appliedAt" | "followUpAt" | "interviewAt">;
+    original: Pick<Application, "appliedAt" | "followUpAt" | "interviewAt">;
+  } | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const applicationQuery = useQuery({
@@ -232,6 +236,7 @@ function ApplicationDetailPage() {
 
       setIsEditing(false);
       setEditForm(null);
+      setInitialEditDates(null);
       setSuccessMessage("Candidature modifiée avec succès.");
 
       await Promise.all([
@@ -276,13 +281,27 @@ function ApplicationDetailPage() {
   const { company } = jobOffer;
 
   function startEditing() {
-    setEditForm(toEditForm(application));
+    const form = toEditForm(application);
+    setEditForm(form);
+    setInitialEditDates({
+      form: {
+        appliedAt: form.appliedAt,
+        followUpAt: form.followUpAt,
+        interviewAt: form.interviewAt,
+      },
+      original: {
+        appliedAt: application.appliedAt,
+        followUpAt: application.followUpAt,
+        interviewAt: application.interviewAt,
+      },
+    });
     setIsEditing(true);
     updateMutation.reset();
   }
 
   function cancelEditing() {
     setEditForm(null);
+    setInitialEditDates(null);
     setIsEditing(false);
     updateMutation.reset();
   }
@@ -304,19 +323,28 @@ function ApplicationDetailPage() {
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!editForm) {
+    if (!editForm || !initialEditDates) {
       return;
     }
 
     updateMutation.mutate({
       status: editForm.status,
-      appliedAt: optionalDate(editForm.appliedAt),
+      appliedAt:
+        editForm.appliedAt === initialEditDates.form.appliedAt
+          ? initialEditDates.original.appliedAt
+          : optionalDate(editForm.appliedAt),
       source: optionalText(editForm.source),
       notes: optionalText(editForm.notes),
       contactName: optionalText(editForm.contactName),
       contactEmail: optionalText(editForm.contactEmail),
-      followUpAt: optionalDate(editForm.followUpAt),
-      interviewAt: optionalDateTime(editForm.interviewAt),
+      followUpAt:
+        editForm.followUpAt === initialEditDates.form.followUpAt
+          ? initialEditDates.original.followUpAt
+          : optionalDateTime(editForm.followUpAt),
+      interviewAt:
+        editForm.interviewAt === initialEditDates.form.interviewAt
+          ? initialEditDates.original.interviewAt
+          : optionalDateTime(editForm.interviewAt),
     });
   }
 
@@ -478,7 +506,7 @@ function ApplicationDetailPage() {
               </label>
               <input
                 id="detail-follow-up-at"
-                type="date"
+                type="datetime-local"
                 value={editForm.followUpAt}
                 onChange={(event) =>
                   updateEditForm("followUpAt", event.target.value)
