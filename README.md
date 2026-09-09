@@ -113,13 +113,15 @@ Avec les valeurs par défaut de `.env.example` :
 
 Les migrations Prisma sont appliquées par le service `migrate` avant le démarrage du backend.
 
+PostgreSQL et les documents utilisent deux volumes Docker nommés distincts : `postgres_data` pour la base et `uploads_data` pour les fichiers. Le volume `uploads_data`, monté sur `/app/apps/backend/uploads`, conserve les documents lors d'une recréation du backend.
+
 Pour arrêter la stack :
 
 ```bash
 docker compose down
 ```
 
-Pour supprimer également le volume PostgreSQL :
+La commande suivante supprime également les deux volumes et leurs données persistantes (base PostgreSQL et documents) :
 
 ```bash
 docker compose down -v

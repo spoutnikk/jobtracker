@@ -50,6 +50,8 @@ services:
       NODE_ENV: production
     ports:
       - "${BACKEND_PORT:-3000}:3000"
+    volumes:
+      - uploads_data:/app/apps/backend/uploads
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -91,3 +93,4 @@ services:
 
 volumes:
   postgres_data:
+  uploads_data:
