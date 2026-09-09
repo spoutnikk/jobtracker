@@ -23,6 +23,7 @@ import {
 import { hasHttpStatus } from "../api/http-error";
 import { applicationStatusLabels } from "../constants/application-status";
 import PageShell from "../components/PageShell";
+import Pagination from "../components/Pagination";
 import LoadingMessage from "../components/LoadingMessage";
 import PageLoadingState from "../components/PageLoadingState";
 import StatusMessage from "../components/StatusMessage";
@@ -168,6 +169,8 @@ function ApplicationDetailPage() {
   } | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  const [eventsPage, setEventsPage] = useState(1);
+
   const applicationQuery = useQuery({
     queryKey: ["applications", "detail", applicationId],
     queryFn: () => getApplication(applicationId),
@@ -175,8 +178,12 @@ function ApplicationDetailPage() {
   });
 
   const applicationEventsQuery = useQuery({
-    queryKey: ["application-events", applicationId],
-    queryFn: () => getApplicationEvents(applicationId),
+    queryKey: ["application-events", applicationId, eventsPage],
+    queryFn: () =>
+      getApplicationEvents(applicationId, {
+        page: eventsPage,
+        pageSize: 10,
+      }),
     enabled: isValidApplicationId,
   });
 
@@ -696,37 +703,48 @@ function ApplicationDetailPage() {
               ? "Historique indisponible."
               : "Impossible de charger l'historique."}
           </StatusMessage>
-        ) : applicationEventsQuery.data.length === 0 ? (
+        ) : applicationEventsQuery.data.items.length === 0 ? (
           <p className="mt-4">Aucun événement enregistré.</p>
         ) : (
-          <ul className="mt-4 space-y-4">
-            {applicationEventsQuery.data.map((applicationEvent) => (
-              <li
-                key={applicationEvent.id}
-                className="rounded-md border border-gray-200 p-4"
-              >
-                <p className="font-semibold">
-                  {eventTypeLabels[applicationEvent.type] ??
-                    applicationEvent.type}
-                </p>
-
-                <p className="mt-1">{applicationEvent.title}</p>
-
-                {applicationEvent.description && (
-                  <p className="mt-1 whitespace-pre-wrap text-gray-700">
-                    {applicationEvent.description}
-                  </p>
-                )}
-
-                <time
-                  dateTime={applicationEvent.occurredAt}
-                  className="mt-2 block text-sm text-gray-600"
+          <>
+            <ul className="mt-4 space-y-4">
+              {applicationEventsQuery.data.items.map((applicationEvent) => (
+                <li
+                  key={applicationEvent.id}
+                  className="rounded-md border border-gray-200 p-4"
                 >
-                  {formatDateTime(applicationEvent.occurredAt)}
-                </time>
-              </li>
-            ))}
-          </ul>
+                  <p className="font-semibold">
+                    {eventTypeLabels[applicationEvent.type] ??
+                      applicationEvent.type}
+                  </p>
+
+                  <p className="mt-1">{applicationEvent.title}</p>
+
+                  {applicationEvent.description && (
+                    <p className="mt-1 whitespace-pre-wrap text-gray-700">
+                      {applicationEvent.description}
+                    </p>
+                  )}
+
+                  <time
+                    dateTime={applicationEvent.occurredAt}
+                    className="mt-2 block text-sm text-gray-600"
+                  >
+                    {formatDateTime(applicationEvent.occurredAt)}
+                  </time>
+                </li>
+              ))}
+            </ul>
+
+            <Pagination
+              page={applicationEventsQuery.data.page}
+              totalPages={applicationEventsQuery.data.totalPages}
+              totalLabel={`${applicationEventsQuery.data.total} événement${
+                applicationEventsQuery.data.total > 1 ? "s" : ""
+              }`}
+              onPageChange={setEventsPage}
+            />
+          </>
         )}
       </section>
 

@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateApplicationEventDto } from './dto/create-application-event.dto';
+import { FindApplicationEventsQueryDto } from './dto/find-application-events-query.dto';
 
 @Injectable()
 export class ApplicationEventsService {
@@ -67,7 +68,11 @@ export class ApplicationEventsService {
     }
   }
 
-  async findByApplication(userId: number, applicationId: number) {
+  async findByApplication(
+    userId: number,
+    applicationId: number,
+    filters: FindApplicationEventsQueryDto = new FindApplicationEventsQueryDto(),
+  ) {
     const application = await this.prisma.application.findFirst({
       where: {
         id: applicationId,
@@ -84,13 +89,28 @@ export class ApplicationEventsService {
       );
     }
 
-    return this.prisma.applicationEvent.findMany({
-      where: {
-        applicationId,
-      },
-      orderBy: {
-        occurredAt: 'asc',
-      },
-    });
+    const page = filters.page;
+    const pageSize = filters.pageSize;
+    const where = {
+      applicationId,
+    };
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.applicationEvent.findMany({
+        where,
+        orderBy: [{ occurredAt: 'asc' }, { id: 'asc' }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.applicationEvent.count({ where }),
+    ]);
+
+    return {
+      items,
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+    };
   }
 }

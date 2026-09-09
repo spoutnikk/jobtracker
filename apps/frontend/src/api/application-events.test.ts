@@ -8,6 +8,7 @@ import { apiClient } from "./client";
 import {
   getApplicationEvents,
   type ApplicationEvent,
+  type PaginatedApplicationEvents,
 } from "./application-events";
 
 vi.mock("./client", () => ({
@@ -16,7 +17,9 @@ vi.mock("./client", () => ({
   },
 }));
 
-function response(data: ApplicationEvent[]): AxiosResponse<ApplicationEvent[]> {
+function response(
+  data: PaginatedApplicationEvents,
+): AxiosResponse<PaginatedApplicationEvents> {
   const config: InternalAxiosRequestConfig = {
     headers: new AxiosHeaders(),
   };
@@ -47,11 +50,28 @@ describe("getApplicationEvents", () => {
         applicationId: 42,
       },
     ];
-    vi.mocked(apiClient.get).mockResolvedValue(response(events));
+    const page: PaginatedApplicationEvents = {
+      items: events,
+      page: 2,
+      pageSize: 5,
+      total: 6,
+      totalPages: 2,
+    };
 
-    await expect(getApplicationEvents(42)).resolves.toBe(events);
+    vi.mocked(apiClient.get).mockResolvedValue(response(page));
+
+    await expect(
+      getApplicationEvents(42, { page: 2, pageSize: 5 }),
+    ).resolves.toBe(page);
+
     expect(apiClient.get).toHaveBeenCalledWith(
       "/application-events/application/42",
+      {
+        params: {
+          page: 2,
+          pageSize: 5,
+        },
+      },
     );
   });
 });

@@ -13,6 +13,8 @@ import {
 import {
   createApplicationEvent,
   getApplicationEvents,
+  type ApplicationEvent,
+  type PaginatedApplicationEvents,
 } from "../api/application-events";
 import { getAllJobOffers, type JobOffer } from "../api/job-offers";
 import { renderWithProviders } from "../test/renderWithProviders";
@@ -144,6 +146,24 @@ const defaultApplicationParams = {
   sortOrder: "desc",
 };
 
+function applicationEventsPage(
+  items: ApplicationEvent[],
+  {
+    page = 1,
+    pageSize = 10,
+    total = items.length,
+    totalPages = total === 0 ? 0 : Math.ceil(total / pageSize),
+  }: Partial<PaginatedApplicationEvents> = {},
+): PaginatedApplicationEvents {
+  return {
+    items,
+    page,
+    pageSize,
+    total,
+    totalPages,
+  };
+}
+
 describe("ApplicationsPage", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -151,7 +171,9 @@ describe("ApplicationsPage", () => {
       paginatedApplications([application]),
     );
     vi.mocked(getAllJobOffers).mockResolvedValue([jobOffer]);
-    vi.mocked(getApplicationEvents).mockResolvedValue([]);
+    vi.mocked(getApplicationEvents).mockResolvedValue(
+      applicationEventsPage([]),
+    );
     vi.mocked(createApplication).mockResolvedValue(application);
     vi.mocked(updateApplication).mockResolvedValue(application);
     vi.mocked(deleteApplication).mockResolvedValue(application);
@@ -234,6 +256,109 @@ describe("ApplicationsPage", () => {
     expect(within(applicationCard).getByRole("status")).toHaveTextContent(
       "Chargement du journal...",
     );
+  });
+
+  it("navigates through paginated journal events", async () => {
+    const user = userEvent.setup();
+
+    const firstEvent: ApplicationEvent = {
+      id: 1,
+      type: "NOTE",
+      title: "Premier événement",
+      description: null,
+      occurredAt: "2026-08-10T08:00:00.000Z",
+      createdAt: "2026-08-10T08:00:00.000Z",
+      applicationId: application.id,
+    };
+
+    const secondEvent: ApplicationEvent = {
+      id: 2,
+      type: "NOTE",
+      title: "Deuxième page",
+      description: null,
+      occurredAt: "2026-08-12T08:00:00.000Z",
+      createdAt: "2026-08-12T08:00:00.000Z",
+      applicationId: application.id,
+    };
+
+    vi.mocked(getApplicationEvents).mockImplementation(
+      (_applicationId, filters) => {
+        if (filters?.page === 2) {
+          return Promise.resolve(
+            applicationEventsPage([secondEvent], {
+              page: 2,
+              pageSize: 10,
+              total: 11,
+              totalPages: 2,
+            }),
+          );
+        }
+
+        return Promise.resolve(
+          applicationEventsPage([firstEvent], {
+            page: 1,
+            pageSize: 10,
+            total: 11,
+            totalPages: 2,
+          }),
+        );
+      },
+    );
+
+    renderApplicationsPage();
+
+    const offerHeading = await screen.findByRole("heading", {
+      name: jobOffer.title,
+    });
+
+    const applicationCard = offerHeading.closest("article");
+
+    if (!applicationCard) {
+      throw new Error("Application card not found");
+    }
+
+    await user.click(
+      within(applicationCard).getByRole("button", {
+        name: /journal/i,
+      }),
+    );
+
+    expect(
+      await within(applicationCard).findByText("Premier événement"),
+    ).toBeInTheDocument();
+
+    expect(
+      within(applicationCard).getByText("11 événements"),
+    ).toBeInTheDocument();
+    expect(
+      within(applicationCard).getByText(/Page\s+1\s+sur\s+2/),
+    ).toBeInTheDocument();
+
+    expect(getApplicationEvents).toHaveBeenCalledWith(application.id, {
+      page: 1,
+      pageSize: 10,
+    });
+
+    await user.click(
+      within(applicationCard).getByRole("button", {
+        name: "Suivant",
+      }),
+    );
+
+    expect(
+      await within(applicationCard).findByText("Deuxième page"),
+    ).toBeInTheDocument();
+
+    expect(
+      within(applicationCard).getByText(/Page\s+2\s+sur\s+2/),
+    ).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(getApplicationEvents).toHaveBeenLastCalledWith(application.id, {
+        page: 2,
+        pageSize: 10,
+      });
+    });
   });
 
   it("renders scheduled follow-up and interview dates", async () => {

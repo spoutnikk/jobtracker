@@ -226,6 +226,7 @@ function ApplicationsPage() {
   const [journalApplicationId, setJournalApplicationId] = useState<
     number | null
   >(null);
+  const [journalPage, setJournalPage] = useState(1);
 
   const [eventType, setEventType] = useState<ApplicationEventType>("NOTE");
   const [eventTitle, setEventTitle] = useState("");
@@ -237,8 +238,12 @@ function ApplicationsPage() {
   });
 
   const applicationEventsQuery = useQuery({
-    queryKey: ["application-events", journalApplicationId],
-    queryFn: () => getApplicationEvents(journalApplicationId!),
+    queryKey: ["application-events", journalApplicationId, journalPage],
+    queryFn: () =>
+      getApplicationEvents(journalApplicationId!, {
+        page: journalPage,
+        pageSize: 10,
+      }),
     enabled: journalApplicationId !== null,
   });
 
@@ -868,11 +873,12 @@ function ApplicationsPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() =>
+                  onClick={() => {
+                    setJournalPage(1);
                     setJournalApplicationId((current) =>
                       current === application.id ? null : application.id,
-                    )
-                  }
+                    );
+                  }}
                   className="mt-4 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
                 >
                   Journal
@@ -896,13 +902,13 @@ function ApplicationsPage() {
 
                   {applicationEventsQuery.isSuccess && (
                     <>
-                      {applicationEventsQuery.data.length === 0 ? (
+                      {applicationEventsQuery.data.items.length === 0 ? (
                         <p className="mt-3 text-sm text-gray-600">
                           Aucun événement enregistré.
                         </p>
                       ) : (
                         <div className="mt-4 space-y-3">
-                          {applicationEventsQuery.data.map((event) => (
+                          {applicationEventsQuery.data.items.map((event) => (
                             <article
                               key={event.id}
                               className="rounded-md border border-gray-200 bg-white p-3"
@@ -930,6 +936,17 @@ function ApplicationsPage() {
                             </article>
                           ))}
                         </div>
+                      )}
+
+                      {applicationEventsQuery.data.items.length > 0 && (
+                        <Pagination
+                          page={applicationEventsQuery.data.page}
+                          totalPages={applicationEventsQuery.data.totalPages}
+                          totalLabel={`${applicationEventsQuery.data.total} événement${
+                            applicationEventsQuery.data.total > 1 ? "s" : ""
+                          }`}
+                          onPageChange={setJournalPage}
+                        />
                       )}
 
                       <form

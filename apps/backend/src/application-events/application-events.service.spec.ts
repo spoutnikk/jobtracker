@@ -14,7 +14,11 @@ describe('ApplicationEventsService', () => {
     applicationEvent: {
       create: jest.fn(),
       findMany: jest.fn(),
+      count: jest.fn(),
     },
+    $transaction: jest.fn((operations: Promise<unknown>[]) =>
+      Promise.all(operations),
+    ),
   };
 
   beforeEach(async () => {
@@ -258,8 +262,17 @@ describe('ApplicationEventsService', () => {
 
     prismaServiceMock.application.findFirst.mockResolvedValue(application);
     prismaServiceMock.applicationEvent.findMany.mockResolvedValue(events);
+    prismaServiceMock.applicationEvent.count.mockResolvedValue(12);
 
-    await expect(service.findByApplication(7, 4)).resolves.toEqual(events);
+    await expect(
+      service.findByApplication(7, 4, { page: 2, pageSize: 5 }),
+    ).resolves.toEqual({
+      items: events,
+      page: 2,
+      pageSize: 5,
+      total: 12,
+      totalPages: 3,
+    });
 
     expect(prismaServiceMock.application.findFirst).toHaveBeenCalledWith({
       where: {
@@ -275,10 +288,18 @@ describe('ApplicationEventsService', () => {
       where: {
         applicationId: 4,
       },
-      orderBy: {
-        occurredAt: 'asc',
+      orderBy: [{ occurredAt: 'asc' }, { id: 'asc' }],
+      skip: 5,
+      take: 5,
+    });
+
+    expect(prismaServiceMock.applicationEvent.count).toHaveBeenCalledWith({
+      where: {
+        applicationId: 4,
       },
     });
+
+    expect(prismaServiceMock.$transaction).toHaveBeenCalledTimes(1);
   });
 
   it('should throw NotFoundException when application does not exist', async () => {
@@ -289,5 +310,7 @@ describe('ApplicationEventsService', () => {
     );
 
     expect(prismaServiceMock.applicationEvent.findMany).not.toHaveBeenCalled();
+    expect(prismaServiceMock.applicationEvent.count).not.toHaveBeenCalled();
+    expect(prismaServiceMock.$transaction).not.toHaveBeenCalled();
   });
 });

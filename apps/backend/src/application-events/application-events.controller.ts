@@ -5,9 +5,11 @@ import {
   Param,
   ParseIntPipe,
   Post,
+  Query,
 } from '@nestjs/common';
 import { ApplicationEventsService } from './application-events.service';
 import { CreateApplicationEventDto } from './dto/create-application-event.dto';
+import { FindApplicationEventsQueryDto } from './dto/find-application-events-query.dto';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/authenticated-user';
 
@@ -32,10 +34,12 @@ export class ApplicationEventsController {
   findByApplication(
     @CurrentUser() user: AuthenticatedUser,
     @Param('applicationId', ParseIntPipe) applicationId: number,
+    @Query() filters: FindApplicationEventsQueryDto,
   ) {
     return this.applicationEventsService.findByApplication(
       user.id,
       applicationId,
+      filters,
     );
   }
 }

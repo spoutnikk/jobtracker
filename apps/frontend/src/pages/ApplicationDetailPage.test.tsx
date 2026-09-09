@@ -11,6 +11,7 @@ import {
 import {
   getApplicationEvents,
   type ApplicationEvent,
+  type PaginatedApplicationEvents,
 } from "../api/application-events";
 import {
   downloadDocument,
@@ -145,12 +146,32 @@ function axiosError(status: number) {
   );
 }
 
+function applicationEventsPage(
+  items: ApplicationEvent[],
+  {
+    page = 1,
+    pageSize = 10,
+    total = items.length,
+    totalPages = total === 0 ? 0 : Math.ceil(total / pageSize),
+  }: Partial<PaginatedApplicationEvents> = {},
+): PaginatedApplicationEvents {
+  return {
+    items,
+    page,
+    pageSize,
+    total,
+    totalPages,
+  };
+}
+
 describe("ApplicationDetailPage", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.mocked(getApplication).mockResolvedValue(application);
     vi.mocked(updateApplication).mockResolvedValue(application);
-    vi.mocked(getApplicationEvents).mockResolvedValue([]);
+    vi.mocked(getApplicationEvents).mockResolvedValue(
+      applicationEventsPage([]),
+    );
     vi.mocked(getAllDocuments).mockResolvedValue([]);
     vi.mocked(downloadDocument).mockResolvedValue(undefined);
     vi.mocked(getDocumentPreview).mockResolvedValue(
@@ -332,7 +353,7 @@ describe("ApplicationDetailPage", () => {
 
   it("renders the detail while the history is loading", async () => {
     vi.mocked(getApplicationEvents).mockImplementation(
-      () => new Promise<ApplicationEvent[]>(() => undefined),
+      () => new Promise<PaginatedApplicationEvents>(() => undefined),
     );
 
     renderDetail();
@@ -351,7 +372,9 @@ describe("ApplicationDetailPage", () => {
   });
 
   it("renders application events in the backend order", async () => {
-    vi.mocked(getApplicationEvents).mockResolvedValue(events);
+    vi.mocked(getApplicationEvents).mockResolvedValue(
+      applicationEventsPage(events),
+    );
 
     renderDetail();
 
@@ -379,7 +402,56 @@ describe("ApplicationDetailPage", () => {
     expect(
       within(historyItems[1]).getByText(/12 août 2026/),
     ).toBeInTheDocument();
-    expect(getApplicationEvents).toHaveBeenCalledWith(42);
+    expect(getApplicationEvents).toHaveBeenCalledWith(42, {
+      page: 1,
+      pageSize: 10,
+    });
+  });
+
+  it("navigates through paginated application events", async () => {
+    const user = userEvent.setup();
+
+    vi.mocked(getApplicationEvents).mockImplementation(
+      (_applicationId, filters) => {
+        if (filters?.page === 2) {
+          return Promise.resolve(
+            applicationEventsPage([events[1]], {
+              page: 2,
+              pageSize: 10,
+              total: 11,
+              totalPages: 2,
+            }),
+          );
+        }
+
+        return Promise.resolve(
+          applicationEventsPage([events[0]], {
+            page: 1,
+            pageSize: 10,
+            total: 11,
+            totalPages: 2,
+          }),
+        );
+      },
+    );
+
+    renderDetail();
+
+    expect(await screen.findByText("Candidature créée")).toBeInTheDocument();
+    expect(screen.getByText("11 événements")).toBeInTheDocument();
+    expect(screen.getByText(/Page\s+1\s+sur\s+2/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Suivant" }));
+
+    expect(await screen.findByText("Statut modifié")).toBeInTheDocument();
+    expect(screen.getByText(/Page\s+2\s+sur\s+2/)).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(getApplicationEvents).toHaveBeenLastCalledWith(42, {
+        page: 2,
+        pageSize: 10,
+      });
+    });
   });
 
   it("renders the empty history state", async () => {
@@ -419,7 +491,9 @@ describe("ApplicationDetailPage", () => {
   });
 
   it("renders the detail and history while documents are loading", async () => {
-    vi.mocked(getApplicationEvents).mockResolvedValue(events);
+    vi.mocked(getApplicationEvents).mockResolvedValue(
+      applicationEventsPage(events),
+    );
     vi.mocked(getAllDocuments).mockImplementation(
       () => new Promise<Document[]>(() => undefined),
     );
@@ -543,7 +617,9 @@ describe("ApplicationDetailPage", () => {
   });
 
   it("keeps the detail and history visible when documents loading fails", async () => {
-    vi.mocked(getApplicationEvents).mockResolvedValue(events);
+    vi.mocked(getApplicationEvents).mockResolvedValue(
+      applicationEventsPage(events),
+    );
     vi.mocked(getAllDocuments).mockRejectedValue(
       new Error("Documents request failed"),
     );

@@ -1,4 +1,7 @@
-import type { ApplicationEventType } from "@jobtracker/shared";
+import type {
+  ApplicationEventType,
+  PaginatedResponse,
+} from "@jobtracker/shared";
 import { apiClient } from "./client";
 
 export type { ApplicationEventType };
@@ -21,11 +24,22 @@ export interface CreateApplicationEventInput {
   occurredAt?: string;
 }
 
+export interface ApplicationEventFilters {
+  page?: number;
+  pageSize?: number;
+}
+
+export type PaginatedApplicationEvents = PaginatedResponse<ApplicationEvent>;
+
 export async function getApplicationEvents(
   applicationId: number,
-): Promise<ApplicationEvent[]> {
-  const response = await apiClient.get<ApplicationEvent[]>(
+  filters: ApplicationEventFilters = {},
+): Promise<PaginatedApplicationEvents> {
+  const response = await apiClient.get<PaginatedApplicationEvents>(
     `/application-events/application/${applicationId}`,
+    {
+      params: filters,
+    },
   );
 
   return response.data;

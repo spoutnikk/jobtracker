@@ -75,13 +75,14 @@ describe('ApplicationEventsController', () => {
 
     applicationEventsServiceMock.findByApplication.mockResolvedValue(events);
 
-    await expect(controller.findByApplication(user, 4)).resolves.toEqual(
-      events,
-    );
+    await expect(
+      controller.findByApplication(user, 4, { page: 1, pageSize: 10 }),
+    ).resolves.toEqual(events);
 
     expect(applicationEventsServiceMock.findByApplication).toHaveBeenCalledWith(
       user.id,
       4,
+      { page: 1, pageSize: 10 },
     );
   });
 });
