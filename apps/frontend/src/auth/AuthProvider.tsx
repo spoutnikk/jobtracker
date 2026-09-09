@@ -6,12 +6,16 @@ import { hasHttpStatus } from "../api/http-error";
 import { authMeQueryKey, setAnonymousAuthState } from "./auth-cache";
 import { AuthContext, type AuthContextValue, type AuthStatus } from "./useAuth";
 
-function isLocallyHandledAuthRequest(url: string | undefined): boolean {
+function isLocallyHandledAuthRequest(
+  url: string | undefined,
+  method: string | undefined,
+): boolean {
   return (
     url === "/auth/login" ||
     url === "/auth/register" ||
     url === "/auth/me" ||
-    url === "/auth/logout"
+    url === "/auth/logout" ||
+    (url === "/auth/me/password" && method?.toLowerCase() === "patch")
   );
 }
 
@@ -50,10 +54,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           typeof error.config.url === "string"
             ? error.config.url
             : undefined;
+        const requestMethod =
+          typeof error === "object" &&
+          error !== null &&
+          "config" in error &&
+          typeof error.config === "object" &&
+          error.config !== null &&
+          "method" in error.config &&
+          typeof error.config.method === "string"
+            ? error.config.method
+            : undefined;
 
         if (
           hasHttpStatus(error, 401) &&
-          !isLocallyHandledAuthRequest(requestUrl)
+          !isLocallyHandledAuthRequest(requestUrl, requestMethod)
         ) {
           setAnonymousAuthState(queryClient);
         }

@@ -139,19 +139,42 @@ describe("AuthProvider", () => {
     expect(me).toHaveBeenCalledTimes(2);
   });
 
-  it("clears sensitive caches and expires auth after a business 401", async () => {
+  it.each([
+    ["/applications", "get"],
+    ["/auth/sessions/others", "post"],
+    ["/auth/me/password", "get"],
+  ])("expires auth after a protected 401 from %s (%s)", async (url, method) => {
     vi.mocked(me).mockResolvedValue(authenticatedUser);
     const { queryClient } = renderAuthProvider();
 
     await screen.findByText("status:authenticated");
     queryClient.setQueryData(["applications"], [{ id: 1 }]);
 
-    const { error, request } = createRejectedApiRequest("/applications", 401);
+    const { error, request } = createRejectedApiRequest(url, 401, method);
     await expect(request).rejects.toBe(error);
 
     expect(await screen.findByText("status:anonymous")).toBeInTheDocument();
     expect(queryClient.getQueryData(["applications"])).toBeUndefined();
     expect(queryClient.getQueryData(["auth", "me"])).toBeNull();
+  });
+
+  it("preserves auth and sensitive caches after a password-change 401", async () => {
+    vi.mocked(me).mockResolvedValue(authenticatedUser);
+    const { queryClient } = renderAuthProvider();
+
+    await screen.findByText("status:authenticated");
+    queryClient.setQueryData(["applications"], [{ id: 1 }]);
+
+    const { error, request } = createRejectedApiRequest(
+      "/auth/me/password",
+      401,
+      "patch",
+    );
+    await expect(request).rejects.toBe(error);
+
+    expect(screen.getByText("status:authenticated")).toBeInTheDocument();
+    expect(queryClient.getQueryData(["applications"])).toEqual([{ id: 1 }]);
+    expect(queryClient.getQueryData(["auth", "me"])).toEqual(authenticatedUser);
   });
 
   it("does not globally handle 401 responses from auth endpoints", async () => {

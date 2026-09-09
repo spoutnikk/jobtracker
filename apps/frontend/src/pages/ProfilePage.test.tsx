@@ -1,4 +1,4 @@
-import { AxiosError, AxiosHeaders } from "axios";
+import { AxiosError, AxiosHeaders, type AxiosAdapter } from "axios";
 import { act, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
@@ -12,6 +12,7 @@ import {
   type AuthenticatedUser,
 } from "../api/auth";
 import { AuthProvider } from "../auth/AuthProvider";
+import { apiClient } from "../api/client";
 import ProtectedRoute from "../routes/ProtectedRoute";
 import { renderWithProviders } from "../test/renderWithProviders";
 import ProfilePage from "./ProfilePage";
@@ -249,12 +250,36 @@ describe("ProfilePage", () => {
     );
   });
 
-  it("shows a stable current-password error for a 401", async () => {
-    vi.mocked(changePassword).mockRejectedValue(createAxiosError(401));
-    renderProfile();
+  it("shows a password-change 401 locally and keeps the user authenticated", async () => {
+    const actualAuth =
+      await vi.importActual<typeof import("../api/auth")>("../api/auth");
+    vi.mocked(changePassword).mockImplementation(actualAuth.changePassword);
+    const adapter = vi.fn<AxiosAdapter>((config) =>
+      Promise.reject(
+        new AxiosError(
+          "Request failed",
+          "ERR_BAD_RESPONSE",
+          config,
+          undefined,
+          {
+            data: {},
+            status: 401,
+            statusText: "Unauthorized",
+            headers: new AxiosHeaders(),
+            config,
+          },
+        ),
+      ),
+    );
+    const patch = apiClient.patch.bind(apiClient);
+    vi.spyOn(apiClient, "patch").mockImplementation((url, data, config) =>
+      patch(url, data, { ...config, adapter }),
+    );
+    const { router, queryClient } = renderProfile();
     const user = userEvent.setup();
 
     await screen.findByRole("heading", { name: "Profil" });
+    queryClient.setQueryData(["applications"], [{ id: 1 }]);
     await user.type(
       screen.getAllByLabelText("Mot de passe actuel")[0],
       "wrong-password",
@@ -277,6 +302,15 @@ describe("ProfilePage", () => {
     )[0];
 
     expect(alert).toHaveTextContent("Mot de passe actuel incorrect.");
+    expect(adapter).toHaveBeenCalledTimes(1);
+    expect(adapter.mock.calls[0][0]).toMatchObject({
+      url: "/auth/me/password",
+      method: "patch",
+    });
+    expect(router.state.location.pathname).toBe("/profile");
+    expect(screen.queryByText("Login destination")).not.toBeInTheDocument();
+    expect(queryClient.getQueryData(["auth", "me"])).toEqual(authenticatedUser);
+    expect(queryClient.getQueryData(["applications"])).toEqual([{ id: 1 }]);
     expect(currentPasswordInput).toHaveAttribute("aria-invalid", "true");
     expect(currentPasswordInput).toHaveAttribute(
       "aria-describedby",
