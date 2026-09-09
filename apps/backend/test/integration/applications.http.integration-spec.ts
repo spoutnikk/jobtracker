@@ -177,6 +177,54 @@ describe('Applications HTTP ownership integration', () => {
     }
   });
 
+  it.each([
+    ['post', 'status'],
+    ['patch', 'status'],
+    ['patch', 'jobOfferId'],
+  ] as const)(
+    'rejects null application %s %s without mutations',
+    async (method, property) => {
+      if (!app || !prisma || !userA) {
+        throw new Error('Integration fixtures are unavailable');
+      }
+      const before = await prisma.application.findUniqueOrThrow({
+        where: { id: userA.applicationId },
+      });
+      const applicationCount = await prisma.application.count({
+        where: { userId: userA.userId },
+      });
+      const eventCount = await prisma.applicationEvent.count({
+        where: { application: { userId: userA.userId } },
+      });
+      const http = request(app.getHttpServer());
+      const operation =
+        method === 'post'
+          ? http.post('/applications')
+          : http.patch(`/applications/${userA.applicationId}`);
+      await operation
+        .set('Origin', DEFAULT_FRONTEND_ORIGIN)
+        .set('Cookie', userA.cookie)
+        .send({
+          ...(method === 'post' ? { jobOfferId: userA.jobOfferId } : {}),
+          [property]: null,
+        })
+        .expect(400);
+      await expect(
+        prisma.application.findUniqueOrThrow({
+          where: { id: userA.applicationId },
+        }),
+      ).resolves.toEqual(before);
+      await expect(
+        prisma.application.count({ where: { userId: userA.userId } }),
+      ).resolves.toBe(applicationCount);
+      await expect(
+        prisma.applicationEvent.count({
+          where: { application: { userId: userA.userId } },
+        }),
+      ).resolves.toBe(eventCount);
+    },
+  );
+
   it('creates, reads, updates, and removes an owned application', async () => {
     if (!app || !prisma || !userA) {
       throw new Error('Integration fixtures are unavailable');

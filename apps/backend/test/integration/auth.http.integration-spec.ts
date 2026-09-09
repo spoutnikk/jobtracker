@@ -99,6 +99,40 @@ describe('Authentication HTTP integration', () => {
     delete process.env.AUTH_SESSION_TTL_SECONDS;
   });
 
+  it.each(['firstName', 'lastName', 'email'])(
+    'rejects null profile %s without changing the user',
+    async (property) => {
+      if (!app || !prisma || userId === undefined) {
+        throw new Error('Authentication integration fixtures are unavailable');
+      }
+      const rawToken = randomBytes(32).toString('base64url');
+      const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+      await prisma.session.create({
+        data: {
+          tokenHash,
+          userId,
+          expiresAt: new Date(Date.now() + 3_600_000),
+        },
+      });
+      try {
+        const before = await prisma.user.findUniqueOrThrow({
+          where: { id: userId },
+        });
+        await request(app.getHttpServer())
+          .patch('/auth/me')
+          .set('Origin', DEFAULT_FRONTEND_ORIGIN)
+          .set('Cookie', `jobtracker_session=${rawToken}`)
+          .send({ [property]: null })
+          .expect(400);
+        await expect(
+          prisma.user.findUniqueOrThrow({ where: { id: userId } }),
+        ).resolves.toEqual(before);
+      } finally {
+        await prisma.session.deleteMany({ where: { tokenHash } });
+      }
+    },
+  );
+
   it('authenticates, exposes me, revokes the session and rejects the old cookie', async () => {
     if (!app || !prisma || userId === undefined) {
       throw new Error('Authentication integration fixtures are unavailable');

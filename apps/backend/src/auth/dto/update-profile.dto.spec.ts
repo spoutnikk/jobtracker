@@ -3,6 +3,36 @@ import { validate } from 'class-validator';
 import { UpdateProfileDto } from './update-profile.dto';
 
 describe('UpdateProfileDto', () => {
+  it.each([
+    ['firstName', 'Ada'],
+    ['lastName', 'Lovelace'],
+    ['email', 'ada@example.com'],
+  ])('allows omitted or valid %s but rejects null', async (property, value) => {
+    const baseline = {};
+    await expect(
+      validate(plainToInstance(UpdateProfileDto, baseline)),
+    ).resolves.toHaveLength(0);
+    await expect(
+      validate(
+        plainToInstance(UpdateProfileDto, {
+          ...baseline,
+          [property]: undefined,
+        }),
+      ),
+    ).resolves.toHaveLength(0);
+    await expect(
+      validate(
+        plainToInstance(UpdateProfileDto, { ...baseline, [property]: value }),
+      ),
+    ).resolves.toHaveLength(0);
+    const errors = await validate(
+      plainToInstance(UpdateProfileDto, { ...baseline, [property]: null }),
+    );
+    expect(errors).toEqual(
+      expect.arrayContaining([expect.objectContaining({ property })]),
+    );
+  });
+
   it('normalizes supplied profile fields', async () => {
     const dto = plainToInstance(UpdateProfileDto, {
       firstName: '  Ada  ',

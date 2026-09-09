@@ -4,6 +4,41 @@ import { validate } from 'class-validator';
 import { CreateApplicationDto } from './create-application.dto';
 
 describe('CreateApplicationDto', () => {
+  it.each([['status', 'DRAFT']])(
+    'allows omitted or valid %s but rejects null',
+    async (property, value) => {
+      const baseline = { jobOfferId: 1 };
+      await expect(
+        validate(plainToInstance(CreateApplicationDto, baseline)),
+      ).resolves.toHaveLength(0);
+      await expect(
+        validate(
+          plainToInstance(CreateApplicationDto, {
+            ...baseline,
+            [property]: undefined,
+          }),
+        ),
+      ).resolves.toHaveLength(0);
+      await expect(
+        validate(
+          plainToInstance(CreateApplicationDto, {
+            ...baseline,
+            [property]: value,
+          }),
+        ),
+      ).resolves.toHaveLength(0);
+      const errors = await validate(
+        plainToInstance(CreateApplicationDto, {
+          ...baseline,
+          [property]: null,
+        }),
+      );
+      expect(errors).toEqual(
+        expect.arrayContaining([expect.objectContaining({ property })]),
+      );
+    },
+  );
+
   it('accepts a valid application', async () => {
     const dto = plainToInstance(CreateApplicationDto, {
       jobOfferId: 42,

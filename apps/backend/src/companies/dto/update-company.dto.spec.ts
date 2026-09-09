@@ -4,6 +4,43 @@ import { validate } from 'class-validator';
 import { UpdateCompanyDto } from './update-company.dto';
 
 describe('UpdateCompanyDto', () => {
+  it.each([['name', 'Acme']])(
+    'allows omitted or valid %s but rejects null',
+    async (property, value) => {
+      const baseline = {};
+      await expect(
+        validate(plainToInstance(UpdateCompanyDto, baseline)),
+      ).resolves.toHaveLength(0);
+      await expect(
+        validate(
+          plainToInstance(UpdateCompanyDto, {
+            ...baseline,
+            [property]: undefined,
+          }),
+        ),
+      ).resolves.toHaveLength(0);
+      await expect(
+        validate(
+          plainToInstance(UpdateCompanyDto, { ...baseline, [property]: value }),
+        ),
+      ).resolves.toHaveLength(0);
+      const errors = await validate(
+        plainToInstance(UpdateCompanyDto, { ...baseline, [property]: null }),
+      );
+      expect(errors).toEqual(
+        expect.arrayContaining([expect.objectContaining({ property })]),
+      );
+    },
+  );
+
+  it('preserves inherited nullable fields', async () => {
+    await expect(
+      validate(
+        plainToInstance(UpdateCompanyDto, { website: null, city: null }),
+      ),
+    ).resolves.toHaveLength(0);
+  });
+
   it('accepts an empty update', async () => {
     const dto = plainToInstance(UpdateCompanyDto, {});
 

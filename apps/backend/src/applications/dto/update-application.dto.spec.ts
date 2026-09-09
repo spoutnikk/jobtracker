@@ -4,6 +4,38 @@ import { validate } from 'class-validator';
 import { UpdateApplicationDto } from './update-application.dto';
 
 describe('UpdateApplicationDto', () => {
+  it.each([
+    ['status', 'DRAFT'],
+    ['jobOfferId', 1],
+  ])('allows omitted or valid %s but rejects null', async (property, value) => {
+    const baseline = {};
+    await expect(
+      validate(plainToInstance(UpdateApplicationDto, baseline)),
+    ).resolves.toHaveLength(0);
+    await expect(
+      validate(
+        plainToInstance(UpdateApplicationDto, {
+          ...baseline,
+          [property]: undefined,
+        }),
+      ),
+    ).resolves.toHaveLength(0);
+    await expect(
+      validate(
+        plainToInstance(UpdateApplicationDto, {
+          ...baseline,
+          [property]: value,
+        }),
+      ),
+    ).resolves.toHaveLength(0);
+    const errors = await validate(
+      plainToInstance(UpdateApplicationDto, { ...baseline, [property]: null }),
+    );
+    expect(errors).toEqual(
+      expect.arrayContaining([expect.objectContaining({ property })]),
+    );
+  });
+
   it('accepts an empty update', async () => {
     const dto = plainToInstance(UpdateApplicationDto, {});
 

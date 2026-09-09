@@ -186,6 +186,38 @@ describe('Companies and JobOffers HTTP ownership integration', () => {
     }
   });
 
+  it.each([
+    ['companies', 'name'],
+    ['job-offers', 'title'],
+    ['job-offers', 'companyId'],
+  ])(
+    'rejects null %s.%s without changing owned resources',
+    async (resource, property) => {
+      if (!app || !prisma || !userA) {
+        throw new Error('Integration fixtures are unavailable');
+      }
+      const companyBefore = await prisma.company.findUniqueOrThrow({
+        where: { id: userA.companyId },
+      });
+      const offerBefore = await prisma.jobOffer.findUniqueOrThrow({
+        where: { id: userA.jobOfferId },
+      });
+      const id = resource === 'companies' ? userA.companyId : userA.jobOfferId;
+      await request(app.getHttpServer())
+        .patch(`/${resource}/${id}`)
+        .set('Origin', DEFAULT_FRONTEND_ORIGIN)
+        .set('Cookie', userA.cookie)
+        .send({ [property]: null })
+        .expect(400);
+      await expect(
+        prisma.company.findUniqueOrThrow({ where: { id: userA.companyId } }),
+      ).resolves.toEqual(companyBefore);
+      await expect(
+        prisma.jobOffer.findUniqueOrThrow({ where: { id: userA.jobOfferId } }),
+      ).resolves.toEqual(offerBefore);
+    },
+  );
+
   it('creates, reads, updates, and removes an owned company and job offer', async () => {
     if (!app || !prisma || !userA) {
       throw new Error('Integration fixtures are unavailable');

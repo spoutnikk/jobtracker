@@ -1,7 +1,7 @@
 import { Transform } from 'class-transformer';
 import {
   IsEmail,
-  IsOptional,
+  ValidateIf,
   IsString,
   MaxLength,
   MinLength,
@@ -16,21 +16,21 @@ function normalizeEmail({ value }: { value: unknown }) {
 }
 
 export class UpdateProfileDto {
-  @IsOptional()
+  @ValidateIf((_object, value) => value !== undefined)
   @Transform(trimString)
   @IsString()
   @MinLength(1)
   @MaxLength(100)
   firstName?: string;
 
-  @IsOptional()
+  @ValidateIf((_object, value) => value !== undefined)
   @Transform(trimString)
   @IsString()
   @MinLength(1)
   @MaxLength(100)
   lastName?: string;
 
-  @IsOptional()
+  @ValidateIf((_object, value) => value !== undefined)
   @Transform(normalizeEmail)
   @IsEmail()
   @MaxLength(254)

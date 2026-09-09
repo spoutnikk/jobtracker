@@ -4,6 +4,7 @@ import {
   IsISO8601,
   IsInt,
   IsOptional,
+  ValidateIf,
   IsPositive,
   IsString,
 } from 'class-validator';
@@ -11,12 +12,12 @@ import type { ApplicationStatus } from '../../../generated/prisma/enums';
 import { ApplicationStatus as ApplicationStatusEnum } from '../../../generated/prisma/enums';
 
 export class UpdateApplicationDto {
-  @IsOptional()
+  @ValidateIf((_object, value) => value !== undefined)
   @IsInt()
   @IsPositive()
   jobOfferId?: number;
 
-  @IsOptional()
+  @ValidateIf((_object, value) => value !== undefined)
   @IsEnum(ApplicationStatusEnum)
   status?: ApplicationStatus;
 

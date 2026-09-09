@@ -4,6 +4,7 @@ import {
   IsISO8601,
   IsInt,
   IsOptional,
+  ValidateIf,
   IsPositive,
   IsString,
 } from 'class-validator';
@@ -15,7 +16,7 @@ export class CreateApplicationDto {
   @IsPositive()
   jobOfferId!: number;
 
-  @IsOptional()
+  @ValidateIf((_object, value) => value !== undefined)
   @IsEnum(ApplicationStatusEnum)
   status?: ApplicationStatus;
 
