@@ -5,8 +5,8 @@ import { join } from 'node:path';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
 import argon2 from 'argon2';
+import type { Server } from 'node:net';
 import request from 'supertest';
-import type { App } from 'supertest/types';
 import { AppModule } from '../../src/app.module';
 import {
   configureHttpApplication,
@@ -65,7 +65,7 @@ function readSetCookie(headers: unknown): string {
 }
 
 describe('Origin protection HTTP integration', () => {
-  let app: INestApplication<App> | undefined;
+  let app: INestApplication<Server> | undefined;
   let prisma: PrismaService | undefined;
   let userId: number | undefined;
   let cookie: string | undefined;
@@ -85,7 +85,7 @@ describe('Origin protection HTTP integration', () => {
       imports: [AppModule],
     }).compile();
 
-    app = moduleFixture.createNestApplication<App>();
+    app = moduleFixture.createNestApplication();
     configureHttpApplication(app, process.env);
     app.useGlobalPipes(
       new ValidationPipe({
@@ -95,7 +95,7 @@ describe('Origin protection HTTP integration', () => {
       }),
     );
     await app.init();
-    prisma = app.get(PrismaService);
+    prisma = app.get<PrismaService>(PrismaService);
     const user = await prisma.user.create({
       data: {
         email,

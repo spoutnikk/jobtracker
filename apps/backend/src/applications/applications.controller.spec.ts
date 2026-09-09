@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ApplicationsController } from './applications.controller';
 import { ApplicationsService } from './applications.service';
+import type { FindApplicationsQueryDto } from './dto/find-applications-query.dto';
 
 describe('ApplicationsController', () => {
   let controller: ApplicationsController;
@@ -61,11 +62,15 @@ describe('ApplicationsController', () => {
 
   it('should return all applications', async () => {
     const applications = [{ id: 1 }];
-    const filters = {
+    const filters: FindApplicationsQueryDto = {
       status: 'APPLIED' as const,
       companyId: 2,
       jobOfferId: 3,
       search: 'React',
+      page: 1,
+      pageSize: 10,
+      sortBy: 'createdAt',
+      sortOrder: 'desc',
     };
 
     applicationsServiceMock.findAll.mockResolvedValue(applications);

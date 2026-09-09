@@ -14,7 +14,13 @@ describe('ApplicationsService', () => {
     data: {
       jobOfferId?: number;
       status?: string;
-      appliedAt?: Date;
+      appliedAt?: Date | null;
+      source?: string | null;
+      notes?: string | null;
+      contactName?: string | null;
+      contactEmail?: string | null;
+      followUpAt?: Date | null;
+      interviewAt?: Date | null;
     };
   }
 

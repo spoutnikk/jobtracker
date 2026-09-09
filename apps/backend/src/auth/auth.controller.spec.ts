@@ -97,7 +97,7 @@ describe('AuthController', () => {
     authServiceMock.logout.mockResolvedValue(undefined);
     const request = {
       cookies: { [AUTH_SESSION_COOKIE_NAME]: 'opaque-token' },
-    } as Request;
+    } as unknown as Request;
     const responseMock = { clearCookie: jest.fn() };
     const response = responseMock as unknown as Response;
 
@@ -160,7 +160,7 @@ describe('AuthController', () => {
     authServiceMock.revokeOtherSessions.mockResolvedValue(undefined);
     const request = {
       cookies: { [AUTH_SESSION_COOKIE_NAME]: 'current-session-token' },
-    } as Request;
+    } as unknown as Request;
 
     await expect(
       controller.revokeOtherSessions(user, request),
@@ -186,7 +186,7 @@ describe('AuthController', () => {
     authServiceMock.changePassword.mockResolvedValue(undefined);
     const request = {
       cookies: { [AUTH_SESSION_COOKIE_NAME]: 'current-session-token' },
-    } as Request;
+    } as unknown as Request;
     const dto = {
       currentPassword: 'current-password',
       newPassword: 'new-secure-password',

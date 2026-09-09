@@ -2,8 +2,8 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
 import argon2 from 'argon2';
+import type { Server } from 'node:net';
 import request from 'supertest';
-import type { App } from 'supertest/types';
 import { AppModule } from '../../src/app.module';
 import {
   configureHttpApplication,
@@ -82,7 +82,7 @@ function readMessage(body: unknown): unknown {
 }
 
 describe('Companies and JobOffers HTTP ownership integration', () => {
-  let app: INestApplication<App> | undefined;
+  let app: INestApplication<Server> | undefined;
   let prisma: PrismaService | undefined;
   let userA: UserFixtures | undefined;
   let userB: UserFixtures | undefined;
@@ -144,7 +144,7 @@ describe('Companies and JobOffers HTTP ownership integration', () => {
       imports: [AppModule],
     }).compile();
 
-    app = moduleFixture.createNestApplication<App>();
+    app = moduleFixture.createNestApplication();
     configureHttpApplication(app, process.env);
     app.useGlobalPipes(
       new ValidationPipe({
@@ -590,12 +590,14 @@ describe('Companies and JobOffers HTTP ownership integration', () => {
       throw new Error('Integration fixtures are unavailable');
     }
 
+    const prismaClient = prisma;
+    const companyId = userA.companyId;
     const additionalOffers = await Promise.all(
       ['Frontend', 'Backend', 'Fullstack'].map((title) =>
-        prisma.jobOffer.create({
+        prismaClient.jobOffer.create({
           data: {
             title: `${title} ${marker}`,
-            companyId: userA.companyId,
+            companyId,
             contractType: 'CDI',
           },
           select: { id: true },

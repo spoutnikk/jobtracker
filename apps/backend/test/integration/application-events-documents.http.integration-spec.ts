@@ -5,8 +5,8 @@ import { join } from 'node:path';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
 import argon2 from 'argon2';
+import type { Server } from 'node:net';
 import request from 'supertest';
-import type { App } from 'supertest/types';
 import { AppModule } from '../../src/app.module';
 import {
   configureHttpApplication,
@@ -120,7 +120,7 @@ async function readUploadNames(): Promise<string[]> {
 }
 
 describe('ApplicationEvents and Documents HTTP ownership integration', () => {
-  let app: INestApplication<App> | undefined;
+  let app: INestApplication<Server> | undefined;
   let prisma: PrismaService | undefined;
   let temporaryDirectory: string | undefined;
   let uploadFixturePath: string | undefined;
@@ -216,7 +216,7 @@ describe('ApplicationEvents and Documents HTTP ownership integration', () => {
       imports: [AppModule],
     }).compile();
 
-    app = moduleFixture.createNestApplication<App>();
+    app = moduleFixture.createNestApplication();
     configureHttpApplication(app, process.env);
     app.useGlobalPipes(
       new ValidationPipe({
