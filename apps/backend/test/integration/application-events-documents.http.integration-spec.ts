@@ -63,6 +63,14 @@ function readIds(body: unknown): number[] {
   });
 }
 
+interface PaginatedApplicationEventsBody {
+  items: unknown[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
 interface PaginatedDocumentsBody {
   items: unknown[];
   page: number;
@@ -277,7 +285,15 @@ describe('ApplicationEvents and Documents HTTP ownership integration', () => {
       .get(`/application-events/application/${userA.applicationId}`)
       .set('Cookie', userA.cookie)
       .expect(200);
-    expect(readIds(events.body)).toEqual([userA.eventId]);
+    const eventsBody = events.body as PaginatedApplicationEventsBody;
+
+    expect(eventsBody).toMatchObject({
+      page: 1,
+      pageSize: 10,
+      total: 1,
+      totalPages: 1,
+    });
+    expect(readIds(eventsBody.items)).toEqual([userA.eventId]);
 
     const eventCount = await prisma.applicationEvent.count();
     const foreign = await request(app.getHttpServer())
