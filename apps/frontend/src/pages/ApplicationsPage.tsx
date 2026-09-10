@@ -5,6 +5,7 @@ import {
   updateApplication,
   deleteApplication,
   type ApplicationFilters,
+  type UpdateApplicationInput,
   type ApplicationSortBy,
   type ApplicationStatus,
   type SortOrder,
@@ -271,13 +272,7 @@ function ApplicationsPage() {
       input,
     }: {
       id: number;
-      input: {
-        status?: ApplicationStatus;
-        source?: string;
-        contactName?: string;
-        followUpAt?: string;
-        interviewAt?: string;
-      };
+      input: UpdateApplicationInput;
     }) => updateApplication(id, input),
     onSuccess: async () => {
       setEditingApplicationId(null);
@@ -1038,16 +1033,16 @@ function ApplicationsPage() {
                       id: application.id,
                       input: {
                         status: editStatus,
-                        source: editSource || undefined,
-                        contactName: editContactName || undefined,
+                        source: editSource || null,
+                        contactName: editContactName || null,
 
                         followUpAt: editFollowUpAt
                           ? new Date(editFollowUpAt).toISOString()
-                          : undefined,
+                          : null,
 
                         interviewAt: editInterviewAt
                           ? new Date(editInterviewAt).toISOString()
-                          : undefined,
+                          : null,
                       },
                     });
                   }}

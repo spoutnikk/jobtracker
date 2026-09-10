@@ -225,6 +225,79 @@ describe('Applications HTTP ownership integration', () => {
     },
   );
 
+  it('preserves omitted quick-edit fields and clears them without adding events', async () => {
+    if (!app || !prisma || !userA) {
+      throw new Error('Integration fixtures are unavailable');
+    }
+    const initial = {
+      source: 'Referral',
+      contactName: 'Ada',
+      followUpAt: '2026-08-20T10:00:00.000Z',
+      interviewAt: '2026-08-25T14:30:00.000Z',
+    };
+    const application = await prisma.application.create({
+      data: {
+        userId: userA.userId,
+        jobOfferId: userA.jobOfferId,
+        ...initial,
+        followUpAt: new Date(initial.followUpAt),
+        interviewAt: new Date(initial.interviewAt),
+      },
+    });
+    try {
+      const eventCount = await prisma.applicationEvent.count({
+        where: { applicationId: application.id },
+      });
+      const cleared = {
+        source: null,
+        contactName: null,
+        followUpAt: null,
+        interviewAt: null,
+      };
+      for (const { payload, expected } of [
+        { payload: { notes: 'Omission check' }, expected: initial },
+        { payload: cleared, expected: cleared },
+      ]) {
+        const response = await request(app.getHttpServer())
+          .patch(`/applications/${application.id}`)
+          .set('Origin', DEFAULT_FRONTEND_ORIGIN)
+          .set('Cookie', userA.cookie)
+          .send(payload)
+          .expect(200);
+        const body = response.body as Record<string, unknown>;
+        expect(body).toMatchObject(expected);
+        const readResponse = await request(app.getHttpServer())
+          .get(`/applications/${application.id}`)
+          .set('Cookie', userA.cookie)
+          .expect(200);
+        const readBody = readResponse.body as Record<string, unknown>;
+        expect(readBody).toMatchObject(expected);
+        const persisted = await prisma.application.findUniqueOrThrow({
+          where: { id: application.id },
+        });
+        expect(persisted).toMatchObject({
+          ...expected,
+          followUpAt:
+            expected.followUpAt === null ? null : new Date(expected.followUpAt),
+          interviewAt:
+            expected.interviewAt === null
+              ? null
+              : new Date(expected.interviewAt),
+        });
+        await expect(
+          prisma.applicationEvent.count({
+            where: { applicationId: application.id },
+          }),
+        ).resolves.toBe(eventCount);
+      }
+    } finally {
+      await prisma.applicationEvent.deleteMany({
+        where: { applicationId: application.id },
+      });
+      await prisma.application.delete({ where: { id: application.id } });
+    }
+  });
+
   it('creates, reads, updates, and removes an owned application', async () => {
     if (!app || !prisma || !userA) {
       throw new Error('Integration fixtures are unavailable');

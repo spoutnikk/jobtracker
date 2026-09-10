@@ -956,6 +956,61 @@ describe("ApplicationsPage", () => {
     });
   });
 
+  it.each([
+    ["source", "Source"],
+    ["contactName", "Nom du contact"],
+    ["followUpAt", "Date de relance"],
+    ["interviewAt", "Date d'entretien"],
+  ])(
+    "clears %s in quick editing without changing the other fields",
+    async (field, label) => {
+      const filled = {
+        ...application,
+        source: "Referral",
+        contactName: "Ada",
+        followUpAt: "2026-08-20T10:00:00.000Z",
+        interviewAt: "2026-08-25T14:30:00.000Z",
+      };
+      vi.mocked(getApplications).mockResolvedValue(
+        paginatedApplications([filled]),
+      );
+      const user = userEvent.setup();
+      renderApplicationsPage();
+      await user.click(await screen.findByRole("button", { name: "Modifier" }));
+      const form = screen
+        .getByRole("button", { name: "Annuler" })
+        .closest("form");
+      if (!form) throw new Error("Edit form not found");
+      const edit = within(form);
+      expect(edit.getByLabelText("Statut")).toHaveValue(filled.status);
+      expect(edit.getByLabelText("Source")).toHaveValue(filled.source);
+      expect(edit.getByLabelText("Nom du contact")).toHaveValue(
+        filled.contactName,
+      );
+      expect(edit.getByLabelText("Date de relance")).toHaveValue("2026-08-20");
+      expect(edit.getByLabelText("Date d'entretien")).toHaveValue(
+        "2026-08-25T14:30",
+      );
+      await user.clear(edit.getByLabelText(label));
+      await user.click(edit.getByRole("button", { name: "Enregistrer" }));
+      await waitFor(() => expect(updateApplication).toHaveBeenCalledTimes(1));
+      expect(vi.mocked(updateApplication).mock.calls[0]).toEqual([
+        filled.id,
+        {
+          status: filled.status,
+          source: field === "source" ? null : filled.source,
+          contactName: field === "contactName" ? null : filled.contactName,
+          followUpAt:
+            field === "followUpAt" ? null : "2026-08-20T00:00:00.000Z",
+          interviewAt:
+            field === "interviewAt"
+              ? null
+              : new Date(2026, 7, 25, 14, 30).toISOString(),
+        },
+      ]);
+    },
+  );
+
   it("updates the application status", async () => {
     const user = userEvent.setup();
     const { queryClient } = renderApplicationsPage();
@@ -984,8 +1039,8 @@ describe("ApplicationsPage", () => {
       status: "ACCEPTED",
       source: application.source,
       contactName: application.contactName,
-      followUpAt: undefined,
-      interviewAt: undefined,
+      followUpAt: null,
+      interviewAt: null,
     });
     expect(invalidateQueriesSpy).toHaveBeenCalledWith({
       queryKey: ["applications"],
@@ -1027,7 +1082,7 @@ describe("ApplicationsPage", () => {
       source: application.source,
       contactName: application.contactName,
       followUpAt: "2026-08-20T00:00:00.000Z",
-      interviewAt: undefined,
+      interviewAt: null,
     });
   });
 
