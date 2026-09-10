@@ -5,6 +5,7 @@ import {
   updateCompany,
   deleteCompany,
   type CompanyFilters,
+  type UpdateCompanyInput,
   type CompanySortBy,
   type CompanySortOrder,
 } from "../api/companies";
@@ -128,17 +129,8 @@ function CompaniesPage() {
   });
 
   const updateCompanyMutation = useMutation({
-    mutationFn: ({
-      id,
-      input,
-    }: {
-      id: number;
-      input: {
-        name?: string;
-        website?: string;
-        city?: string;
-      };
-    }) => updateCompany(id, input),
+    mutationFn: ({ id, input }: { id: number; input: UpdateCompanyInput }) =>
+      updateCompany(id, input),
     onMutate: () => setSuccessMessage(null),
     onSuccess: async () => {
       setEditingCompanyId(null);
@@ -457,8 +449,8 @@ function CompaniesPage() {
                       id: company.id,
                       input: {
                         name: editName,
-                        website: editWebsite || undefined,
-                        city: editCity || undefined,
+                        website: editWebsite || null,
+                        city: editCity || null,
                       },
                     });
                   }}

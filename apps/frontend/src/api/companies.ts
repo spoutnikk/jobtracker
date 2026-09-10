@@ -18,7 +18,12 @@ export interface CreateCompanyInput {
   city?: string;
 }
 
-export type UpdateCompanyInput = Partial<CreateCompanyInput>;
+export type UpdateCompanyInput = Partial<
+  Omit<CreateCompanyInput, "website" | "city">
+> & {
+  website?: string | null;
+  city?: string | null;
+};
 
 export type CompanySortBy = "name" | "createdAt" | "updatedAt";
 export type CompanySortOrder = SortOrder;

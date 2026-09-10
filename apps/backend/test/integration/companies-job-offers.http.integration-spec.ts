@@ -218,6 +218,54 @@ describe('Companies and JobOffers HTTP ownership integration', () => {
     },
   );
 
+  it('preserves omitted company fields and clears each field independently', async () => {
+    if (!app || !prisma || !userA) {
+      throw new Error('Integration fixtures are unavailable');
+    }
+    const website = 'https://example.com';
+    const city = 'Lille';
+    const company = await prisma.company.create({
+      data: {
+        name: `Nullable company ${marker}`,
+        userId: userA.userId,
+        website,
+        city,
+      },
+    });
+    try {
+      for (const { payload, expected } of [
+        {
+          payload: { name: `Renamed company ${marker}` },
+          expected: { website, city },
+        },
+        { payload: { website: null }, expected: { website: null, city } },
+        { payload: { website }, expected: { website, city } },
+        { payload: { city: null }, expected: { website, city: null } },
+      ]) {
+        const response = await request(app.getHttpServer())
+          .patch(`/companies/${company.id}`)
+          .set('Origin', DEFAULT_FRONTEND_ORIGIN)
+          .set('Cookie', userA.cookie)
+          .send(payload)
+          .expect(200);
+        const body = response.body as Record<string, unknown>;
+        expect(body).toMatchObject(expected);
+        const readResponse = await request(app.getHttpServer())
+          .get(`/companies/${company.id}`)
+          .set('Cookie', userA.cookie)
+          .expect(200);
+        const readBody = readResponse.body as Record<string, unknown>;
+        expect(readBody).toMatchObject(expected);
+        const persisted = await prisma.company.findUniqueOrThrow({
+          where: { id: company.id },
+        });
+        expect(persisted).toMatchObject(expected);
+      }
+    } finally {
+      await prisma.company.delete({ where: { id: company.id } });
+    }
+  });
+
   it('preserves, replaces, and clears an owned offer publication date through PATCH', async () => {
     if (!app || !prisma || !userA) {
       throw new Error('Integration fixtures are unavailable');

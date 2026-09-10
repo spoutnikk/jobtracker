@@ -514,6 +514,32 @@ describe("CompaniesPage", () => {
     ).toHaveAttribute("role", "status");
   });
 
+  it.each([
+    ["website", "Site web"],
+    ["city", "Ville"],
+  ])("clears %s while preserving the other field", async (field, label) => {
+    const user = userEvent.setup();
+    renderCompaniesPage();
+    await user.click(await screen.findByRole("button", { name: "Modifier" }));
+    const form = screen
+      .getByRole("button", { name: "Annuler" })
+      .closest("form");
+    if (!form) throw new Error("Edit form not found");
+    const edit = within(form);
+    expect(edit.getByLabelText("Site web")).toHaveValue(company.website);
+    expect(edit.getByLabelText("Ville")).toHaveValue(company.city);
+    await user.clear(edit.getByLabelText(label));
+    await user.click(edit.getByRole("button", { name: "Enregistrer" }));
+    await waitFor(() => expect(updateCompany).toHaveBeenCalledTimes(1));
+    const [id, input] = vi.mocked(updateCompany).mock.calls[0];
+    expect(id).toBe(company.id);
+    expect(input).toEqual({
+      name: company.name,
+      website: field === "website" ? null : company.website,
+      city: field === "city" ? null : company.city,
+    });
+  });
+
   it("does not delete a company when confirmation is cancelled", async () => {
     const user = userEvent.setup();
     const { queryClient } = renderCompaniesPage();
