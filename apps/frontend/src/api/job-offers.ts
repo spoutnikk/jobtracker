@@ -42,7 +42,11 @@ export interface CreateJobOfferInput {
   publishedAt?: string;
 }
 
-export type UpdateJobOfferInput = Partial<CreateJobOfferInput>;
+export type UpdateJobOfferInput = Partial<
+  Omit<CreateJobOfferInput, "publishedAt">
+> & {
+  publishedAt?: string | null;
+};
 
 export type JobOfferSortBy =
   "createdAt" | "updatedAt" | "publishedAt" | "title";

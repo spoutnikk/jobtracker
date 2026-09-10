@@ -218,6 +218,57 @@ describe('Companies and JobOffers HTTP ownership integration', () => {
     },
   );
 
+  it('preserves, replaces, and clears an owned offer publication date through PATCH', async () => {
+    if (!app || !prisma || !userA) {
+      throw new Error('Integration fixtures are unavailable');
+    }
+    const initialDate = '2026-08-16T10:00:00.000Z';
+    const replacementDate = '2026-08-20T14:30:00.000Z';
+    const offer = await prisma.jobOffer.create({
+      data: {
+        title: `Publication date ${marker}`,
+        companyId: userA.companyId,
+        publishedAt: new Date(initialDate),
+      },
+    });
+    try {
+      for (const { payload, expected } of [
+        {
+          payload: { title: `Updated publication date ${marker}` },
+          expected: initialDate,
+        },
+        {
+          payload: { publishedAt: replacementDate },
+          expected: replacementDate,
+        },
+        { payload: { publishedAt: null }, expected: null },
+      ]) {
+        const response = await request(app.getHttpServer())
+          .patch(`/job-offers/${offer.id}`)
+          .set('Origin', DEFAULT_FRONTEND_ORIGIN)
+          .set('Cookie', userA.cookie)
+          .send(payload)
+          .expect(200);
+        const body = response.body as Record<string, unknown>;
+        expect(body.publishedAt).toBe(expected);
+        const readResponse = await request(app.getHttpServer())
+          .get(`/job-offers/${offer.id}`)
+          .set('Cookie', userA.cookie)
+          .expect(200);
+        const readBody = readResponse.body as Record<string, unknown>;
+        expect(readBody.publishedAt).toBe(expected);
+        const persisted = await prisma.jobOffer.findUniqueOrThrow({
+          where: { id: offer.id },
+        });
+        expect(persisted.publishedAt).toEqual(
+          expected === null ? null : new Date(expected),
+        );
+      }
+    } finally {
+      await prisma.jobOffer.delete({ where: { id: offer.id } });
+    }
+  });
+
   it('creates, reads, updates, and removes an owned company and job offer', async () => {
     if (!app || !prisma || !userA) {
       throw new Error('Integration fixtures are unavailable');

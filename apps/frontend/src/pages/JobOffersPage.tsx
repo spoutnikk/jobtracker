@@ -360,7 +360,7 @@ function JobOffersPage() {
       salary: editSalary || undefined,
       publishedAt: editPublishedAt
         ? new Date(editPublishedAt).toISOString()
-        : undefined,
+        : null,
     };
 
     updateJobOfferMutation.mutate({ id: jobOfferId, input });

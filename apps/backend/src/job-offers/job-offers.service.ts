@@ -171,9 +171,12 @@ export class JobOffersService {
   ) {
     await this.findOne(userId, id);
 
-    const publishedAt = updateJobOfferDto.publishedAt
-      ? new Date(updateJobOfferDto.publishedAt)
-      : undefined;
+    const publishedAt =
+      updateJobOfferDto.publishedAt === undefined
+        ? undefined
+        : updateJobOfferDto.publishedAt === null
+          ? null
+          : new Date(updateJobOfferDto.publishedAt);
 
     try {
       if (updateJobOfferDto.companyId !== undefined) {

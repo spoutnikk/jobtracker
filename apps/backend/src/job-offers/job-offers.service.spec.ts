@@ -427,6 +427,34 @@ describe('JobOffersService', () => {
     });
   });
 
+  it('should explicitly clear publishedAt', async () => {
+    const existing = {
+      id: 1,
+      publishedAt: new Date('2026-08-16T10:00:00.000Z'),
+    };
+    const updated = { ...existing, publishedAt: null };
+    prismaServiceMock.jobOffer.findFirst.mockResolvedValue(existing);
+    prismaServiceMock.jobOffer.update.mockResolvedValue(updated);
+
+    await expect(service.update(7, 1, { publishedAt: null })).resolves.toEqual(
+      updated,
+    );
+    expect(prismaServiceMock.jobOffer.update).toHaveBeenCalledWith({
+      where: { id: 1, company: { userId: 7 } },
+      data: {
+        title: undefined,
+        companyId: undefined,
+        url: undefined,
+        description: undefined,
+        location: undefined,
+        contractType: undefined,
+        salary: undefined,
+        publishedAt: null,
+      },
+      include: { company: true },
+    });
+  });
+
   it('should update a job offer without publishedAt', async () => {
     const existingJobOffer = {
       id: 1,

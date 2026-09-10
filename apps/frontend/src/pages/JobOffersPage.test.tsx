@@ -1,4 +1,10 @@
-import { act, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AxiosError, AxiosHeaders } from "axios";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -515,6 +521,33 @@ describe("JobOffersPage", () => {
       expectedDatetimeLocal(jobOffer.publishedAt!),
     );
   });
+
+  it.each(["", "2026-08-20T14:30"])(
+    "updates the publication date with an explicit value: %s",
+    async (value) => {
+      vi.mocked(getJobOffers).mockResolvedValue(paginatedJobOffers([jobOffer]));
+      const user = userEvent.setup();
+      renderJobOffersPage();
+      await user.click(await screen.findByRole("button", { name: "Modifier" }));
+      const form = screen
+        .getByRole("button", { name: "Annuler" })
+        .closest("form");
+      if (!form) throw new Error("Edit form not found");
+      const edit = within(form);
+      const dateInput = edit.getByLabelText("Date de publication");
+      expect(dateInput).toHaveValue(
+        expectedDatetimeLocal(jobOffer.publishedAt!),
+      );
+      fireEvent.change(dateInput, { target: { value } });
+      await user.click(edit.getByRole("button", { name: "Enregistrer" }));
+      await waitFor(() => expect(updateJobOffer).toHaveBeenCalledTimes(1));
+      const [id, input] = vi.mocked(updateJobOffer).mock.calls[0];
+      expect(id).toBe(jobOffer.id);
+      expect(input.publishedAt).toBe(
+        value === "" ? null : new Date(2026, 7, 20, 14, 30).toISOString(),
+      );
+    },
+  );
 
   it("cancels editing without updating the job offer", async () => {
     vi.mocked(getJobOffers).mockResolvedValue(paginatedJobOffers([jobOffer]));
