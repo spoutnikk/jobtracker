@@ -1009,6 +1009,13 @@ function ApplicationsPage() {
                           className={`w-full ${formControlClassName}`}
                         />
 
+                        {createApplicationEventMutation.isError && (
+                          <StatusMessage variant="error" className="mt-3">
+                            Impossible d’ajouter l’événement au journal.
+                            Veuillez réessayer.
+                          </StatusMessage>
+                        )}
+
                         <button
                           type="submit"
                           disabled={createApplicationEventMutation.isPending}

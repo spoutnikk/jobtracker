@@ -258,6 +258,61 @@ describe("ApplicationsPage", () => {
     );
   });
 
+  it.each([false, true])(
+    "preserves journal input after failure and supports retry: %s",
+    async (retry) => {
+      const user = userEvent.setup();
+      vi.mocked(createApplicationEvent).mockRejectedValueOnce(
+        new Error("Network error"),
+      );
+      renderApplicationsPage();
+      await user.click(
+        await screen.findByRole("button", { name: /^journal$/i }),
+      );
+      const title = await screen.findByPlaceholderText("Titre de l'événement");
+      const description = screen.getByPlaceholderText(
+        "Description facultative",
+      );
+      await user.type(title, "Appeler le recruteur");
+      await user.type(description, "Demander un retour");
+      const submit = screen.getByRole("button", { name: "Ajouter au journal" });
+      await user.click(submit);
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "Impossible d’ajouter l’événement au journal. Veuillez réessayer.",
+      );
+      expect(title).toHaveValue("Appeler le recruteur");
+      expect(description).toHaveValue("Demander un retour");
+      expect(submit).toBeEnabled();
+      expect(createApplicationEvent).toHaveBeenCalledTimes(1);
+
+      if (retry) {
+        const readsBeforeRetry =
+          vi.mocked(getApplicationEvents).mock.calls.length;
+        await user.click(submit);
+        await waitFor(() => expect(title).toHaveValue(""));
+        expect(description).toHaveValue("");
+        expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+        expect(createApplicationEvent).toHaveBeenCalledTimes(2);
+        expect(createApplicationEvent).toHaveBeenNthCalledWith(
+          2,
+          {
+            applicationId: application.id,
+            type: "NOTE",
+            title: "Appeler le recruteur",
+            description: "Demander un retour",
+          },
+          expect.anything(),
+        );
+        await waitFor(() =>
+          expect(
+            vi.mocked(getApplicationEvents).mock.calls.length,
+          ).toBeGreaterThan(readsBeforeRetry),
+        );
+      }
+    },
+  );
+
   it("navigates through paginated journal events", async () => {
     const user = userEvent.setup();
 
