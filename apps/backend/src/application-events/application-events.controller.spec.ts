@@ -73,16 +73,24 @@ describe('ApplicationEventsController', () => {
       },
     ];
 
-    applicationEventsServiceMock.findByApplication.mockResolvedValue(events);
+    const filters = { page: 2, pageSize: 5 };
+    const result = {
+      items: events,
+      page: 2,
+      pageSize: 5,
+      total: 6,
+      totalPages: 2,
+    };
+    applicationEventsServiceMock.findByApplication.mockResolvedValue(result);
 
     await expect(
-      controller.findByApplication(user, 4, { page: 1, pageSize: 10 }),
-    ).resolves.toEqual(events);
+      controller.findByApplication(user, 4, filters),
+    ).resolves.toEqual(result);
 
     expect(applicationEventsServiceMock.findByApplication).toHaveBeenCalledWith(
       user.id,
       4,
-      { page: 1, pageSize: 10 },
+      filters,
     );
   });
 });

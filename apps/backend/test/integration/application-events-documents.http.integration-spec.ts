@@ -325,6 +325,132 @@ describe('ApplicationEvents and Documents HTTP ownership integration', () => {
     await expect(prisma.applicationEvent.count()).resolves.toBe(eventCount);
   });
 
+  it.each([
+    { page: '0' },
+    { page: '-1' },
+    { page: '1.5' },
+    { page: 'abc' },
+    { pageSize: '0' },
+    { pageSize: '-1' },
+    { pageSize: '1.5' },
+    { pageSize: 'abc' },
+    { pageSize: '51' },
+  ])('rejects invalid event pagination %j', async (query) => {
+    if (!app || !userA) {
+      throw new Error('Integration fixtures are unavailable');
+    }
+
+    await request(app.getHttpServer())
+      .get(`/application-events/application/${userA.applicationId}`)
+      .query(query)
+      .set('Cookie', userA.cookie)
+      .expect(400);
+  });
+
+  it('accepts the maximum event page size and preserves ownership checks', async () => {
+    if (!app || !userA || !userB) {
+      throw new Error('Integration fixtures are unavailable');
+    }
+
+    const response = await request(app.getHttpServer())
+      .get(`/application-events/application/${userA.applicationId}`)
+      .query({ page: 1, pageSize: 50 })
+      .set('Cookie', userA.cookie)
+      .expect(200);
+    const body = response.body as PaginatedApplicationEventsBody;
+
+    expect(body).toMatchObject({
+      page: 1,
+      pageSize: 50,
+      total: 1,
+      totalPages: 1,
+    });
+    expect(readIds(body.items)).toEqual([userA.eventId]);
+
+    await request(app.getHttpServer())
+      .get(`/application-events/application/${userB.applicationId}`)
+      .query({ page: 1, pageSize: 50 })
+      .set('Cookie', userA.cookie)
+      .expect(404);
+  });
+
+  it('paginates events by occurrence then id, including empty and out-of-range pages', async () => {
+    if (!app || !prisma || !userA) {
+      throw new Error('Integration fixtures are unavailable');
+    }
+
+    const application = await prisma.application.create({
+      data: { userId: userA.userId, jobOfferId: userA.jobOfferId },
+      select: { id: true },
+    });
+    // This application belongs to the existing fixtures and their afterAll cleanup.
+    const endpoint = `/application-events/application/${application.id}`;
+    const emptyResponse = await request(app.getHttpServer())
+      .get(endpoint)
+      .set('Cookie', userA.cookie)
+      .expect(200);
+    const emptyBody = emptyResponse.body as PaginatedApplicationEventsBody;
+    expect(emptyBody).toEqual({
+      items: [],
+      page: 1,
+      pageSize: 10,
+      total: 0,
+      totalPages: 0,
+    });
+
+    // Deliberately insert dates out of chronological order.
+    const events: Array<{ id: number; occurredAt: Date }> = [];
+    for (const occurredAt of [
+      '2026-08-12T10:00:00.000Z',
+      '2026-08-10T10:00:00.000Z',
+      '2026-08-10T10:00:00.000Z',
+      '2026-08-09T10:00:00.000Z',
+    ]) {
+      events.push(
+        await prisma.applicationEvent.create({
+          data: {
+            applicationId: application.id,
+            type: 'NOTE',
+            title: `Pagination ${marker}`,
+            occurredAt: new Date(occurredAt),
+          },
+          select: { id: true, occurredAt: true },
+        }),
+      );
+    }
+    const expectedIds = events
+      .sort(
+        (left, right) =>
+          left.occurredAt.getTime() - right.occurredAt.getTime() ||
+          left.id - right.id,
+      )
+      .map(({ id }) => id);
+    const pageIds: number[][] = [];
+    // The equal timestamps straddle the page boundary.
+    for (const page of [1, 2, 3]) {
+      const response = await request(app.getHttpServer())
+        .get(endpoint)
+        .query({ page, pageSize: 2 })
+        .set('Cookie', userA.cookie)
+        .expect(200);
+      const body = response.body as PaginatedApplicationEventsBody;
+      expect(body).toMatchObject({
+        page,
+        pageSize: 2,
+        total: 4,
+        totalPages: 2,
+      });
+      expect(readIds(body.items)).toEqual(
+        expectedIds.slice((page - 1) * 2, page * 2),
+      );
+      if (page === 3) {
+        expect(body.items).toEqual([]);
+      }
+      pageIds.push(readIds(body.items));
+    }
+    expect(pageIds[0].filter((id) => pageIds[1].includes(id))).toEqual([]);
+  });
+
   it('isolates document listing, filtering, metadata, download, and removal', async () => {
     if (!app || !prisma || !userA || !userB) {
       throw new Error('Integration fixtures are unavailable');
