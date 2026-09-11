@@ -353,11 +353,11 @@ function JobOffersPage() {
     const input: UpdateJobOfferInput = {
       title: trimmedTitle,
       companyId: Number(editCompanyId),
-      url: editUrl || undefined,
-      description: editDescription || undefined,
-      location: editLocation || undefined,
-      contractType: editContractType || undefined,
-      salary: editSalary || undefined,
+      url: editUrl || null,
+      description: editDescription || null,
+      location: editLocation || null,
+      contractType: editContractType || null,
+      salary: editSalary || null,
       publishedAt: editPublishedAt
         ? new Date(editPublishedAt).toISOString()
         : null,

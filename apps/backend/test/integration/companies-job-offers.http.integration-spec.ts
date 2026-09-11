@@ -266,6 +266,65 @@ describe('Companies and JobOffers HTTP ownership integration', () => {
     }
   });
 
+  it('preserves omitted offer fields and clears them without changing publishedAt', async () => {
+    if (!app || !prisma || !userA) {
+      throw new Error('Integration fixtures are unavailable');
+    }
+    const publishedAt = '2026-08-16T10:00:00.000Z';
+    const initial = {
+      url: 'https://example.com/jobs/1',
+      description: 'Build applications',
+      location: 'Lille',
+      contractType: 'CDI' as const,
+      salary: '45 000 €',
+    };
+    const offer = await prisma.jobOffer.create({
+      data: {
+        title: `Nullable offer ${marker}`,
+        companyId: userA.companyId,
+        ...initial,
+        publishedAt: new Date(publishedAt),
+      },
+    });
+    try {
+      const cleared = {
+        url: null,
+        description: null,
+        location: null,
+        contractType: null,
+        salary: null,
+      };
+      for (const { payload, expected } of [
+        { payload: { title: `Renamed offer ${marker}` }, expected: initial },
+        { payload: cleared, expected: cleared },
+      ]) {
+        const response = await request(app.getHttpServer())
+          .patch(`/job-offers/${offer.id}`)
+          .set('Origin', DEFAULT_FRONTEND_ORIGIN)
+          .set('Cookie', userA.cookie)
+          .send(payload)
+          .expect(200);
+        const body = response.body as Record<string, unknown>;
+        expect(body).toMatchObject({ ...expected, publishedAt });
+        const readResponse = await request(app.getHttpServer())
+          .get(`/job-offers/${offer.id}`)
+          .set('Cookie', userA.cookie)
+          .expect(200);
+        const readBody = readResponse.body as Record<string, unknown>;
+        expect(readBody).toMatchObject({ ...expected, publishedAt });
+        const persisted = await prisma.jobOffer.findUniqueOrThrow({
+          where: { id: offer.id },
+        });
+        expect(persisted).toMatchObject({
+          ...expected,
+          publishedAt: new Date(publishedAt),
+        });
+      }
+    } finally {
+      await prisma.jobOffer.delete({ where: { id: offer.id } });
+    }
+  });
+
   it('preserves, replaces, and clears an owned offer publication date through PATCH', async () => {
     if (!app || !prisma || !userA) {
       throw new Error('Integration fixtures are unavailable');

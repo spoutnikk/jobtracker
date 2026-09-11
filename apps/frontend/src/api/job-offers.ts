@@ -43,8 +43,21 @@ export interface CreateJobOfferInput {
 }
 
 export type UpdateJobOfferInput = Partial<
-  Omit<CreateJobOfferInput, "publishedAt">
+  Omit<
+    CreateJobOfferInput,
+    | "url"
+    | "description"
+    | "location"
+    | "contractType"
+    | "salary"
+    | "publishedAt"
+  >
 > & {
+  url?: string | null;
+  description?: string | null;
+  location?: string | null;
+  contractType?: ContractType | null;
+  salary?: string | null;
   publishedAt?: string | null;
 };
 

@@ -549,6 +549,64 @@ describe("JobOffersPage", () => {
     },
   );
 
+  it.each([
+    ["url", "URL"],
+    ["description", "Description"],
+    ["location", "Localisation"],
+    ["contractType", "Type de contrat"],
+    ["salary", "Salaire"],
+  ] as const)(
+    "clears %s while preserving the other offer fields",
+    async (field, label) => {
+      vi.mocked(getJobOffers).mockResolvedValue(paginatedJobOffers([jobOffer]));
+      const user = userEvent.setup();
+      renderJobOffersPage();
+      await user.click(await screen.findByRole("button", { name: "Modifier" }));
+      const form = screen
+        .getByRole("button", { name: "Annuler" })
+        .closest("form");
+      if (!form) throw new Error("Edit form not found");
+      const edit = within(form);
+      expect(edit.getByLabelText("URL")).toHaveValue(jobOffer.url);
+      expect(edit.getByLabelText("Description")).toHaveValue(
+        jobOffer.description,
+      );
+      expect(edit.getByLabelText("Localisation")).toHaveValue(
+        jobOffer.location,
+      );
+      expect(edit.getByLabelText("Type de contrat")).toHaveValue(
+        jobOffer.contractType,
+      );
+      expect(edit.getByLabelText("Salaire")).toHaveValue(jobOffer.salary);
+      expect(edit.getByLabelText("Date de publication")).toHaveValue(
+        expectedDatetimeLocal(jobOffer.publishedAt!),
+      );
+      if (field === "contractType") {
+        await user.selectOptions(edit.getByLabelText(label), "");
+      } else {
+        await user.clear(edit.getByLabelText(label));
+      }
+      await user.click(edit.getByRole("button", { name: "Enregistrer" }));
+      await waitFor(() => expect(updateJobOffer).toHaveBeenCalledTimes(1));
+      expect(vi.mocked(updateJobOffer).mock.calls[0]).toEqual([
+        jobOffer.id,
+        {
+          title: jobOffer.title,
+          companyId: jobOffer.companyId,
+          url: jobOffer.url,
+          description: jobOffer.description,
+          location: jobOffer.location,
+          contractType: jobOffer.contractType,
+          salary: jobOffer.salary,
+          publishedAt: new Date(
+            expectedDatetimeLocal(jobOffer.publishedAt!),
+          ).toISOString(),
+          [field]: null,
+        },
+      ]);
+    },
+  );
+
   it("cancels editing without updating the job offer", async () => {
     vi.mocked(getJobOffers).mockResolvedValue(paginatedJobOffers([jobOffer]));
     const user = userEvent.setup();
