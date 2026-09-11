@@ -221,6 +221,10 @@ function ApplicationsPage() {
   const [editSource, setEditSource] = useState("");
   const [editContactName, setEditContactName] = useState("");
 
+  const [initialEditDates, setInitialEditDates] = useState<{
+    followUpAt: { input: string; original: string | null };
+    interviewAt: { input: string; original: string | null };
+  } | null>(null);
   const [editFollowUpAt, setEditFollowUpAt] = useState("");
   const [editInterviewAt, setEditInterviewAt] = useState("");
 
@@ -831,20 +835,28 @@ function ApplicationsPage() {
                     setEditStatus(application.status);
                     setEditSource(application.source ?? "");
                     setEditContactName(application.contactName ?? "");
-                    setEditFollowUpAt(
-                      application.followUpAt
-                        ? new Date(application.followUpAt)
-                            .toISOString()
-                            .slice(0, 10)
-                        : "",
-                    );
-                    setEditInterviewAt(
-                      application.interviewAt
-                        ? new Date(application.interviewAt)
-                            .toISOString()
-                            .slice(0, 16)
-                        : "",
-                    );
+                    const followUpInput = application.followUpAt
+                      ? new Date(application.followUpAt)
+                          .toISOString()
+                          .slice(0, 10)
+                      : "";
+                    const interviewInput = application.interviewAt
+                      ? new Date(application.interviewAt)
+                          .toISOString()
+                          .slice(0, 16)
+                      : "";
+                    setEditFollowUpAt(followUpInput);
+                    setEditInterviewAt(interviewInput);
+                    setInitialEditDates({
+                      followUpAt: {
+                        input: followUpInput,
+                        original: application.followUpAt,
+                      },
+                      interviewAt: {
+                        input: interviewInput,
+                        original: application.interviewAt,
+                      },
+                    });
                   }}
                   className="mt-4 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
                 >
@@ -1036,13 +1048,20 @@ function ApplicationsPage() {
                         source: editSource || null,
                         contactName: editContactName || null,
 
-                        followUpAt: editFollowUpAt
-                          ? new Date(editFollowUpAt).toISOString()
-                          : null,
+                        followUpAt:
+                          editFollowUpAt === initialEditDates?.followUpAt.input
+                            ? initialEditDates.followUpAt.original
+                            : editFollowUpAt
+                              ? new Date(editFollowUpAt).toISOString()
+                              : null,
 
-                        interviewAt: editInterviewAt
-                          ? new Date(editInterviewAt).toISOString()
-                          : null,
+                        interviewAt:
+                          editInterviewAt ===
+                          initialEditDates?.interviewAt.input
+                            ? initialEditDates.interviewAt.original
+                            : editInterviewAt
+                              ? new Date(editInterviewAt).toISOString()
+                              : null,
                       },
                     });
                   }}

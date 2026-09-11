@@ -1,4 +1,10 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useNavigate } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -1000,14 +1006,87 @@ describe("ApplicationsPage", () => {
           status: filled.status,
           source: field === "source" ? null : filled.source,
           contactName: field === "contactName" ? null : filled.contactName,
-          followUpAt:
-            field === "followUpAt" ? null : "2026-08-20T00:00:00.000Z",
-          interviewAt:
-            field === "interviewAt"
-              ? null
-              : new Date(2026, 7, 25, 14, 30).toISOString(),
+          followUpAt: field === "followUpAt" ? null : filled.followUpAt,
+          interviewAt: field === "interviewAt" ? null : filled.interviewAt,
         },
       ]);
+    },
+  );
+
+  it.each(["unchanged", "source", "cache", "dates"] as const)(
+    "preserves captured quick-edit dates: %s",
+    async (scenario) => {
+      const original = {
+        ...application,
+        followUpAt: "2026-08-20T10:15:42.123Z",
+        interviewAt: "2026-08-25T14:30:56.789Z",
+      };
+      vi.mocked(getApplications).mockResolvedValue(
+        paginatedApplications([original]),
+      );
+      const user = userEvent.setup();
+      const { queryClient } = renderApplicationsPage();
+      await user.click(await screen.findByRole("button", { name: "Modifier" }));
+      const form = screen
+        .getByRole("button", { name: "Annuler" })
+        .closest("form");
+      if (!form) throw new Error("Edit form not found");
+      const edit = within(form);
+      if (scenario === "source") {
+        await user.clear(edit.getByLabelText("Source"));
+        await user.type(edit.getByLabelText("Source"), "Referral");
+      }
+      if (scenario === "cache") {
+        act(() => {
+          queryClient.setQueriesData(
+            { queryKey: ["applications"] },
+            paginatedApplications([
+              {
+                ...original,
+                followUpAt: "2026-09-01T08:00:00.000Z",
+                interviewAt: "2026-09-02T09:00:00.000Z",
+              },
+            ]),
+          );
+        });
+        expect(edit.getByLabelText("Date de relance")).toHaveValue(
+          "2026-08-20",
+        );
+        expect(edit.getByLabelText("Date d'entretien")).toHaveValue(
+          "2026-08-25T14:30",
+        );
+      }
+      if (scenario === "dates") {
+        fireEvent.change(edit.getByLabelText("Date de relance"), {
+          target: { value: "2026-08-22" },
+        });
+        fireEvent.change(edit.getByLabelText("Date d'entretien"), {
+          target: { value: "2026-08-27T16:45" },
+        });
+      }
+      await user.click(edit.getByRole("button", { name: "Enregistrer" }));
+      await waitFor(() => expect(updateApplication).toHaveBeenCalledTimes(1));
+      expect(vi.mocked(updateApplication).mock.calls[0]).toEqual([
+        original.id,
+        {
+          status: original.status,
+          source: scenario === "source" ? "Referral" : original.source,
+          contactName: original.contactName,
+          followUpAt:
+            scenario === "dates"
+              ? "2026-08-22T00:00:00.000Z"
+              : original.followUpAt,
+          interviewAt:
+            scenario === "dates"
+              ? new Date(2026, 7, 27, 16, 45).toISOString()
+              : original.interviewAt,
+        },
+      ]);
+      await waitFor(() =>
+        expect(
+          screen.queryByRole("button", { name: "Annuler" }),
+        ).not.toBeInTheDocument(),
+      );
     },
   );
 
