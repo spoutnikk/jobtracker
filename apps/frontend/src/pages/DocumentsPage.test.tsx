@@ -553,36 +553,139 @@ describe("DocumentsPage", () => {
     );
   });
 
-  it("keeps the document when deletion fails", async () => {
+  it("keeps the document and shows an error when deletion fails", async () => {
     vi.mocked(deleteDocument).mockRejectedValue(new Error("Delete failed"));
     const user = userEvent.setup();
-
     const { queryClient } = renderWithProviders(<DocumentsPage />);
     const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
+    const documentCard = (
+      await screen.findByRole("heading", { name: document.name })
+    ).closest("article");
+    if (!documentCard) {
+      throw new Error("Document card not found");
+    }
+    const card = within(documentCard);
 
-    await user.click(
-      await screen.findByRole("button", {
-        name: "Supprimer",
-      }),
-    );
-
+    await user.click(card.getByRole("button", { name: "Supprimer" }));
     await user.click(await screen.findByRole("button", { name: "Confirmer" }));
 
-    await waitFor(() => {
-      expect(deleteDocument).toHaveBeenCalledTimes(1);
-      expect(screen.getByRole("button", { name: "Supprimer" })).toBeEnabled();
-    });
-
+    expect(await card.findByRole("alert")).toHaveTextContent(
+      /^Impossible de supprimer le document\.$/,
+    );
+    expect(deleteDocument).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(deleteDocument).mock.calls[0][0]).toBe(document.id);
+    expect(card.getByRole("button", { name: "Supprimer" })).toBeEnabled();
     expect(
-      screen.getByRole("heading", {
-        name: document.name,
-      }),
+      card.getByRole("heading", { name: document.name }),
     ).toBeInTheDocument();
-
     expect(invalidateQueriesSpy).not.toHaveBeenCalledWith({
       queryKey: ["documents"],
     });
+    expect(
+      screen.queryByText("Document supprimé avec succès."),
+    ).not.toBeInTheDocument();
   });
+
+  it("retries a failed deletion and reloads the documents after success", async () => {
+    vi.mocked(deleteDocument).mockRejectedValueOnce(new Error("Delete failed"));
+    const user = userEvent.setup();
+    const { queryClient } = renderWithProviders(<DocumentsPage />);
+    const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
+
+    await user.click(await screen.findByRole("button", { name: "Supprimer" }));
+    await user.click(await screen.findByRole("button", { name: "Confirmer" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /^Impossible de supprimer le document\.$/,
+    );
+
+    vi.mocked(deleteDocument).mockImplementationOnce(async () => {
+      vi.mocked(getDocuments).mockResolvedValue(paginatedDocuments([]));
+      return document;
+    });
+    await user.click(screen.getByRole("button", { name: "Supprimer" }));
+    await user.click(await screen.findByRole("button", { name: "Confirmer" }));
+
+    expect(
+      await screen.findByText("Aucun document enregistré."),
+    ).toBeInTheDocument();
+    expect(deleteDocument).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(deleteDocument).mock.calls.map(([id]) => id)).toEqual([
+      document.id,
+      document.id,
+    ]);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: document.name }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("Document supprimé avec succès.")).toHaveAttribute(
+      "role",
+      "status",
+    );
+    expect(invalidateQueriesSpy).toHaveBeenCalledWith({
+      queryKey: ["documents"],
+    });
+  });
+
+  it("isolates deletion errors and clears them when another deletion starts", async () => {
+    const secondDocument: Document = { ...document, id: 2, name: "Autre CV" };
+    vi.mocked(getDocuments).mockResolvedValue(
+      paginatedDocuments([document, secondDocument]),
+    );
+    let resolveDeletion!: (value: Document) => void;
+    const pendingDeletion = new Promise<Document>((resolve) => {
+      resolveDeletion = resolve;
+    });
+    vi.mocked(deleteDocument)
+      .mockRejectedValueOnce(new Error("Delete failed"))
+      .mockReturnValueOnce(pendingDeletion);
+    const user = userEvent.setup();
+    renderWithProviders(<DocumentsPage />);
+    const firstCard = (
+      await screen.findByRole("heading", { name: document.name })
+    ).closest("article");
+    const secondCard = screen
+      .getByRole("heading", { name: secondDocument.name })
+      .closest("article");
+    if (!firstCard || !secondCard) {
+      throw new Error("Document card not found");
+    }
+    const first = within(firstCard);
+    const second = within(secondCard);
+
+    await user.click(first.getByRole("button", { name: "Supprimer" }));
+    await user.click(await screen.findByRole("button", { name: "Confirmer" }));
+    expect(await first.findByRole("alert")).toHaveTextContent(
+      /^Impossible de supprimer le document\.$/,
+    );
+    expect(second.queryByRole("alert")).not.toBeInTheDocument();
+
+    await user.click(second.getByRole("button", { name: "Supprimer" }));
+    await user.click(await screen.findByRole("button", { name: "Annuler" }));
+    expect(deleteDocument).toHaveBeenCalledTimes(1);
+    expect(second.queryByRole("alert")).not.toBeInTheDocument();
+
+    await user.click(second.getByRole("button", { name: "Supprimer" }));
+    await user.click(await screen.findByRole("button", { name: "Confirmer" }));
+    await waitFor(() => expect(deleteDocument).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(deleteDocument).mock.calls.map(([id]) => id)).toEqual([
+      document.id,
+      secondDocument.id,
+    ]);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(first.getByRole("button", { name: "Supprimer" })).toBeDisabled();
+    expect(second.getByRole("button", { name: "Supprimer" })).toBeDisabled();
+
+    resolveDeletion(secondDocument);
+    await waitFor(() => {
+      expect(first.getByRole("button", { name: "Supprimer" })).toBeEnabled();
+      expect(second.getByRole("button", { name: "Supprimer" })).toBeEnabled();
+    });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Document supprimé avec succès."),
+    ).toBeInTheDocument();
+  });
+
   it("sends default pagination and sorting parameters", async () => {
     renderWithProviders(<DocumentsPage />);
 

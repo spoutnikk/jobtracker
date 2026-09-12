@@ -518,6 +518,13 @@ function DocumentsPage() {
                 </button>
               </div>
 
+              {deleteDocumentMutation.isError &&
+                deleteDocumentMutation.variables === document.id && (
+                  <StatusMessage variant="error" className="mt-3">
+                    Impossible de supprimer le document.
+                  </StatusMessage>
+                )}
+
               {previewDocumentMutation.isError &&
                 previewDocumentMutation.variables?.id === document.id && (
                   <StatusMessage variant="error" className="mt-3">
