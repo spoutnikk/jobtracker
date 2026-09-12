@@ -1258,6 +1258,134 @@ describe("ApplicationsPage", () => {
     });
   });
 
+  it("shows a deletion error in the application card and keeps it displayed", async () => {
+    vi.mocked(deleteApplication).mockRejectedValueOnce(
+      new Error("Delete failed"),
+    );
+    const user = userEvent.setup();
+    const { queryClient } = renderApplicationsPage();
+    const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
+    const applicationCard = (
+      await screen.findByRole("heading", { name: application.jobOffer.title })
+    ).closest("article");
+    if (!applicationCard) {
+      throw new Error("Application card not found");
+    }
+    const card = within(applicationCard);
+
+    await user.click(card.getByRole("button", { name: "Supprimer" }));
+    await user.click(await screen.findByRole("button", { name: "Confirmer" }));
+    expect(await card.findByRole("alert")).toHaveTextContent(
+      /^Impossible de supprimer la candidature\.$/,
+    );
+    expect(deleteApplication).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(deleteApplication).mock.calls[0][0]).toBe(application.id);
+    expect(applicationCard).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(card.getByRole("button", { name: "Supprimer" })).toBeEnabled();
+    expect(invalidateQueriesSpy).not.toHaveBeenCalledWith({
+      queryKey: ["applications"],
+    });
+  });
+
+  it("retries a failed deletion and reloads the application list", async () => {
+    vi.mocked(deleteApplication).mockRejectedValueOnce(
+      new Error("Delete failed"),
+    );
+    const user = userEvent.setup();
+    const { queryClient } = renderApplicationsPage();
+    const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
+
+    await user.click(await screen.findByRole("button", { name: "Supprimer" }));
+    await user.click(await screen.findByRole("button", { name: "Confirmer" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /^Impossible de supprimer la candidature\.$/,
+    );
+    vi.mocked(deleteApplication).mockImplementationOnce(async () => {
+      vi.mocked(getApplications).mockResolvedValue(paginatedApplications([]));
+      return application;
+    });
+    await user.click(screen.getByRole("button", { name: "Supprimer" }));
+    await user.click(await screen.findByRole("button", { name: "Confirmer" }));
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("heading", { name: application.jobOffer.title }),
+      ).not.toBeInTheDocument();
+    });
+    expect(deleteApplication).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(deleteApplication).mock.calls.map(([id]) => id)).toEqual([
+      application.id,
+      application.id,
+    ]);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(invalidateQueriesSpy).toHaveBeenCalledWith({
+      queryKey: ["applications"],
+    });
+  });
+
+  it("isolates deletion errors and clears them when another deletion starts", async () => {
+    const secondApplication: Application = {
+      ...application,
+      id: application.id + 1,
+      jobOffer: { ...application.jobOffer, title: "Autre candidature" },
+    };
+    vi.mocked(getApplications).mockResolvedValue(
+      paginatedApplications([application, secondApplication]),
+    );
+    let resolveDeletion!: (value: Application) => void;
+    const pendingDeletion = new Promise<Application>((resolve) => {
+      resolveDeletion = resolve;
+    });
+    vi.mocked(deleteApplication)
+      .mockRejectedValueOnce(new Error("Delete failed"))
+      .mockReturnValueOnce(pendingDeletion);
+    const user = userEvent.setup();
+    renderApplicationsPage();
+    const firstCard = (
+      await screen.findByRole("heading", { name: application.jobOffer.title })
+    ).closest("article");
+    const secondCard = screen
+      .getByRole("heading", { name: secondApplication.jobOffer.title })
+      .closest("article");
+    if (!firstCard || !secondCard) {
+      throw new Error("Application card not found");
+    }
+    const first = within(firstCard);
+    const second = within(secondCard);
+
+    await user.click(first.getByRole("button", { name: "Supprimer" }));
+    await user.click(await screen.findByRole("button", { name: "Confirmer" }));
+    expect(await first.findByRole("alert")).toHaveTextContent(
+      /^Impossible de supprimer la candidature\.$/,
+    );
+    expect(second.queryByRole("alert")).not.toBeInTheDocument();
+    await user.click(second.getByRole("button", { name: "Supprimer" }));
+    await user.click(await screen.findByRole("button", { name: "Annuler" }));
+    expect(deleteApplication).toHaveBeenCalledTimes(1);
+    expect(second.queryByRole("alert")).not.toBeInTheDocument();
+
+    await user.click(second.getByRole("button", { name: "Supprimer" }));
+    await user.click(await screen.findByRole("button", { name: "Confirmer" }));
+    await waitFor(() => expect(deleteApplication).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(deleteApplication).mock.calls.map(([id]) => id)).toEqual([
+      application.id,
+      secondApplication.id,
+    ]);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    for (const button of screen.getAllByRole("button", { name: "Supprimer" })) {
+      expect(button).toBeDisabled();
+    }
+    resolveDeletion(secondApplication);
+    await waitFor(() => {
+      for (const button of screen.getAllByRole("button", {
+        name: "Supprimer",
+      })) {
+        expect(button).toBeEnabled();
+      }
+    });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("deletes an application after confirmation", async () => {
     const user = userEvent.setup();
     const { queryClient } = renderApplicationsPage();

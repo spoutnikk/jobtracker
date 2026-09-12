@@ -892,6 +892,12 @@ function ApplicationsPage() {
                   Journal
                 </button>
               </div>
+              {deleteApplicationMutation.isError &&
+                deleteApplicationMutation.variables === application.id && (
+                  <StatusMessage variant="error" className="mt-3">
+                    Impossible de supprimer la candidature.
+                  </StatusMessage>
+                )}
               {journalApplicationId === application.id && (
                 <section className="mt-4 rounded-md border border-gray-200 bg-gray-50 p-4">
                   <h3 className="text-lg font-semibold">Journal</h3>
