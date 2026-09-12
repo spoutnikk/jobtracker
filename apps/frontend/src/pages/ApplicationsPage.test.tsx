@@ -1090,6 +1090,99 @@ describe("ApplicationsPage", () => {
     },
   );
 
+  it.each(["failure", "retry", "new session"])(
+    "handles quick-edit save errors: %s",
+    async (scenario) => {
+      const user = userEvent.setup();
+      vi.mocked(updateApplication).mockRejectedValueOnce(
+        new Error("Network error"),
+      );
+      const { queryClient } = renderApplicationsPage();
+      const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
+
+      await user.click(await screen.findByRole("button", { name: "Modifier" }));
+      const editForm = screen
+        .getByRole("button", { name: "Annuler" })
+        .closest("form");
+      if (!editForm) {
+        throw new Error("Edit form not found");
+      }
+      const edit = within(editForm);
+      await user.clear(edit.getByLabelText("Source"));
+      await user.type(edit.getByLabelText("Source"), "Nouvelle source");
+      invalidateQueriesSpy.mockClear();
+      await user.click(edit.getByRole("button", { name: "Enregistrer" }));
+
+      expect(await edit.findByRole("alert")).toHaveTextContent(
+        /^Impossible de modifier la candidature\.$/,
+      );
+      const expectedInput = {
+        status: application.status,
+        source: "Nouvelle source",
+        contactName: application.contactName,
+        followUpAt: null,
+        interviewAt: null,
+      };
+      expect(updateApplication).toHaveBeenCalledExactlyOnceWith(
+        application.id,
+        expectedInput,
+      );
+      expect(editForm).toBeInTheDocument();
+      expect(edit.getByLabelText("Source")).toHaveValue("Nouvelle source");
+      expect(edit.getByRole("button", { name: "Enregistrer" })).toBeEnabled();
+      for (const queryKey of [
+        ["applications"],
+        ["follow-ups"],
+        ["interviews"],
+      ]) {
+        expect(invalidateQueriesSpy).not.toHaveBeenCalledWith({ queryKey });
+      }
+
+      if (scenario === "retry") {
+        await user.click(edit.getByRole("button", { name: "Enregistrer" }));
+        await waitFor(() => expect(editForm).not.toBeInTheDocument());
+        expect(updateApplication).toHaveBeenCalledTimes(2);
+        expect(updateApplication).toHaveBeenNthCalledWith(
+          2,
+          application.id,
+          expectedInput,
+        );
+        expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+        for (const queryKey of [
+          ["applications"],
+          ["follow-ups"],
+          ["interviews"],
+        ]) {
+          expect(invalidateQueriesSpy).toHaveBeenCalledWith({ queryKey });
+        }
+      }
+
+      if (scenario === "new session") {
+        await user.click(edit.getByRole("button", { name: "Annuler" }));
+        expect(editForm).not.toBeInTheDocument();
+        await user.click(screen.getByRole("button", { name: "Modifier" }));
+        const reopenedForm = screen
+          .getByRole("button", { name: "Annuler" })
+          .closest("form");
+        if (!reopenedForm) {
+          throw new Error("Edit form not found");
+        }
+        expect(
+          within(reopenedForm).queryByRole("alert"),
+        ).not.toBeInTheDocument();
+        expect(within(reopenedForm).getByLabelText("Source")).toHaveValue(
+          application.source,
+        );
+        expect(within(reopenedForm).getByLabelText("Statut")).toHaveValue(
+          application.status,
+        );
+        expect(
+          within(reopenedForm).getByLabelText("Nom du contact"),
+        ).toHaveValue(application.contactName);
+      }
+    },
+  );
+
   it("updates the application status", async () => {
     const user = userEvent.setup();
     const { queryClient } = renderApplicationsPage();

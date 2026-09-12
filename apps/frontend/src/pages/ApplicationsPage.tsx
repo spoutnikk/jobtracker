@@ -831,6 +831,7 @@ function ApplicationsPage() {
                 <button
                   type="button"
                   onClick={() => {
+                    updateApplicationMutation.reset();
                     setEditingApplicationId(application.id);
                     setEditStatus(application.status);
                     setEditSource(application.source ?? "");
@@ -1140,6 +1141,11 @@ function ApplicationsPage() {
                       className={formControlClassName}
                     />
                   </label>
+                  {updateApplicationMutation.isError && (
+                    <StatusMessage variant="error">
+                      Impossible de modifier la candidature.
+                    </StatusMessage>
+                  )}
                   <div className="flex gap-2">
                     <button
                       type="submit"
@@ -1151,7 +1157,10 @@ function ApplicationsPage() {
 
                     <button
                       type="button"
-                      onClick={() => setEditingApplicationId(null)}
+                      onClick={() => {
+                        setEditingApplicationId(null);
+                        updateApplicationMutation.reset();
+                      }}
                       className="rounded-md border border-gray-300 px-3 py-2 text-sm"
                     >
                       Annuler
