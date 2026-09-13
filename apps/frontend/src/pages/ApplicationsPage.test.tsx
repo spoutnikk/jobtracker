@@ -1283,9 +1283,7 @@ describe("ApplicationsPage", () => {
     expect(applicationCard).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(card.getByRole("button", { name: "Supprimer" })).toBeEnabled();
-    expect(invalidateQueriesSpy).not.toHaveBeenCalledWith({
-      queryKey: ["applications"],
-    });
+    expect(invalidateQueriesSpy).not.toHaveBeenCalled();
   });
 
   it("retries a failed deletion and reloads the application list", async () => {
@@ -1386,6 +1384,48 @@ describe("ApplicationsPage", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
+  it.each(["follow-ups", "interviews", "dashboard-stats"])(
+    "refetches the inactive %s cache after deletion",
+    async (cacheName) => {
+      const user = userEvent.setup();
+      const { queryClient } = renderApplicationsPage();
+      const queryKey = [cacheName];
+      const beforeDeletion =
+        cacheName === "dashboard-stats"
+          ? { totalApplications: 1 }
+          : [application];
+      const afterDeletion =
+        cacheName === "dashboard-stats" ? { totalApplications: 0 } : [];
+      const fetchDerivedData = vi
+        .fn<() => Promise<typeof beforeDeletion>>()
+        .mockResolvedValue(beforeDeletion);
+      await queryClient.fetchQuery({ queryKey, queryFn: fetchDerivedData });
+      expect(queryClient.getQueryData(queryKey)).toEqual(beforeDeletion);
+      expect(
+        queryClient.getQueryCache().find({ queryKey })?.getObserversCount(),
+      ).toBe(0);
+      vi.mocked(deleteApplication).mockImplementationOnce(async () => {
+        fetchDerivedData.mockResolvedValue(afterDeletion);
+        return application;
+      });
+
+      await user.click(
+        await screen.findByRole("button", { name: "Supprimer" }),
+      );
+      await user.click(
+        await screen.findByRole("button", { name: "Confirmer" }),
+      );
+      await waitFor(() => {
+        expect(fetchDerivedData).toHaveBeenCalledTimes(2);
+        expect(queryClient.getQueryData(queryKey)).toEqual(afterDeletion);
+      });
+      expect(deleteApplication).toHaveBeenCalledTimes(1);
+      expect(
+        queryClient.getQueryCache().find({ queryKey })?.getObserversCount(),
+      ).toBe(0);
+    },
+  );
+
   it("deletes an application after confirmation", async () => {
     const user = userEvent.setup();
     const { queryClient } = renderApplicationsPage();
@@ -1403,5 +1443,16 @@ describe("ApplicationsPage", () => {
     const [deletedId] = vi.mocked(deleteApplication).mock.calls[0];
 
     expect(deletedId).toBe(application.id);
+    expect(invalidateQueriesSpy).toHaveBeenCalledTimes(4);
+    for (const queryKey of [
+      ["follow-ups"],
+      ["interviews"],
+      ["dashboard-stats"],
+    ]) {
+      expect(invalidateQueriesSpy).toHaveBeenCalledWith({
+        queryKey,
+        refetchType: "all",
+      });
+    }
   });
 });

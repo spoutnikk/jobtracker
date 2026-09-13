@@ -298,9 +298,23 @@ function ApplicationsPage() {
   const deleteApplicationMutation = useMutation({
     mutationFn: deleteApplication,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: ["applications"],
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["applications"],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["follow-ups"],
+          refetchType: "all",
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["interviews"],
+          refetchType: "all",
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["dashboard-stats"],
+          refetchType: "all",
+        }),
+      ]);
     },
   });
 
