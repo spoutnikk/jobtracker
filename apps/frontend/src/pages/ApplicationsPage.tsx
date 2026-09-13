@@ -218,6 +218,8 @@ function ApplicationsPage() {
     number | null
   >(null);
   const [editStatus, setEditStatus] = useState<ApplicationStatus>("DRAFT");
+  const [initialEditStatus, setInitialEditStatus] =
+    useState<ApplicationStatus>("DRAFT");
   const [editSource, setEditSource] = useState("");
   const [editContactName, setEditContactName] = useState("");
 
@@ -277,8 +279,9 @@ function ApplicationsPage() {
     }: {
       id: number;
       input: UpdateApplicationInput;
+      mayCreateEvent: boolean;
     }) => updateApplication(id, input),
-    onSuccess: async () => {
+    onSuccess: async (_data, { id, mayCreateEvent }) => {
       setEditingApplicationId(null);
 
       await Promise.all([
@@ -291,6 +294,13 @@ function ApplicationsPage() {
         queryClient.invalidateQueries({
           queryKey: ["interviews"],
         }),
+        ...(mayCreateEvent
+          ? [
+              queryClient.invalidateQueries({
+                queryKey: ["application-events", id],
+              }),
+            ]
+          : []),
       ]);
     },
   });
@@ -853,6 +863,7 @@ function ApplicationsPage() {
                     updateApplicationMutation.reset();
                     setEditingApplicationId(application.id);
                     setEditStatus(application.status);
+                    setInitialEditStatus(application.status);
                     setEditSource(application.source ?? "");
                     setEditContactName(application.contactName ?? "");
                     const followUpInput = application.followUpAt
@@ -1067,28 +1078,41 @@ function ApplicationsPage() {
                   onSubmit={(event) => {
                     event.preventDefault();
 
+                    const input = {
+                      status: editStatus,
+                      source: editSource || null,
+                      contactName: editContactName || null,
+
+                      followUpAt:
+                        editFollowUpAt === initialEditDates?.followUpAt.input
+                          ? initialEditDates.followUpAt.original
+                          : editFollowUpAt
+                            ? new Date(editFollowUpAt).toISOString()
+                            : null,
+
+                      interviewAt:
+                        editInterviewAt === initialEditDates?.interviewAt.input
+                          ? initialEditDates.interviewAt.original
+                          : editInterviewAt
+                            ? new Date(editInterviewAt).toISOString()
+                            : null,
+                    };
+                    const mayCreateEvent =
+                      editStatus !== initialEditStatus ||
+                      (["followUpAt", "interviewAt"] as const).some((field) => {
+                        const next = input[field];
+                        const previous = initialEditDates?.[field].original;
+                        return (
+                          next !== null &&
+                          (previous == null ||
+                            new Date(next).getTime() !==
+                              new Date(previous).getTime())
+                        );
+                      });
                     updateApplicationMutation.mutate({
                       id: application.id,
-                      input: {
-                        status: editStatus,
-                        source: editSource || null,
-                        contactName: editContactName || null,
-
-                        followUpAt:
-                          editFollowUpAt === initialEditDates?.followUpAt.input
-                            ? initialEditDates.followUpAt.original
-                            : editFollowUpAt
-                              ? new Date(editFollowUpAt).toISOString()
-                              : null,
-
-                        interviewAt:
-                          editInterviewAt ===
-                          initialEditDates?.interviewAt.input
-                            ? initialEditDates.interviewAt.original
-                            : editInterviewAt
-                              ? new Date(editInterviewAt).toISOString()
-                              : null,
-                      },
+                      input,
+                      mayCreateEvent,
                     });
                   }}
                 >

@@ -1193,6 +1193,171 @@ describe("ApplicationsPage", () => {
     },
   );
 
+  it.each([
+    "status",
+    "follow-up",
+    "interview",
+    "new follow-up",
+    "new interview",
+    "source",
+    "contact",
+    "clear follow-up",
+    "clear interview",
+    "same follow-up instant",
+    "same interview instant",
+    "unchanged",
+    "rejected",
+  ])(
+    "refreshes the active journal only for event changes: %s",
+    async (scenario) => {
+      const initial = {
+        ...application,
+        followUpAt:
+          scenario === "new follow-up" ? null : "2026-09-20T02:00:00+02:00",
+        interviewAt:
+          scenario === "new interview"
+            ? null
+            : scenario === "same interview instant"
+              ? new Date("2026-09-20T08:00:00.001")
+                  .toISOString()
+                  .replace("Z", "+00:00")
+              : "2026-09-20T10:00:00+02:00",
+      };
+      vi.mocked(getApplications).mockResolvedValue(
+        paginatedApplications([initial]),
+      );
+      const user = userEvent.setup();
+      const { queryClient } = renderApplicationsPage();
+      const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+      const pageTwoKey = ["application-events", application.id, 2];
+      const otherKey = ["application-events", application.id + 1, 1];
+      queryClient.setQueryData(
+        pageTwoKey,
+        applicationEventsPage([], { page: 2 }),
+      );
+      queryClient.setQueryData(otherKey, applicationEventsPage([]));
+      await user.click(await screen.findByRole("button", { name: "Journal" }));
+      await screen.findByText("Aucun événement enregistré.");
+      await user.click(screen.getByRole("button", { name: "Modifier" }));
+      const form = screen
+        .getByRole("button", { name: "Annuler" })
+        .closest("form");
+      if (!form) throw new Error("Edit form not found");
+      const edit = within(form);
+      if (scenario === "status" || scenario === "rejected") {
+        await user.selectOptions(edit.getByLabelText("Statut"), "ACCEPTED");
+      } else if (scenario === "source" || scenario === "contact") {
+        await user.type(
+          edit.getByLabelText(
+            scenario === "source" ? "Source" : "Nom du contact",
+          ),
+          " modifié",
+        );
+      } else if (scenario !== "unchanged") {
+        const followUp = scenario.includes("follow-up");
+        const value = scenario.startsWith("clear")
+          ? ""
+          : scenario.startsWith("same")
+            ? followUp
+              ? "2026-09-20"
+              : "2026-09-20T08:00:00.001"
+            : followUp
+              ? "2026-09-21"
+              : "2026-09-21T08:00";
+        fireEvent.change(
+          edit.getByLabelText(
+            followUp ? "Date de relance" : "Date d'entretien",
+          ),
+          {
+            target: { value },
+          },
+        );
+      }
+      // Replacing the list during editing must not replace the session baseline.
+      if (scenario === "status") {
+        await act(async () => {
+          queryClient.setQueriesData(
+            { queryKey: ["applications"] },
+            paginatedApplications([{ ...initial, status: "ACCEPTED" }]),
+          );
+        });
+      }
+      const createsEvent = [
+        "status",
+        "follow-up",
+        "interview",
+        "new follow-up",
+        "new interview",
+      ].includes(scenario);
+      vi.mocked(updateApplication).mockImplementationOnce(async () => {
+        if (scenario === "rejected") throw new Error("PATCH failed");
+        vi.mocked(getApplicationEvents).mockResolvedValue(
+          applicationEventsPage([
+            {
+              id: 99,
+              applicationId: application.id,
+              type: "STATUS_CHANGED",
+              title: "Événement après modification",
+              description: null,
+              occurredAt: "2026-09-21T08:00:00Z",
+              createdAt: "2026-09-21T08:00:00Z",
+            },
+          ]),
+        );
+        return initial;
+      });
+      await user.click(edit.getByRole("button", { name: "Enregistrer" }));
+      if (scenario === "rejected") {
+        expect(await edit.findByRole("alert")).toHaveTextContent(
+          "Impossible de modifier la candidature.",
+        );
+        expect(invalidateSpy).not.toHaveBeenCalled();
+      } else {
+        await waitFor(() => expect(form).not.toBeInTheDocument());
+        for (const queryKey of [
+          ["applications"],
+          ["follow-ups"],
+          ["interviews"],
+        ]) {
+          expect(invalidateSpy).toHaveBeenCalledWith({ queryKey });
+        }
+      }
+      if (scenario === "same interview instant") {
+        const submitted =
+          vi.mocked(updateApplication).mock.calls[0][1].interviewAt;
+        expect(submitted).not.toBe(initial.interviewAt);
+        expect(new Date(submitted!).getTime()).toBe(
+          new Date(initial.interviewAt!).getTime(),
+        );
+      }
+      if (createsEvent) {
+        expect(
+          await screen.findByText("Événement après modification"),
+        ).toBeInTheDocument();
+        expect(getApplicationEvents).toHaveBeenCalledTimes(2);
+        expect(getApplicationEvents).toHaveBeenLastCalledWith(application.id, {
+          page: 1,
+          pageSize: 10,
+        });
+        expect(invalidateSpy).toHaveBeenCalledWith({
+          queryKey: ["application-events", application.id],
+        });
+        expect(queryClient.getQueryState(pageTwoKey)?.isInvalidated).toBe(true);
+      } else {
+        expect(
+          screen.getByText("Aucun événement enregistré."),
+        ).toBeInTheDocument();
+        expect(getApplicationEvents).toHaveBeenCalledTimes(1);
+        expect(
+          invalidateSpy.mock.calls.some(
+            ([filters]) => filters?.queryKey?.[0] === "application-events",
+          ),
+        ).toBe(false);
+      }
+      expect(queryClient.getQueryState(otherKey)?.isInvalidated).toBe(false);
+    },
+  );
+
   it("updates the application status", async () => {
     const user = userEvent.setup();
     const { queryClient } = renderApplicationsPage();
