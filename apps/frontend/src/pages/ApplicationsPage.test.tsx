@@ -1,16 +1,20 @@
 import {
   act,
   fireEvent,
+  render,
   screen,
   waitFor,
   within,
 } from "@testing-library/react";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { AxiosError, AxiosHeaders } from "axios";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useNavigate } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createApplication,
   deleteApplication,
+  getApplication,
   getApplications,
   type Application,
   type PaginatedApplications,
@@ -25,10 +29,16 @@ import {
 import { getAllJobOffers, type JobOffer } from "../api/job-offers";
 import { renderWithProviders } from "../test/renderWithProviders";
 import ApplicationsPage from "./ApplicationsPage";
+import ApplicationDetailPage from "./ApplicationDetailPage";
+
+vi.mock("../api/documents", () => ({
+  getAllDocuments: vi.fn().mockResolvedValue([]),
+}));
 
 vi.mock("../api/applications", () => ({
   createApplication: vi.fn(),
   deleteApplication: vi.fn(),
+  getApplication: vi.fn(),
   getApplications: vi.fn(),
   updateApplication: vi.fn(),
 }));
@@ -1264,6 +1274,11 @@ describe("ApplicationsPage", () => {
     );
     const user = userEvent.setup();
     const { queryClient } = renderApplicationsPage();
+    const detailKey = ["applications", "detail", application.id];
+    await queryClient.fetchQuery({
+      queryKey: detailKey,
+      queryFn: async () => application,
+    });
     const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
     const applicationCard = (
       await screen.findByRole("heading", { name: application.jobOffer.title })
@@ -1284,6 +1299,7 @@ describe("ApplicationsPage", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(card.getByRole("button", { name: "Supprimer" })).toBeEnabled();
     expect(invalidateQueriesSpy).not.toHaveBeenCalled();
+    expect(queryClient.getQueryData(detailKey)).toEqual(application);
   });
 
   it("retries a failed deletion and reloads the application list", async () => {
@@ -1382,6 +1398,83 @@ describe("ApplicationsPage", () => {
       }
     });
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("removes only the deleted detail and shows loading then 404 on reopening", async () => {
+    const user = userEvent.setup();
+    const { queryClient, unmount } = renderApplicationsPage();
+    const detailKey = ["applications", "detail", application.id];
+    const secondApplication = { ...application, id: application.id + 1 };
+    const secondKey = ["applications", "detail", secondApplication.id];
+    await queryClient.fetchQuery({
+      queryKey: detailKey,
+      queryFn: async () => application,
+    });
+    await queryClient.fetchQuery({
+      queryKey: secondKey,
+      queryFn: async () => secondApplication,
+    });
+    expect(queryClient.getQueryData(detailKey)).toEqual(application);
+    expect(queryClient.getQueryData(secondKey)).toEqual(secondApplication);
+    expect(
+      queryClient
+        .getQueryCache()
+        .find({ queryKey: detailKey, exact: true })
+        ?.getObserversCount(),
+    ).toBe(0);
+
+    await user.click(await screen.findByRole("button", { name: "Supprimer" }));
+    await user.click(await screen.findByRole("button", { name: "Confirmer" }));
+    await waitFor(() => {
+      expect(
+        queryClient.getQueryCache().find({ queryKey: detailKey, exact: true }),
+      ).toBeUndefined();
+    });
+    expect(queryClient.getQueryData(secondKey)).toEqual(secondApplication);
+    unmount();
+
+    let rejectDetail!: (error: AxiosError) => void;
+    vi.mocked(getApplication).mockReturnValueOnce(
+      new Promise<Application>((_resolve, reject) => {
+        rejectDetail = reject;
+      }),
+    );
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={[`/applications/${application.id}`]}>
+          <Routes>
+            <Route
+              path="/applications/:id"
+              element={<ApplicationDetailPage />}
+            />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(
+      screen.getByText("Chargement de la candidature..."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(application.jobOffer.title),
+    ).not.toBeInTheDocument();
+    expect(getApplication).toHaveBeenCalledWith(application.id);
+    await act(async () => {
+      rejectDetail(
+        new AxiosError("Not found", "ERR_BAD_REQUEST", undefined, undefined, {
+          status: 404,
+          statusText: "Not Found",
+          data: {},
+          headers: new AxiosHeaders(),
+          config: { headers: new AxiosHeaders() },
+        }),
+      );
+    });
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Cette candidature n'existe pas ou n'est plus disponible.",
+    );
+    expect(
+      screen.queryByText(application.jobOffer.title),
+    ).not.toBeInTheDocument();
   });
 
   it.each(["follow-ups", "interviews", "dashboard-stats"])(

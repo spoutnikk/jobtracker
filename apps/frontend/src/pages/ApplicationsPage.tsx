@@ -297,7 +297,12 @@ function ApplicationsPage() {
 
   const deleteApplicationMutation = useMutation({
     mutationFn: deleteApplication,
-    onSuccess: async () => {
+    onSuccess: async (_data, deletedApplicationId) => {
+      queryClient.removeQueries({
+        queryKey: ["applications", "detail", deletedApplicationId],
+        exact: true,
+      });
+
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: ["applications"],
