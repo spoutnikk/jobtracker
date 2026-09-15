@@ -18,7 +18,7 @@ RUN pnpm install --frozen-lockfile
 COPY apps/frontend apps/frontend
 COPY packages/shared packages/shared
 
-ARG VITE_API_URL=http://localhost:3000
+ARG VITE_API_URL=/api
 ENV VITE_API_URL=$VITE_API_URL
 
 RUN pnpm --filter @jobtracker/frontend build
