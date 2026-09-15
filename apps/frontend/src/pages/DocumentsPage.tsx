@@ -54,6 +54,8 @@ function DocumentsPage() {
   const [type, setType] = useState<DocumentType>("OTHER");
 
   const [applicationId, setApplicationId] = useState<number | null>(null);
+  const [applicationSelectionLost, setApplicationSelectionLost] =
+    useState(false);
 
   const [search, setSearch] = useState("");
   const [documentType, setDocumentType] = useState<DocumentType | "">("");
@@ -73,11 +75,40 @@ function DocumentsPage() {
     queryFn: getAllApplications,
   });
 
+  // Reconcile before committing the UI so its options and payload stay aligned.
+  const canReconcileApplications =
+    applicationsQuery.isSuccess &&
+    applicationsQuery.isFetchedAfterMount &&
+    !applicationsQuery.isFetching;
+  const uploadSelectionMissing =
+    canReconcileApplications &&
+    applicationId !== null &&
+    !applicationsQuery.data?.some(
+      (application) => application.id === applicationId,
+    );
+  const filterSelectionMissing =
+    canReconcileApplications &&
+    filterApplicationId !== null &&
+    !applicationsQuery.data?.some(
+      (application) => application.id === filterApplicationId,
+    );
+
+  if (uploadSelectionMissing) {
+    setApplicationId(null);
+    setApplicationSelectionLost(true);
+  }
+  if (filterSelectionMissing) {
+    setFilterApplicationId(null);
+    setPage(1);
+  }
+
   const documentFilters = {
     search: search.trim() || undefined,
     type: documentType || undefined,
-    applicationId: filterApplicationId ?? undefined,
-    page,
+    applicationId: filterSelectionMissing
+      ? undefined
+      : (filterApplicationId ?? undefined),
+    page: filterSelectionMissing ? 1 : page,
     pageSize,
     sortBy,
     sortOrder,
@@ -99,6 +130,7 @@ function DocumentsPage() {
       setName("");
       setType("OTHER");
       setApplicationId(null);
+      setApplicationSelectionLost(false);
       setSuccessMessage("Document ajouté avec succès.");
 
       await queryClient.invalidateQueries({
@@ -165,7 +197,7 @@ function DocumentsPage() {
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!file) {
+    if (!file || uploadSelectionMissing) {
       return;
     }
 
@@ -250,11 +282,12 @@ function DocumentsPage() {
 
               <select
                 value={applicationId ?? ""}
-                onChange={(event) =>
+                onChange={(event) => {
                   setApplicationId(
                     event.target.value ? Number(event.target.value) : null,
-                  )
-                }
+                  );
+                  setApplicationSelectionLost(false);
+                }}
                 className={formControlClassName}
               >
                 <option value="">Aucune candidature</option>
@@ -278,6 +311,13 @@ function DocumentsPage() {
               ? "Téléversement..."
               : "Ajouter le document"}
           </button>
+
+          {applicationSelectionLost && (
+            <StatusMessage variant="error" className="mt-3">
+              La candidature sélectionnée n'est plus disponible. Vérifiez votre
+              choix avant l'envoi.
+            </StatusMessage>
+          )}
 
           {uploadDocumentMutation.isError && (
             <StatusMessage variant="error" className="mt-3">

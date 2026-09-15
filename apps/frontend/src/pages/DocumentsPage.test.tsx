@@ -1,4 +1,10 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getAllApplications, type Application } from "../api/applications";
@@ -127,6 +133,115 @@ describe("DocumentsPage", () => {
     vi.mocked(getDocumentPreview).mockResolvedValue(
       new Blob(["preview"], { type: "application/pdf" }),
     );
+  });
+
+  it.each(["removed", "refresh error"])(
+    "reconciles selected applications only after a successful refresh: %s",
+    async (scenario) => {
+      const user = userEvent.setup();
+      vi.mocked(getDocuments).mockImplementation(async (filters) =>
+        paginatedDocuments([document], {
+          page: filters?.page ?? 1,
+          total: 20,
+          totalPages: 2,
+        }),
+      );
+      const { queryClient } = renderWithProviders(<DocumentsPage />);
+      await screen.findByRole("heading", { name: document.name });
+      await user.click(
+        screen.getByRole("button", { name: "Afficher Ajouter un document" }),
+      );
+      await user.selectOptions(
+        screen.getByLabelText("Candidature associée"),
+        String(application.id),
+      );
+      await user.selectOptions(
+        screen.getByLabelText("Filtrer par candidature"),
+        String(application.id),
+      );
+      await user.click(screen.getByRole("button", { name: "Suivant" }));
+      await waitFor(() =>
+        expect(getDocuments).toHaveBeenLastCalledWith(
+          expect.objectContaining({ applicationId: application.id, page: 2 }),
+        ),
+      );
+      await user.type(screen.getByLabelText("Nom"), "Document conservé");
+      await user.upload(
+        screen.getByLabelText("Fichier"),
+        new File(["pdf"], "cv.pdf", { type: "application/pdf" }),
+      );
+
+      let resolveRefresh!: (value: Application[]) => void;
+      let rejectRefresh!: (error: Error) => void;
+      vi.mocked(getAllApplications).mockReturnValueOnce(
+        new Promise<Application[]>((resolve, reject) => {
+          resolveRefresh = resolve;
+          rejectRefresh = reject;
+        }),
+      );
+      let refresh!: Promise<void>;
+      await act(async () => {
+        refresh = queryClient.invalidateQueries({ queryKey: ["applications"] });
+      });
+      expect(screen.getByLabelText("Candidature associée")).toHaveValue(
+        String(application.id),
+      );
+      expect(screen.getByLabelText("Filtrer par candidature")).toHaveValue(
+        String(application.id),
+      );
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      await act(async () => {
+        if (scenario === "removed") resolveRefresh([]);
+        else rejectRefresh(new Error("Network failed"));
+        await refresh;
+      });
+      const expectedId = scenario === "removed" ? "" : String(application.id);
+      expect(screen.getByLabelText("Candidature associée")).toHaveValue(
+        expectedId,
+      );
+      expect(screen.getByLabelText("Filtrer par candidature")).toHaveValue(
+        expectedId,
+      );
+      if (scenario === "removed") {
+        expect(screen.getByRole("alert")).toHaveTextContent(
+          "La candidature sélectionnée n'est plus disponible. Vérifiez votre choix avant l'envoi.",
+        );
+        await waitFor(() =>
+          expect(getDocuments).toHaveBeenLastCalledWith(
+            expect.objectContaining({ applicationId: undefined, page: 1 }),
+          ),
+        );
+      } else {
+        expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+        expect(getDocuments).toHaveBeenLastCalledWith(
+          expect.objectContaining({ applicationId: application.id, page: 2 }),
+        );
+      }
+      const uploadForm = screen.getByLabelText("Nom").closest("form");
+      if (!uploadForm) throw new Error("Upload form not found");
+      expect(
+        screen.getByLabelText<HTMLInputElement>("Fichier").files,
+      ).toHaveLength(1);
+      fireEvent.submit(uploadForm);
+      await waitFor(() => expect(uploadDocument).toHaveBeenCalledTimes(1));
+      expect(vi.mocked(uploadDocument).mock.calls[0][0]).toMatchObject({
+        name: "Document conservé",
+        applicationId: scenario === "removed" ? undefined : application.id,
+      });
+    },
+  );
+
+  it("does not report a lost selection while applications initially load", async () => {
+    vi.mocked(getAllApplications).mockReturnValue(new Promise(() => undefined));
+    const user = userEvent.setup();
+    renderWithProviders(<DocumentsPage />);
+    await screen.findByRole("heading", { name: document.name });
+    await user.click(
+      screen.getByRole("button", { name: "Afficher Ajouter un document" }),
+    );
+    expect(screen.getByLabelText("Candidature associée")).toHaveValue("");
+    expect(screen.getByLabelText("Filtrer par candidature")).toHaveValue("");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("previews a PDF through the authenticated API", async () => {
