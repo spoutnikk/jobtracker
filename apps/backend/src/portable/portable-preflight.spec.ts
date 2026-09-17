@@ -1,5 +1,6 @@
 import {
   discoverPortableSource,
+  discoverPortableSourceInternal,
   PreflightError,
   type DockerExecutor,
   type DockerRequest,
@@ -57,7 +58,7 @@ function volume(Name: string, logical: string) {
       string,
       string
     >,
-    Mountpoint: '/private/host/path',
+    Mountpoint: `/var/lib/docker/volumes/${Name}/_data`,
   };
 }
 function container(service: string, digit = 'a', status = 'running') {
@@ -127,7 +128,40 @@ function fixture() {
   >((request) => {
     const a = request.args;
     let output: unknown;
-    if (a[0] === 'compose') output = cfg;
+    if (a[0] === 'context' && a[1] === 'show')
+      return Promise.resolve({ stdout: 'default\n', stderr: '', exitCode: 0 });
+    if (a[0] === 'context')
+      output = {
+        Name: 'default',
+        Endpoints: {
+          docker: {
+            Host: 'unix:///var/run/docker.sock',
+            SkipTLSVerify: false,
+          },
+        },
+      };
+    else if (a[0] === 'version')
+      output = {
+        Client: { Version: '31.0.0' },
+        Server: {
+          Version: '29.8.1',
+          ApiVersion: '1.56',
+          Os: 'linux',
+          Arch: 'amd64',
+        },
+      };
+    else if (a[0] === 'info')
+      output = {
+        ServerVersion: '29.8.1',
+        OSType: 'linux',
+        Architecture: 'x86_64',
+        OperatingSystem: 'Ubuntu 24.04.5 LTS',
+        KernelVersion: '6.8.0-137-generic',
+        DockerRootDir: '/var/lib/docker',
+        SecurityOptions: ['name=seccomp,profile=builtin'],
+        Name: 'native-host',
+      };
+    else if (a[0] === 'compose') output = cfg;
     else if (a[0] === 'volume' && a[1] === 'ls')
       return Promise.resolve({
         stdout: volumes.map((v) => JSON.stringify(v.Name)).join('\n'),
@@ -201,7 +235,10 @@ describe('configuration and project identity', () => {
       projectName: project,
       env: { COMPOSE_PROJECT_NAME: 'ignored' },
     });
-    expect(f.runner.mock.calls[0][0].args).toEqual([
+    expect(
+      f.runner.mock.calls.find(([request]) => request.args[0] === 'compose')![0]
+        .args,
+    ).toEqual([
       'compose',
       '--project-directory',
       options.projectRoot,
@@ -221,7 +258,10 @@ describe('configuration and project identity', () => {
       env: { COMPOSE_PROJECT_NAME: project },
     });
     expect(result.projectName).toBe(project);
-    expect(f.runner.mock.calls[0][0].env.COMPOSE_PROJECT_NAME).toBe(project);
+    expect(
+      f.runner.mock.calls.find(([request]) => request.args[0] === 'compose')![0]
+        .env.COMPOSE_PROJECT_NAME,
+    ).toBe(project);
   });
   it('rejects disagreement with explicit project', async () =>
     rejectsCode(
@@ -239,15 +279,23 @@ describe('configuration and project identity', () => {
     f.cfg.volumes.postgres_data.name = 'renamed_postgres_data';
     f.cfg.volumes.uploads_data.name = 'renamed_uploads_data';
     await rejectsCode(f.run(), 'source-missing');
-    expect(f.runner).toHaveBeenCalledTimes(2);
+    expect(f.runner.mock.calls.map(([request]) => request.args[0])).toEqual([
+      'context',
+      'context',
+      'version',
+      'info',
+      'compose',
+      'volume',
+    ]);
   });
   it('rejects malformed configuration JSON without exposing it', async () => {
     const f = fixture();
-    f.runner.mockResolvedValueOnce({
-      stdout: secret,
-      stderr: secret,
-      exitCode: 0,
-    });
+    const original = f.runner.getMockImplementation()!;
+    f.runner.mockImplementation((request) =>
+      request.args[0] === 'compose'
+        ? Promise.resolve({ stdout: secret, stderr: secret, exitCode: 0 })
+        : original(request),
+    );
     await rejectsCode(f.run(), 'configuration');
   });
   it.each(['postgres_data', 'uploads_data'])(
@@ -325,11 +373,30 @@ describe('volume identity and existence', () => {
     f.volumes[0].Labels = {};
     await rejectsCode(f.run(), 'source-mismatch');
   });
+  it('accepts and internally captures stable additional volume labels', async () => {
+    const f = fixture();
+    f.volumes[0].Labels.extra = 'unexpected';
+    const result = await discoverPortableSourceInternal(options, f.runner);
+    expect(result.volumeIdentities.postgres.labels).toEqual({
+      [projectLabel]: project,
+      [volumeLabel]: 'postgres_data',
+      extra: 'unexpected',
+    });
+    expect(JSON.stringify(result.publicSnapshot)).not.toContain('unexpected');
+  });
+  it.each([null, [], { [projectLabel]: project, [volumeLabel]: 7 }])(
+    'rejects malformed labels %j',
+    async (labels) => {
+      const f = fixture();
+      f.volumes[0].Labels = labels as never;
+      await rejectsCode(f.run(), 'source-mismatch');
+    },
+  );
   it('rejects malformed volume inspection', async () => {
     const f = fixture();
     const original = f.runner.getMockImplementation()!;
     f.runner.mockImplementation((r) =>
-      r.args[1] === 'inspect'
+      r.args[0] === 'volume' && r.args[1] === 'inspect'
         ? Promise.resolve({ stdout: '{}', stderr: '', exitCode: 0 })
         : original(r),
     );
@@ -360,6 +427,77 @@ describe('volume identity and existence', () => {
       Options: { type: 'none', device: '/personal', o: 'bind' },
     });
     await rejectsCode(f.run(), 'source-mismatch');
+  });
+  it.each([
+    '',
+    'relative',
+    '/var/lib/docker/volumes/x/../custom-pg-source/_data',
+    '/var/lib/docker2/volumes/custom-pg-source/_data',
+    '/var/lib/docker/volumes/custom-pg-source/_data\n',
+  ])('rejects unsafe Mountpoint %j', async (mountpoint) => {
+    const f = fixture();
+    f.volumes[0].Mountpoint = mountpoint;
+    await rejectsCode(f.run(), 'source-mismatch');
+  });
+  it('does not expose an invalid Mountpoint in its public error', async () => {
+    const sentinel = 'MOUNTPOINT_SECRET_SENTINEL';
+    const f = fixture();
+    f.volumes[0].Mountpoint = `/var/lib/docker/../${sentinel}`;
+    const error = await f.run().catch((value: unknown) => value);
+    expect(error).toBeInstanceOf(PreflightError);
+    expect((error as Error).message).not.toContain(sentinel);
+    expect(JSON.stringify(error)).not.toContain(sentinel);
+  });
+});
+
+describe('internal source identity', () => {
+  it('keeps complete deeply frozen identities outside the public snapshot', async () => {
+    const f = fixture();
+    f.containers.push(container('postgres'));
+    const result = await discoverPortableSourceInternal(options, f.runner);
+    expect(result.volumeIdentities.postgres).toMatchObject({
+      logicalName: 'postgres_data',
+      physicalName: pg,
+      driver: 'local',
+      scope: 'local',
+      dockerRootDir: '/var/lib/docker',
+      userIds: ['a'.repeat(64)],
+    });
+    expect(result.volumeIdentities.postgres.labels).toEqual({
+      [projectLabel]: project,
+      [volumeLabel]: 'postgres_data',
+    });
+    function expectDeeplyFrozen(value: unknown): void {
+      if (!value || typeof value !== 'object') return;
+      expect(Object.isFrozen(value)).toBe(true);
+      for (const nested of Object.values(value)) expectDeeplyFrozen(nested);
+    }
+    expectDeeplyFrozen(result);
+    expect(JSON.stringify(result.publicSnapshot)).not.toContain(
+      result.volumeIdentities.postgres.mountpoint,
+    );
+  });
+
+  it.each(['slash/name', '../name', '.hidden', 'bad\nname', 'bad\0name'])(
+    'rejects hostile Compose physical name %j',
+    async (physicalName) => {
+      const f = fixture();
+      f.cfg.volumes.postgres_data.name = physicalName;
+      await rejectsCode(f.run(), 'configuration');
+    },
+  );
+
+  it('fails platform gate before Compose or volume access', async () => {
+    const f = fixture();
+    f.runner.mockResolvedValueOnce({
+      stdout: 'remote\n',
+      stderr: secret,
+      exitCode: 0,
+    });
+    await rejectsCode(f.run(), 'unsupported-platform');
+    expect(f.runner.mock.calls.map(([request]) => request.args[0])).toEqual([
+      'context',
+    ]);
   });
 });
 describe('containers and state snapshots', () => {
@@ -550,6 +688,10 @@ describe('read-only execution and safe output', () => {
     f.containers.push(container('postgres'));
     await f.run();
     expect(f.runner.mock.calls.map(([r]) => r.args)).toEqual([
+      ['context', 'show'],
+      ['context', 'inspect', 'default', '--format', '{{json .}}'],
+      ['version', '--format', '{{json .}}'],
+      ['info', '--format', '{{json .}}'],
       [
         'compose',
         '--project-directory',
@@ -606,7 +748,7 @@ describe('read-only execution and safe output', () => {
       'DATABASE_URL',
       'PGPASSWORD',
       'POSTGRES_PASSWORD',
-      '/private/host/path',
+      '/var/lib/docker/volumes/',
       'Config',
       'HostConfig',
       'Subpath',

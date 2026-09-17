@@ -3,12 +3,15 @@ import { isAbsolute, resolve } from 'node:path';
 import { createDockerRunner, dockerEnvironment } from './portable-docker';
 import {
   discoverPortableSource,
+  discoverPortableSourceInternal,
   PreflightError,
   type ContainerSnapshot,
   type DockerExecutor,
+  type InternalSourceDiscovery,
   type PreflightOptions,
   type PreflightSnapshot,
 } from './portable-preflight';
+import { platformSecurityIdentity } from './portable-platform';
 
 export type MaintenanceCode =
   | 'configuration'
@@ -55,6 +58,7 @@ export interface MaintenanceOptions extends PreflightOptions {
 export interface MaintenanceDependencies {
   readonly execute?: DockerExecutor;
   readonly discover?: typeof discoverPortableSource;
+  readonly discoverInternal?: typeof discoverPortableSourceInternal;
   readonly uuid?: () => string;
   readonly now?: () => Date;
 }
@@ -181,6 +185,43 @@ function sourceIdentity(source: PreflightSnapshot) {
     },
   };
 }
+function internalSourceIdentity(source: InternalSourceDiscovery) {
+  const canonicalRecord = (value: Readonly<Record<string, unknown>>) =>
+    Object.fromEntries(
+      Object.entries(value).sort(([left], [right]) =>
+        left < right ? -1 : left > right ? 1 : 0,
+      ),
+    );
+  const volume = (
+    value: InternalSourceDiscovery['volumeIdentities']['postgres'],
+  ) => ({
+    logicalName: value.logicalName,
+    physicalName: value.physicalName,
+    driver: value.driver,
+    scope: value.scope,
+    labels: canonicalRecord(value.labels),
+    options: canonicalRecord(value.options),
+    mountpoint: value.mountpoint,
+    dockerRootDir: value.dockerRootDir,
+    userIds: [...value.userIds].sort(),
+  });
+  return {
+    public: sourceIdentity(source.publicSnapshot),
+    platform: platformSecurityIdentity(source.platform),
+    volumes: {
+      postgres: volume(source.volumeIdentities.postgres),
+      uploads: volume(source.volumeIdentities.uploads),
+    },
+  };
+}
+
+export function assertSameInternalSource(
+  initial: InternalSourceDiscovery,
+  verified: InternalSourceDiscovery,
+): void {
+  if (!equal(internalSourceIdentity(initial), internalSourceIdentity(verified)))
+    fail('source-changed');
+}
 /** Explicit field comparison; ordering of migrations, networks and aliases is immaterial. */
 export function assertSameSource(
   initial: PreflightSnapshot,
@@ -199,7 +240,10 @@ export async function preparePortableMaintenance(
   dependencies: MaintenanceDependencies = {},
 ): Promise<MaintenanceLease> {
   const execute = dependencies.execute ?? createDockerRunner();
-  const discover = dependencies.discover ?? discoverPortableSource;
+  const discover = dependencies.discover;
+  const discoverInternal =
+    dependencies.discoverInternal ??
+    (discover === undefined ? discoverPortableSourceInternal : undefined);
   let env: Readonly<NodeJS.ProcessEnv>;
   let operationId: string;
   let createdAt: string;
@@ -226,8 +270,12 @@ export async function preparePortableMaintenance(
     env,
   };
   let initial: PreflightSnapshot;
+  let initialInternal: InternalSourceDiscovery | undefined;
   try {
-    initial = await discover(preflightOptions, execute);
+    if (discoverInternal) {
+      initialInternal = await discoverInternal(preflightOptions, execute);
+      initial = initialInternal.publicSnapshot;
+    } else initial = await discover!(preflightOptions, execute);
   } catch (error) {
     if (error instanceof PreflightError) throw error;
     fail('docker-runner');
@@ -472,8 +520,17 @@ export async function preparePortableMaintenance(
   try {
     if (!safeConfiguration(await inspectCreated())) fail('lock-invalid');
     principal = 'source-changed';
-    verified = await discover(preflightOptions, execute);
-    assertSameSource(initial, verified);
+    if (discoverInternal) {
+      const verifiedInternal = await discoverInternal(
+        preflightOptions,
+        execute,
+      );
+      verified = verifiedInternal.publicSnapshot;
+      assertSameInternalSource(initialInternal!, verifiedInternal);
+    } else {
+      verified = await discover!(preflightOptions, execute);
+      assertSameSource(initial, verified);
+    }
   } catch {
     const cleanupFailure = await cleanupAcquisition();
     throw new MaintenanceError(principal, cleanupFailure);

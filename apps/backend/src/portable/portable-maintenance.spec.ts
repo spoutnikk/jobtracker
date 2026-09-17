@@ -7,6 +7,7 @@ import {
   discoverPortableSource,
   PreflightError,
   type DockerExecutor,
+  type InternalSourceDiscovery,
   type PreflightSnapshot,
   type ContainerSnapshot,
 } from './portable-preflight';
@@ -59,6 +60,47 @@ function source(): PreflightSnapshot {
     },
     services: { postgres: null, backend: null, frontend: null, migrate: [] },
   };
+}
+function internalSource(
+  snapshot: PreflightSnapshot = source(),
+): InternalSourceDiscovery {
+  const platform = Object.freeze({
+    context: 'default' as const,
+    endpoint: 'local-unix-default' as const,
+    engineVersion: '29.8.1' as const,
+    serverApiVersion: '1.56' as const,
+    osType: 'linux' as const,
+    architecture: 'amd64' as const,
+    dockerRootDir: '/var/lib/docker',
+    rootless: false as const,
+    clientVersion: '31.0.0',
+  });
+  const identity = (
+    logicalName: 'postgres_data' | 'uploads_data',
+    physicalName: string,
+  ) =>
+    Object.freeze({
+      logicalName,
+      physicalName,
+      driver: 'local' as const,
+      scope: 'local' as const,
+      labels: Object.freeze({
+        'com.docker.compose.project': 'portable',
+        'com.docker.compose.volume': logicalName,
+      }),
+      options: Object.freeze({}),
+      mountpoint: `/var/lib/docker/volumes/${physicalName}/_data`,
+      dockerRootDir: '/var/lib/docker',
+      userIds: Object.freeze([] as string[]),
+    });
+  return Object.freeze({
+    publicSnapshot: snapshot,
+    platform,
+    volumeIdentities: Object.freeze({
+      postgres: identity('postgres_data', 'resolved-pg'),
+      uploads: identity('uploads_data', 'resolved-files'),
+    }),
+  });
 }
 function sourceContainer(id = 'c'.repeat(64)): ContainerSnapshot {
   return {
@@ -631,6 +673,154 @@ describe('explicit snapshot revalidation', () => {
   });
 });
 
+describe('internal source revalidation', () => {
+  function prepareWithSources(
+    initial: InternalSourceDiscovery,
+    verified: InternalSourceDiscovery,
+  ) {
+    const f = fixture();
+    const discoverInternal = jest
+      .fn()
+      .mockResolvedValueOnce(initial)
+      .mockResolvedValueOnce(verified);
+    const result = preparePortableMaintenance(options, {
+      ...f.dependencies,
+      discover: undefined,
+      discoverInternal,
+    });
+    return { f, result };
+  }
+
+  it.each(['mountpoint', 'scope', 'labels', 'options', 'docker-root'])(
+    'rejects changed internal %s without exposing host paths',
+    async (field) => {
+      const f = fixture();
+      const initial = internalSource();
+      const changed = structuredClone(initial);
+      const postgres = changed.volumeIdentities.postgres as unknown as Record<
+        string,
+        unknown
+      >;
+      if (field === 'mountpoint')
+        postgres.mountpoint = '/var/lib/docker/volumes/replacement/_data';
+      if (field === 'scope') postgres.scope = 'global';
+      if (field === 'labels') postgres.labels = { changed: 'true' };
+      if (field === 'options') postgres.options = { device: '/secret' };
+      if (field === 'docker-root') {
+        postgres.dockerRootDir = '/different';
+        (changed.platform as unknown as Record<string, unknown>).dockerRootDir =
+          '/different';
+      }
+      const discoverInternal = jest
+        .fn()
+        .mockResolvedValueOnce(initial)
+        .mockResolvedValueOnce(changed);
+      await expect(
+        preparePortableMaintenance(options, {
+          ...f.dependencies,
+          discover: undefined,
+          discoverInternal,
+        }),
+      ).rejects.toMatchObject({ code: 'source-changed' });
+      expect(removals(f)).toHaveLength(1);
+      const serializedCalls = JSON.stringify(f.execute.mock.calls);
+      expect(serializedCalls).not.toContain(
+        initial.volumeIdentities.postgres.mountpoint,
+      );
+    },
+  );
+
+  it('accepts reordered complete labels and user IDs', async () => {
+    const initial = structuredClone(internalSource());
+    initial.volumeIdentities.postgres.labels = {
+      zeta: 'last',
+      'com.docker.compose.volume': 'postgres_data',
+      alpha: 'first',
+      'com.docker.compose.project': 'portable',
+    };
+    initial.volumeIdentities.postgres.userIds = [
+      'b'.repeat(64),
+      'a'.repeat(64),
+    ];
+    const verified = structuredClone(initial);
+    verified.volumeIdentities.postgres.labels = {
+      'com.docker.compose.project': 'portable',
+      alpha: 'first',
+      'com.docker.compose.volume': 'postgres_data',
+      zeta: 'last',
+    };
+    verified.volumeIdentities.postgres.userIds = [
+      'a'.repeat(64),
+      'b'.repeat(64),
+    ];
+    const { result } = prepareWithSources(initial, verified);
+    await expect(result).resolves.toMatchObject({ source: source() });
+  });
+
+  it.each([
+    ['added label', { added: 'value' }, undefined],
+    ['removed label', undefined, 'extra'],
+    ['changed label', { extra: 'changed' }, undefined],
+  ] as const)('rejects %s during revalidation', async (_name, add, remove) => {
+    const initial = structuredClone(internalSource());
+    initial.volumeIdentities.postgres.labels = {
+      ...initial.volumeIdentities.postgres.labels,
+      extra: 'stable',
+    };
+    const verified = structuredClone(initial);
+    if (remove) delete verified.volumeIdentities.postgres.labels[remove];
+    if (add)
+      verified.volumeIdentities.postgres.labels = {
+        ...verified.volumeIdentities.postgres.labels,
+        ...add,
+      };
+    const { f, result } = prepareWithSources(initial, verified);
+    await expect(result).rejects.toMatchObject({ code: 'source-changed' });
+    expect(removals(f)).toHaveLength(1);
+  });
+
+  it.each(['added', 'removed'] as const)(
+    'rejects an %s volume user',
+    async (change) => {
+      const initial = structuredClone(internalSource());
+      initial.volumeIdentities.postgres.userIds = ['a'.repeat(64)];
+      const verified = structuredClone(initial);
+      verified.volumeIdentities.postgres.userIds =
+        change === 'added' ? ['a'.repeat(64), 'b'.repeat(64)] : [];
+      const { f, result } = prepareWithSources(initial, verified);
+      await expect(result).rejects.toMatchObject({ code: 'source-changed' });
+      expect(removals(f)).toHaveLength(1);
+    },
+  );
+
+  it('keeps the lease source public and ignores diagnostic client version changes', async () => {
+    const f = fixture();
+    const initial = structuredClone(internalSource());
+    initial.volumeIdentities.postgres.labels = {
+      ...initial.volumeIdentities.postgres.labels,
+      'internal-extra-label': 'internal-extra-label-value',
+    };
+    const verified = {
+      ...initial,
+      platform: Object.freeze({ ...initial.platform, clientVersion: '40.0.0' }),
+    };
+    const discoverInternal = jest
+      .fn()
+      .mockResolvedValueOnce(initial)
+      .mockResolvedValueOnce(verified);
+    const lease = await preparePortableMaintenance(options, {
+      ...f.dependencies,
+      discover: undefined,
+      discoverInternal,
+    });
+    expect(lease.source).toEqual(source());
+    expect(JSON.stringify(lease)).not.toContain(
+      initial.volumeIdentities.postgres.mountpoint,
+    );
+    expect(JSON.stringify(lease)).not.toContain('internal-extra-label');
+  });
+});
+
 describe('lease release', () => {
   it('inspects before removing by exact ID and supports double release', async () => {
     const f = fixture();
@@ -733,7 +923,44 @@ describe('architecture with the actual preflight and simulated Docker', () => {
     f.execute.mockImplementation((r) => {
       const a = r.args;
       let value: unknown;
-      if (a[0] === 'compose')
+      if (a[0] === 'context' && a[1] === 'show')
+        return Promise.resolve({
+          stdout: 'default\n',
+          stderr: '',
+          exitCode: 0,
+        });
+      if (a[0] === 'context')
+        value = {
+          Name: 'default',
+          Endpoints: {
+            docker: {
+              Host: 'unix:///var/run/docker.sock',
+              SkipTLSVerify: false,
+            },
+          },
+        };
+      else if (a[0] === 'version')
+        value = {
+          Client: { Version: '31.0.0' },
+          Server: {
+            Version: '29.8.1',
+            ApiVersion: '1.56',
+            Os: 'linux',
+            Arch: 'amd64',
+          },
+        };
+      else if (a[0] === 'info')
+        value = {
+          ServerVersion: '29.8.1',
+          OSType: 'linux',
+          Architecture: 'x86_64',
+          OperatingSystem: 'Ubuntu 24.04.5 LTS',
+          KernelVersion: '6.8.0-137-generic',
+          DockerRootDir: '/var/lib/docker',
+          SecurityOptions: ['name=seccomp,profile=builtin'],
+          Name: 'native-host',
+        };
+      else if (a[0] === 'compose')
         value = {
           name: 'portable',
           volumes: {
@@ -781,6 +1008,7 @@ describe('architecture with the actual preflight and simulated Docker', () => {
               'com.docker.compose.volume':
                 a[2] === 'resolved-pg' ? 'postgres_data' : 'uploads_data',
             },
+            Mountpoint: `/var/lib/docker/volumes/${a[2]}/_data`,
           },
         ];
       else if (a[0] === 'ps') {

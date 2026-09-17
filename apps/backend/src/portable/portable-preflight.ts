@@ -1,4 +1,9 @@
-import { isAbsolute, resolve } from 'node:path';
+import { isAbsolute, posix, resolve } from 'node:path';
+import {
+  PortablePlatformError,
+  qualifyPortablePlatform,
+  type QualifiedPlatformIdentity,
+} from './portable-platform';
 
 export type PreflightErrorCode =
   | 'configuration'
@@ -9,6 +14,7 @@ export type PreflightErrorCode =
   | 'migration-active'
   | 'unsafe-state'
   | 'unexpected-volume-user'
+  | 'unsupported-platform'
   | 'docker-failure';
 
 const MESSAGES: Record<PreflightErrorCode, string> = {
@@ -20,6 +26,7 @@ const MESSAGES: Record<PreflightErrorCode, string> = {
   'migration-active': 'A migration container is active or pending',
   'unsafe-state': 'A container has an unsafe or inconsistent state',
   'unexpected-volume-user': 'An unexpected container uses a source volume',
+  'unsupported-platform': 'Docker platform is not supported by Portable v1',
   'docker-failure': 'Docker discovery failed or returned invalid data',
 };
 export class PreflightError extends Error {
@@ -98,6 +105,25 @@ export interface PreflightSnapshot {
     readonly migrate: readonly ContainerSnapshot[];
   };
 }
+export interface InternalVolumeIdentity {
+  readonly logicalName: LogicalVolume;
+  readonly physicalName: string;
+  readonly driver: 'local';
+  readonly scope: 'local';
+  readonly labels: Readonly<Record<string, string>>;
+  readonly options: Readonly<Record<string, never>>;
+  readonly mountpoint: string;
+  readonly dockerRootDir: string;
+  readonly userIds: readonly string[];
+}
+export interface InternalSourceDiscovery {
+  readonly publicSnapshot: PreflightSnapshot;
+  readonly platform: QualifiedPlatformIdentity;
+  readonly volumeIdentities: Readonly<{
+    postgres: InternalVolumeIdentity;
+    uploads: InternalVolumeIdentity;
+  }>;
+}
 const SERVICES: readonly Service[] = [
   'postgres',
   'backend',
@@ -164,6 +190,24 @@ function emptyOptions(value: unknown, code: PreflightErrorCode) {
     fail(code);
 }
 
+function canonicalLabels(
+  value: unknown,
+  code: PreflightErrorCode,
+): Readonly<Record<string, string>> {
+  const labels = object(value, code);
+  const entries: [string, string][] = [];
+
+  for (const [key, labelValue] of Object.entries(labels)) {
+    if (!key || /[\0\r\n]/.test(key) || typeof labelValue !== 'string')
+      fail(code);
+    entries.push([key, labelValue]);
+  }
+
+  entries.sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0));
+
+  return Object.freeze(Object.fromEntries(entries));
+}
+
 /** Validate the current repository contract, not arbitrary Compose deployments. */
 function configuration(value: unknown) {
   const config = object(value, 'configuration');
@@ -210,10 +254,10 @@ function configuration(value: unknown) {
 /** Read-only discovery. The snapshot is a point-in-time observation, not a lock,
  * a PG_VERSION probe, or proof that the data is a usable PostgreSQL cluster.
  */
-export async function discoverPortableSource(
+export async function discoverPortableSourceInternal(
   options: PreflightOptions,
   execute: DockerExecutor,
-): Promise<PreflightSnapshot> {
+): Promise<InternalSourceDiscovery> {
   if (
     !isAbsolute(options.projectRoot) ||
     !options.composeFile.trim() ||
@@ -232,6 +276,18 @@ export async function discoverPortableSource(
     explicit || !env.COMPOSE_PROJECT_NAME
       ? undefined
       : project(env.COMPOSE_PROJECT_NAME);
+  let platform: QualifiedPlatformIdentity;
+  try {
+    platform = await qualifyPortablePlatform({ projectRoot, env }, execute);
+  } catch (error) {
+    if (error instanceof PortablePlatformError)
+      fail(
+        error.code === 'unsupported-platform'
+          ? 'unsupported-platform'
+          : 'docker-failure',
+      );
+    fail('docker-failure');
+  }
   async function docker(args: string[]): Promise<string> {
     try {
       const result = await execute({
@@ -280,6 +336,10 @@ export async function discoverPortableSource(
   if (!present.length) fail('source-missing');
   if (present.length !== 2) fail('source-partial');
   const volumes = {} as Record<LogicalVolume, VolumeSnapshot>;
+  const internalVolumes = {} as Record<
+    LogicalVolume,
+    Omit<InternalVolumeIdentity, 'userIds'>
+  >;
   for (const logical of LOGICAL) {
     const output = array(
       json(
@@ -290,20 +350,56 @@ export async function discoverPortableSource(
     );
     if (output.length !== 1) fail('docker-failure');
     const volume = object(output[0], 'docker-failure');
-    const labels = object(volume.Labels, 'source-mismatch');
+    const labels = canonicalLabels(volume.Labels, 'source-mismatch');
+    const expectedLabels = {
+      [PROJECT_LABEL]: projectName,
+      [VOLUME_LABEL]: logical,
+    };
     if (
       volume.Name !== names[logical] ||
-      labels[PROJECT_LABEL] !== projectName ||
-      labels[VOLUME_LABEL] !== logical ||
+      Object.entries(expectedLabels).some(
+        ([key, value]) => labels[key] !== value,
+      ) ||
       volume.Driver !== 'local' ||
       volume.Scope !== 'local'
     )
       fail('source-mismatch');
     emptyOptions(volume.Options, 'source-mismatch');
+    if (
+      typeof volume.Mountpoint !== 'string' ||
+      !volume.Mountpoint ||
+      /[\0\r\n]/.test(volume.Mountpoint) ||
+      !posix.isAbsolute(volume.Mountpoint) ||
+      posix.normalize(volume.Mountpoint) !== volume.Mountpoint
+    )
+      fail('source-mismatch');
+    const relativeMountpoint = posix.relative(
+      platform.dockerRootDir,
+      volume.Mountpoint,
+    );
+    if (
+      !relativeMountpoint ||
+      posix.isAbsolute(relativeMountpoint) ||
+      relativeMountpoint === '..' ||
+      relativeMountpoint.startsWith('../') ||
+      volume.Mountpoint !==
+        posix.join(platform.dockerRootDir, 'volumes', names[logical], '_data')
+    )
+      fail('source-mismatch');
     volumes[logical] = Object.freeze({
       logicalName: logical,
       physicalName: names[logical],
       driver: 'local',
+    });
+    internalVolumes[logical] = Object.freeze({
+      logicalName: logical,
+      physicalName: names[logical],
+      driver: 'local',
+      scope: 'local',
+      labels,
+      options: Object.freeze({}),
+      mountpoint: volume.Mountpoint,
+      dockerRootDir: platform.dockerRootDir,
     });
   }
   async function containers(filter: string): Promise<string[]> {
@@ -507,7 +603,7 @@ export async function discoverPortableSource(
       services[service] = snapshot;
     }
   }
-  return Object.freeze({
+  const publicSnapshot: PreflightSnapshot = Object.freeze({
     projectName,
     projectRoot,
     composeFile,
@@ -520,4 +616,26 @@ export async function discoverPortableSource(
       migrate: Object.freeze(services.migrate),
     }),
   });
+  const withUsers = (logical: LogicalVolume): InternalVolumeIdentity =>
+    Object.freeze({
+      ...internalVolumes[logical],
+      userIds: Object.freeze([...(volumeUsers.get(logical) ?? [])].sort()),
+    });
+  return Object.freeze({
+    publicSnapshot,
+    platform,
+    volumeIdentities: Object.freeze({
+      postgres: withUsers('postgres_data'),
+      uploads: withUsers('uploads_data'),
+    }),
+  });
+}
+
+/** Existing redacted public API. Host paths remain confined to internal discovery. */
+export async function discoverPortableSource(
+  options: PreflightOptions,
+  execute: DockerExecutor,
+): Promise<PreflightSnapshot> {
+  return (await discoverPortableSourceInternal(options, execute))
+    .publicSnapshot;
 }
