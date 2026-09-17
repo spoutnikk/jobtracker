@@ -12,7 +12,10 @@ coverage
 **/.env
 **/.env.*
 !**/.env.example
-apps/backend/uploads
+**/uploads
+**/backups
+**/jobtracker-backup-*
+**/*.partial
 apps/backend/generated/prisma
 *.log
 .DS_Store
