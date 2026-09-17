@@ -102,6 +102,33 @@ function internalSource(
     }),
   });
 }
+function withPostgresIdentity(
+  discovery: InternalSourceDiscovery,
+  changes: Readonly<{
+    labels?: Readonly<Record<string, string>>;
+    userIds?: readonly string[];
+  }>,
+): InternalSourceDiscovery {
+  return {
+    ...discovery,
+    volumeIdentities: {
+      ...discovery.volumeIdentities,
+      postgres: {
+        ...discovery.volumeIdentities.postgres,
+        ...changes,
+      },
+    },
+  };
+}
+
+function withoutLabel(
+  labels: Readonly<Record<string, string>>,
+  removed: string,
+): Readonly<Record<string, string>> {
+  return Object.fromEntries(
+    Object.entries(labels).filter(([key]) => key !== removed),
+  );
+}
 function sourceContainer(id = 'c'.repeat(64)): ContainerSnapshot {
   return {
     id,
@@ -731,28 +758,24 @@ describe('internal source revalidation', () => {
   );
 
   it('accepts reordered complete labels and user IDs', async () => {
-    const initial = structuredClone(internalSource());
-    initial.volumeIdentities.postgres.labels = {
-      zeta: 'last',
-      'com.docker.compose.volume': 'postgres_data',
-      alpha: 'first',
-      'com.docker.compose.project': 'portable',
-    };
-    initial.volumeIdentities.postgres.userIds = [
-      'b'.repeat(64),
-      'a'.repeat(64),
-    ];
-    const verified = structuredClone(initial);
-    verified.volumeIdentities.postgres.labels = {
-      'com.docker.compose.project': 'portable',
-      alpha: 'first',
-      'com.docker.compose.volume': 'postgres_data',
-      zeta: 'last',
-    };
-    verified.volumeIdentities.postgres.userIds = [
-      'a'.repeat(64),
-      'b'.repeat(64),
-    ];
+    const initial = withPostgresIdentity(internalSource(), {
+      labels: {
+        zeta: 'last',
+        'com.docker.compose.volume': 'postgres_data',
+        alpha: 'first',
+        'com.docker.compose.project': 'portable',
+      },
+      userIds: ['b'.repeat(64), 'a'.repeat(64)],
+    });
+    const verified = withPostgresIdentity(initial, {
+      labels: {
+        'com.docker.compose.project': 'portable',
+        alpha: 'first',
+        'com.docker.compose.volume': 'postgres_data',
+        zeta: 'last',
+      },
+      userIds: ['a'.repeat(64), 'b'.repeat(64)],
+    });
     const { result } = prepareWithSources(initial, verified);
     await expect(result).resolves.toMatchObject({ source: source() });
   });
@@ -762,18 +785,17 @@ describe('internal source revalidation', () => {
     ['removed label', undefined, 'extra'],
     ['changed label', { extra: 'changed' }, undefined],
   ] as const)('rejects %s during revalidation', async (_name, add, remove) => {
-    const initial = structuredClone(internalSource());
-    initial.volumeIdentities.postgres.labels = {
-      ...initial.volumeIdentities.postgres.labels,
-      extra: 'stable',
-    };
-    const verified = structuredClone(initial);
-    if (remove) delete verified.volumeIdentities.postgres.labels[remove];
-    if (add)
-      verified.volumeIdentities.postgres.labels = {
-        ...verified.volumeIdentities.postgres.labels,
-        ...add,
-      };
+    const initial = withPostgresIdentity(internalSource(), {
+      labels: {
+        ...internalSource().volumeIdentities.postgres.labels,
+        extra: 'stable',
+      },
+    });
+    const verified = withPostgresIdentity(initial, {
+      labels: remove
+        ? withoutLabel(initial.volumeIdentities.postgres.labels, remove)
+        : { ...initial.volumeIdentities.postgres.labels, ...add },
+    });
     const { f, result } = prepareWithSources(initial, verified);
     await expect(result).rejects.toMatchObject({ code: 'source-changed' });
     expect(removals(f)).toHaveLength(1);
@@ -782,11 +804,12 @@ describe('internal source revalidation', () => {
   it.each(['added', 'removed'] as const)(
     'rejects an %s volume user',
     async (change) => {
-      const initial = structuredClone(internalSource());
-      initial.volumeIdentities.postgres.userIds = ['a'.repeat(64)];
-      const verified = structuredClone(initial);
-      verified.volumeIdentities.postgres.userIds =
-        change === 'added' ? ['a'.repeat(64), 'b'.repeat(64)] : [];
+      const initial = withPostgresIdentity(internalSource(), {
+        userIds: ['a'.repeat(64)],
+      });
+      const verified = withPostgresIdentity(initial, {
+        userIds: change === 'added' ? ['a'.repeat(64), 'b'.repeat(64)] : [],
+      });
       const { f, result } = prepareWithSources(initial, verified);
       await expect(result).rejects.toMatchObject({ code: 'source-changed' });
       expect(removals(f)).toHaveLength(1);
@@ -795,11 +818,12 @@ describe('internal source revalidation', () => {
 
   it('keeps the lease source public and ignores diagnostic client version changes', async () => {
     const f = fixture();
-    const initial = structuredClone(internalSource());
-    initial.volumeIdentities.postgres.labels = {
-      ...initial.volumeIdentities.postgres.labels,
-      'internal-extra-label': 'internal-extra-label-value',
-    };
+    const initial = withPostgresIdentity(internalSource(), {
+      labels: {
+        ...internalSource().volumeIdentities.postgres.labels,
+        'internal-extra-label': 'internal-extra-label-value',
+      },
+    });
     const verified = {
       ...initial,
       platform: Object.freeze({ ...initial.platform, clientVersion: '40.0.0' }),

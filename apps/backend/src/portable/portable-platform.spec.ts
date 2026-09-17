@@ -207,13 +207,17 @@ describe('Portable qualified Docker platform', () => {
     [{ DOCKER_HOST: '' }, 'empty DOCKER_HOST'],
     [{ DOCKER_CONTEXT: 'remote' }, 'DOCKER_CONTEXT'],
     [{ DOCKER_CONTEXT: '' }, 'empty DOCKER_CONTEXT'],
-  ])('refuses explicit daemon redirection %s', async (env) => {
-    const f = fixture();
-    await expect(f.run({ PATH: '/usr/bin', ...env })).rejects.toMatchObject({
-      code: 'unsupported-platform',
-    });
-    expect(f.execute).not.toHaveBeenCalled();
-  });
+  ])(
+    'refuses explicit daemon redirection %j (%s)',
+    async (env, description) => {
+      const f = fixture();
+      expect(description).toEqual(expect.any(String));
+      await expect(f.run({ PATH: '/usr/bin', ...env })).rejects.toMatchObject({
+        code: 'unsupported-platform',
+      });
+      expect(f.execute).not.toHaveBeenCalled();
+    },
+  );
 
   it('refuses a non-Linux host before Docker', async () => {
     const f = fixture();
