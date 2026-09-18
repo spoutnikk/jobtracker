@@ -101,6 +101,17 @@ function internalSource(
       postgres: identity('postgres_data', 'resolved-pg'),
       uploads: identity('uploads_data', 'resolved-files'),
     }),
+    serviceIdentities: Object.freeze({
+      postgres: null,
+      backend: null,
+      frontend: null,
+      migrate: Object.freeze([]),
+    }),
+    postgresCredentials: Object.freeze({
+      database: 'jobtracker',
+      user: 'jobtracker',
+      password: secret,
+    }),
   });
 }
 function withPostgresIdentity(
@@ -1019,6 +1030,11 @@ describe('architecture with the actual preflight and simulated Docker', () => {
           },
           services: {
             postgres: {
+              environment: {
+                POSTGRES_DB: 'jobtracker',
+                POSTGRES_USER: 'jobtracker',
+                POSTGRES_PASSWORD: secret,
+              },
               volumes: [
                 {
                   type: 'volume',

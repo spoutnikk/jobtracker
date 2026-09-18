@@ -214,10 +214,12 @@ function internalSourceIdentity(source: InternalSourceDiscovery) {
   return {
     public: sourceIdentity(source.publicSnapshot),
     platform: platformSecurityIdentity(source.platform),
+    services: source.serviceIdentities,
     volumes: {
       postgres: volume(source.volumeIdentities.postgres),
       uploads: volume(source.volumeIdentities.uploads),
     },
+    postgresCredentials: source.postgresCredentials,
   };
 }
 

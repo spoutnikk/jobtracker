@@ -123,6 +123,32 @@ export interface InternalSourceDiscovery {
     postgres: InternalVolumeIdentity;
     uploads: InternalVolumeIdentity;
   }>;
+  readonly serviceIdentities: Readonly<{
+    postgres: InternalContainerIdentity | null;
+    backend: InternalContainerIdentity | null;
+    frontend: InternalContainerIdentity | null;
+    migrate: readonly InternalContainerIdentity[];
+  }>;
+  readonly postgresCredentials: QualifiedPostgresCredentials;
+}
+export interface QualifiedPostgresCredentials {
+  readonly database: string;
+  readonly user: string;
+  readonly password: string;
+}
+export interface InternalContainerIdentity {
+  readonly id: string;
+  readonly name: string;
+  readonly service: Service;
+  readonly state: ContainerSnapshot['state'];
+  readonly imageId: string;
+  readonly labels: Readonly<Record<string, string>>;
+  readonly mounts: readonly MountSnapshot[];
+  readonly networks: readonly NetworkSnapshot[];
+  readonly restartPolicy: Readonly<{ name: string; maximumRetryCount: number }>;
+  readonly entrypoint: readonly string[] | null;
+  readonly command: readonly string[] | null;
+  readonly healthcheck: unknown;
 }
 const SERVICES: readonly Service[] = [
   'postgres',
@@ -208,6 +234,71 @@ function canonicalLabels(
   return Object.freeze(Object.fromEntries(entries));
 }
 
+function strictSecret(value: unknown, code: PreflightErrorCode): string {
+  if (
+    typeof value !== 'string' ||
+    !value ||
+    value.includes('\0') ||
+    value.includes('\r') ||
+    value.includes('\n')
+  )
+    fail(code);
+  return value;
+}
+
+function credentials(value: unknown): QualifiedPostgresCredentials {
+  const environment = object(value, 'configuration');
+  return Object.freeze({
+    database: strictSecret(environment.POSTGRES_DB, 'configuration'),
+    user: strictSecret(environment.POSTGRES_USER, 'configuration'),
+    password: strictSecret(environment.POSTGRES_PASSWORD, 'configuration'),
+  });
+}
+
+function containerCredentials(value: unknown): QualifiedPostgresCredentials {
+  if (!Array.isArray(value)) fail('source-mismatch');
+  const entries = new Map<string, string>();
+  for (const item of value) {
+    if (typeof item !== 'string' || !item.includes('='))
+      fail('source-mismatch');
+    const separator = item.indexOf('=');
+    const key = item.slice(0, separator);
+    if (entries.has(key)) fail('source-mismatch');
+    entries.set(key, item.slice(separator + 1));
+  }
+  return Object.freeze({
+    database: strictSecret(entries.get('POSTGRES_DB'), 'source-mismatch'),
+    user: strictSecret(entries.get('POSTGRES_USER'), 'source-mismatch'),
+    password: strictSecret(entries.get('POSTGRES_PASSWORD'), 'source-mismatch'),
+  });
+}
+
+function stringArray(value: unknown): readonly string[] | null {
+  if (value === null) return null;
+  if (!Array.isArray(value)) fail('source-mismatch');
+  return Object.freeze(
+    value.map((item) => strictSecret(item, 'source-mismatch')),
+  );
+}
+
+function canonicalDockerValue(value: unknown): unknown {
+  if (value === null || typeof value === 'boolean' || typeof value === 'string')
+    return value;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (Array.isArray(value))
+    return Object.freeze(value.map((item) => canonicalDockerValue(item)));
+  if (value && typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, item]) => {
+        if (!key || /[\0\r\n]/.test(key)) fail('source-mismatch');
+        return [key, canonicalDockerValue(item)] as const;
+      });
+    return Object.freeze(Object.fromEntries(entries));
+  }
+  fail('source-mismatch');
+}
+
 /** Validate the current repository contract, not arbitrary Compose deployments. */
 function configuration(value: unknown) {
   const config = object(value, 'configuration');
@@ -248,7 +339,10 @@ function configuration(value: unknown) {
       }
     } else if (mounts.length) fail('configuration');
   }
-  return { projectName, names };
+  const postgresCredentials = credentials(
+    object(services.postgres, 'configuration').environment,
+  );
+  return { projectName, names, postgresCredentials };
 }
 
 /** Read-only discovery. The snapshot is a point-in-time observation, not a lock,
@@ -317,7 +411,7 @@ export async function discoverPortableSourceInternal(
       'configuration',
     ),
   );
-  const { projectName, names } = config;
+  const { projectName, names, postgresCredentials } = config;
   if (
     (explicit ?? envProject) !== undefined &&
     projectName !== (explicit ?? envProject)
@@ -432,6 +526,12 @@ export async function discoverPortableSourceInternal(
     frontend: ContainerSnapshot | null;
     migrate: ContainerSnapshot[];
   } = { postgres: null, backend: null, frontend: null, migrate: [] };
+  const serviceIdentities: {
+    postgres: InternalContainerIdentity | null;
+    backend: InternalContainerIdentity | null;
+    frontend: InternalContainerIdentity | null;
+    migrate: InternalContainerIdentity[];
+  } = { postgres: null, backend: null, frontend: null, migrate: [] };
   for (const containerId of allIds) {
     const output = array(
       json(
@@ -443,10 +543,8 @@ export async function discoverPortableSourceInternal(
     if (output.length !== 1) fail('docker-failure');
     const container = object(output[0], 'docker-failure');
     if (container.Id !== containerId) fail('source-mismatch');
-    const labels = object(
-      object(container.Config, 'docker-failure').Labels ?? {},
-      'source-mismatch',
-    );
+    const containerConfig = object(container.Config, 'docker-failure');
+    const labels = object(containerConfig.Labels ?? {}, 'source-mismatch');
     const mounts = array(container.Mounts, 'docker-failure').map((m) =>
       object(m, 'docker-failure'),
     );
@@ -579,12 +677,16 @@ export async function discoverPortableSourceInternal(
         const aliases = array(network.Aliases ?? [], 'docker-failure').map(
           (alias) => name(alias, 'docker-failure'),
         );
+        aliases.sort((left, right) => left.localeCompare(right));
         return Object.freeze({
           name: name(networkName, 'docker-failure'),
           id: networkId,
           aliases: Object.freeze(aliases),
         });
       },
+    );
+    validatedNetworks.sort((left, right) =>
+      left.name.localeCompare(right.name),
     );
     const snapshot: ContainerSnapshot = Object.freeze({
       id: containerId,
@@ -602,6 +704,55 @@ export async function discoverPortableSourceInternal(
       if (services[service]) fail('ambiguous');
       services[service] = snapshot;
     }
+    if (
+      service === 'postgres' &&
+      JSON.stringify(containerCredentials(containerConfig.Env)) !==
+        JSON.stringify(postgresCredentials)
+    )
+      fail('source-mismatch');
+    const containerName = container.Name;
+    if (
+      typeof containerName !== 'string' ||
+      !/^\/[a-zA-Z0-9][a-zA-Z0-9_.-]*$/.test(containerName)
+    )
+      fail('source-mismatch');
+    if (
+      typeof container.Image !== 'string' ||
+      !/^sha256:[a-f0-9]{64}$/.test(container.Image)
+    )
+      fail('source-mismatch');
+    const hostConfig = object(container.HostConfig, 'source-mismatch');
+    const restart = object(hostConfig.RestartPolicy, 'source-mismatch');
+    if (
+      typeof restart.Name !== 'string' ||
+      !Number.isSafeInteger(restart.MaximumRetryCount) ||
+      (restart.MaximumRetryCount as number) < 0
+    )
+      fail('source-mismatch');
+    const healthcheck: unknown =
+      containerConfig.Healthcheck === undefined ||
+      containerConfig.Healthcheck === null
+        ? null
+        : canonicalDockerValue(containerConfig.Healthcheck);
+    const identity: InternalContainerIdentity = Object.freeze({
+      id: containerId,
+      name: containerName,
+      service,
+      state: snapshot.state,
+      imageId: container.Image,
+      labels: canonicalLabels(labels, 'source-mismatch'),
+      mounts: snapshot.mounts,
+      networks: snapshot.networks,
+      restartPolicy: Object.freeze({
+        name: restart.Name,
+        maximumRetryCount: restart.MaximumRetryCount as number,
+      }),
+      entrypoint: stringArray(containerConfig.Entrypoint),
+      command: stringArray(containerConfig.Cmd),
+      healthcheck,
+    });
+    if (service === 'migrate') serviceIdentities.migrate.push(identity);
+    else serviceIdentities[service] = identity;
   }
   const publicSnapshot: PreflightSnapshot = Object.freeze({
     projectName,
@@ -628,6 +779,15 @@ export async function discoverPortableSourceInternal(
       postgres: withUsers('postgres_data'),
       uploads: withUsers('uploads_data'),
     }),
+    serviceIdentities: Object.freeze({
+      ...serviceIdentities,
+      migrate: Object.freeze(
+        serviceIdentities.migrate.sort((left, right) =>
+          left.id.localeCompare(right.id),
+        ),
+      ),
+    }),
+    postgresCredentials,
   });
 }
 

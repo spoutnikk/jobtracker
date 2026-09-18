@@ -26,6 +26,11 @@ function config() {
     volumes: { postgres_data: { name: pg }, uploads_data: { name: uploads } },
     services: {
       postgres: {
+        environment: {
+          POSTGRES_DB: 'jobtracker',
+          POSTGRES_USER: 'jobtracker',
+          POSTGRES_PASSWORD: secret,
+        },
         volumes: [
           {
             type: 'volume',
@@ -69,13 +74,25 @@ function container(service: string, digit = 'a', status = 'running') {
       : '/app/apps/backend/uploads';
   return {
     Id: digit.repeat(64),
+    Name: `/${project}-${service}`,
+    Image: `sha256:${digit.repeat(64)}`,
     Config: {
       Labels: {
         [projectLabel]: project,
         [serviceLabel]: service,
         [oneoffLabel]: 'False',
       } as Record<string, string>,
-      Env: [`PGPASSWORD=${secret}`],
+      Env:
+        service === 'postgres'
+          ? [
+              'POSTGRES_DB=jobtracker',
+              'POSTGRES_USER=jobtracker',
+              `POSTGRES_PASSWORD=${secret}`,
+            ]
+          : [],
+      Entrypoint: ['/entrypoint'],
+      Cmd: ['run', service],
+      Healthcheck: { Test: ['CMD', 'healthcheck'] },
     },
     State: {
       Status: status,
@@ -97,6 +114,7 @@ function container(service: string, digit = 'a', status = 'running') {
         ]
       : [],
     HostConfig: {
+      RestartPolicy: { Name: 'unless-stopped', MaximumRetryCount: 0 },
       Mounts: ['postgres', 'backend'].includes(service)
         ? [
             {
@@ -477,6 +495,115 @@ describe('internal source identity', () => {
       result.volumeIdentities.postgres.mountpoint,
     );
   });
+
+  it('captures canonical service configuration only in the internal surface', async () => {
+    const f = fixture();
+    const postgres = container('postgres');
+    postgres.Config.Labels.zeta = 'last';
+    postgres.Config.Labels.alpha = 'first';
+    postgres.NetworkSettings.Networks.portable_default.Aliases = [
+      'postgres-z',
+      'postgres-a',
+    ];
+    f.containers.push(postgres);
+    const result = await discoverPortableSourceInternal(options, f.runner);
+    expect(result.serviceIdentities.postgres).toMatchObject({
+      id: 'a'.repeat(64),
+      name: `/${project}-postgres`,
+      imageId: `sha256:${'a'.repeat(64)}`,
+      restartPolicy: { name: 'unless-stopped', maximumRetryCount: 0 },
+      entrypoint: ['/entrypoint'],
+      command: ['run', 'postgres'],
+      healthcheck: { Test: ['CMD', 'healthcheck'] },
+    });
+    expect(Object.keys(result.serviceIdentities.postgres!.labels)).toEqual([
+      'alpha',
+      oneoffLabel,
+      projectLabel,
+      serviceLabel,
+      'zeta',
+    ]);
+    expect(result.serviceIdentities.postgres!.networks[0].aliases).toEqual([
+      'postgres-a',
+      'postgres-z',
+    ]);
+    expect(JSON.stringify(result.publicSnapshot)).not.toContain(secret);
+  });
+
+  it('qualifies matching Compose and postgres-container credentials internally', async () => {
+    const f = fixture();
+    f.containers.push(container('postgres'));
+    const result = await discoverPortableSourceInternal(options, f.runner);
+    expect(result.postgresCredentials).toEqual({
+      database: 'jobtracker',
+      user: 'jobtracker',
+      password: secret,
+    });
+    expect(JSON.stringify(result.publicSnapshot)).not.toContain(secret);
+  });
+
+  it.each([
+    ['POSTGRES_DB', 'other'],
+    ['POSTGRES_USER', 'other'],
+    ['POSTGRES_PASSWORD', 'OTHER_SECRET'],
+  ])(
+    'rejects divergent postgres credential %s without disclosure',
+    async (key, value) => {
+      const f = fixture();
+      const postgres = container('postgres');
+      postgres.Config.Env = postgres.Config.Env.map((entry) =>
+        entry.startsWith(`${key}=`) ? `${key}=${value}` : entry,
+      );
+      f.containers.push(postgres);
+      const error = await discoverPortableSourceInternal(
+        options,
+        f.runner,
+      ).catch((cause: unknown) => cause);
+      expect(error).toMatchObject({ code: 'source-mismatch' });
+      expect((error as Error).message).not.toContain(value);
+      expect(JSON.stringify(error)).not.toContain(value);
+    },
+  );
+
+  it.each(['missing', 'duplicate'] as const)(
+    'rejects %s postgres credential without disclosure',
+    async (kind) => {
+      const f = fixture();
+      const postgres = container('postgres');
+      if (kind === 'missing') postgres.Config.Env.pop();
+      else postgres.Config.Env.push(`POSTGRES_PASSWORD=${secret}`);
+      f.containers.push(postgres);
+      const error = await discoverPortableSourceInternal(
+        options,
+        f.runner,
+      ).catch((cause: unknown) => cause);
+      expect(error).toMatchObject({ code: 'source-mismatch' });
+      expect((error as Error).message).not.toContain(secret);
+      expect(JSON.stringify(error)).not.toContain(secret);
+    },
+  );
+
+  it.each(['POSTGRES_DB', 'POSTGRES_USER', 'POSTGRES_PASSWORD'])(
+    'rejects missing or empty Compose credential %s without disclosure',
+    async (key) => {
+      for (const mode of ['missing', 'empty'] as const) {
+        const f = fixture();
+        if (mode === 'missing')
+          Reflect.deleteProperty(f.cfg.services.postgres.environment, key);
+        else
+          f.cfg.services.postgres.environment[
+            key as keyof typeof f.cfg.services.postgres.environment
+          ] = '';
+        const error = await discoverPortableSourceInternal(
+          options,
+          f.runner,
+        ).catch((cause: unknown) => cause);
+        expect(error).toMatchObject({ code: 'configuration' });
+        expect((error as Error).message).not.toContain(secret);
+        expect(JSON.stringify(error)).not.toContain(secret);
+      }
+    },
+  );
 
   it.each(['slash/name', '../name', '.hidden', 'bad\nname', 'bad\0name'])(
     'rejects hostile Compose physical name %j',
