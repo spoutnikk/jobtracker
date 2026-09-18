@@ -47,7 +47,12 @@ export interface PortableServiceTransitions {
 }
 
 export type PortableServiceTransition =
-  'frontend-stopped' | 'backend-stopped' | 'postgres-started';
+  | 'frontend-stopped'
+  | 'backend-stopped'
+  | 'postgres-started'
+  | 'postgres-restored'
+  | 'backend-restored'
+  | 'frontend-restored';
 
 const credentialsByPlan = new WeakMap<
   PortableServicePlan,
@@ -58,6 +63,7 @@ const transitionPlans = new WeakMap<
   PortableServicePlan
 >();
 const consumedTransitions = new WeakSet<PortableServiceTransitions>();
+const completedTransitions = new WeakSet<PortableServiceTransitions>();
 
 function fail(code: PortableServicePlanCode): never {
   throw new PortableServicePlanError(code);
@@ -187,6 +193,20 @@ function createTransitions(
   return transitions;
 }
 
+function createRestoredTransitions(
+  plan: PortableServicePlan,
+  values: PortableServiceTransitions,
+): PortableServiceTransitions {
+  const transitions = createTransitions(plan, values);
+  if (
+    !values.frontendStoppedByUs &&
+    !values.backendStoppedByUs &&
+    !values.postgresStartedByUs
+  )
+    completedTransitions.add(transitions);
+  return transitions;
+}
+
 export function initialPortableServiceTransitions(
   plan: PortableServicePlan,
 ): PortableServiceTransitions {
@@ -203,7 +223,32 @@ export function recordPortableServiceTransition(
   transition: PortableServiceTransition,
 ): PortableServiceTransitions {
   authenticTransitions(plan, transitions);
+  if (completedTransitions.has(transitions)) fail('transition-invalid');
   let next: PortableServiceTransitions;
+  if (transition === 'postgres-restored') {
+    if (!transitions.postgresStartedByUs) fail('transition-invalid');
+    next = { ...transitions, postgresStartedByUs: false };
+    consumedTransitions.add(transitions);
+    return createRestoredTransitions(plan, next);
+  }
+  if (transition === 'backend-restored') {
+    if (transitions.postgresStartedByUs || !transitions.backendStoppedByUs)
+      fail('transition-invalid');
+    next = { ...transitions, backendStoppedByUs: false };
+    consumedTransitions.add(transitions);
+    return createRestoredTransitions(plan, next);
+  }
+  if (transition === 'frontend-restored') {
+    if (
+      transitions.postgresStartedByUs ||
+      transitions.backendStoppedByUs ||
+      !transitions.frontendStoppedByUs
+    )
+      fail('transition-invalid');
+    next = { ...transitions, frontendStoppedByUs: false };
+    consumedTransitions.add(transitions);
+    return createRestoredTransitions(plan, next);
+  }
   if (transition === 'frontend-stopped') {
     if (
       plan.services.frontend?.state !== 'running' ||

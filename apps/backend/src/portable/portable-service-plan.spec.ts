@@ -463,6 +463,126 @@ describe('Portable service transitions', () => {
     ).not.toThrow();
   });
 
+  it('restores in strict reverse order and makes the completed cycle terminal', () => {
+    const initial = source('exited');
+    const plan = createPortableServicePlan(initial);
+    const neutral = initialPortableServiceTransitions(plan);
+    const frontend = recordPortableServiceTransition(
+      plan,
+      neutral,
+      'frontend-stopped',
+    );
+    const afterFrontend = withServiceState(
+      changed(initial),
+      'frontend',
+      'exited',
+    );
+    const backend = recordPortableServiceTransition(
+      plan,
+      frontend,
+      'backend-stopped',
+    );
+    const afterBackend = withServiceState(
+      changed(afterFrontend),
+      'backend',
+      'exited',
+    );
+    const postgres = recordPortableServiceTransition(
+      plan,
+      backend,
+      'postgres-started',
+    );
+    const afterPostgres = withServiceState(
+      changed(afterBackend),
+      'postgres',
+      'running',
+    );
+    expect(() =>
+      assertPortableServiceObservation(plan, postgres, afterPostgres),
+    ).not.toThrow();
+
+    rejected(
+      () => recordPortableServiceTransition(plan, postgres, 'backend-restored'),
+      'transition-invalid',
+    );
+    const postgresRestored = recordPortableServiceTransition(
+      plan,
+      postgres,
+      'postgres-restored',
+    );
+    expect(() =>
+      assertPortableServiceObservation(plan, postgresRestored, afterBackend),
+    ).not.toThrow();
+    rejected(
+      () =>
+        recordPortableServiceTransition(plan, postgres, 'postgres-restored'),
+      'transition-invalid',
+    );
+
+    rejected(
+      () =>
+        recordPortableServiceTransition(
+          plan,
+          postgresRestored,
+          'frontend-restored',
+        ),
+      'transition-invalid',
+    );
+    const backendRestored = recordPortableServiceTransition(
+      plan,
+      postgresRestored,
+      'backend-restored',
+    );
+    const afterBackendRestored = withServiceState(
+      changed(afterBackend),
+      'backend',
+      'running',
+    );
+    expect(() =>
+      assertPortableServiceObservation(
+        plan,
+        backendRestored,
+        afterBackendRestored,
+      ),
+    ).not.toThrow();
+    rejected(
+      () =>
+        recordPortableServiceTransition(
+          plan,
+          postgresRestored,
+          'backend-restored',
+        ),
+      'transition-invalid',
+    );
+
+    const frontendRestored = recordPortableServiceTransition(
+      plan,
+      backendRestored,
+      'frontend-restored',
+    );
+    expect(() =>
+      assertPortableServiceObservation(plan, frontendRestored, initial),
+    ).not.toThrow();
+    rejected(
+      () =>
+        recordPortableServiceTransition(
+          plan,
+          backendRestored,
+          'frontend-restored',
+        ),
+      'transition-invalid',
+    );
+    rejected(
+      () =>
+        recordPortableServiceTransition(
+          plan,
+          frontendRestored,
+          'frontend-stopped',
+        ),
+      'transition-invalid',
+    );
+  });
+
   it('accepts only the recorded frontend then backend stops', () => {
     const initial = source();
     const plan = createPortableServicePlan(initial);
