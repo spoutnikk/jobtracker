@@ -1,5 +1,6 @@
 import {
   preparePortableMaintenance,
+  preparePortableMaintenanceInternal,
   assertSameSource,
   type MaintenanceOptions,
 } from './portable-maintenance';
@@ -701,6 +702,31 @@ describe('explicit snapshot revalidation', () => {
 });
 
 describe('internal source revalidation', () => {
+  it('returns only the revalidated internal source beside a redacted public lease', async () => {
+    const f = fixture();
+    const initial = internalSource();
+    const verified = Object.freeze({
+      ...initial,
+      platform: Object.freeze({ ...initial.platform, clientVersion: '40.0.0' }),
+    });
+    const discoverInternal = jest
+      .fn()
+      .mockResolvedValueOnce(initial)
+      .mockResolvedValueOnce(verified);
+    const context = await preparePortableMaintenanceInternal(options, {
+      execute: f.execute,
+      discoverInternal,
+      uuid: () => operation,
+      now: () => new Date(date),
+    });
+    expect(context.source).toBe(verified);
+    expect(context.imageId).toBe(imageId);
+    expect(JSON.stringify(context.lease)).not.toContain(
+      verified.volumeIdentities.postgres.mountpoint,
+    );
+    await context.lease.release();
+  });
+
   function prepareWithSources(
     initial: InternalSourceDiscovery,
     verified: InternalSourceDiscovery,

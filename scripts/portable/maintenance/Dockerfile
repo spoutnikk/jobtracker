@@ -42,4 +42,6 @@ WORKDIR /app
 COPY --from=build /app/apps/backend/dist/src/portable/backup-cli.js ./backup-cli.js
 COPY --from=build /app/apps/backend/dist/src/portable/backup-producer.js ./backup-producer.js
 COPY --from=build /app/apps/backend/dist/src/portable/backup-format.js ./backup-format.js
+COPY --from=build /app/apps/backend/dist/src/portable/portable-pgdata-probe.js ./portable-pgdata-probe.js
+COPY --from=build /app/apps/backend/dist/src/portable/portable-pgdata-probe-cli.js ./portable-pgdata-probe-cli.js
 ENTRYPOINT ["node", "/app/backup-cli.js"]

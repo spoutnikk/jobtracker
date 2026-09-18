@@ -62,6 +62,12 @@ export interface MaintenanceDependencies {
   readonly uuid?: () => string;
   readonly now?: () => Date;
 }
+export interface InternalMaintenanceContext {
+  readonly lease: MaintenanceLease;
+  readonly source: InternalSourceDiscovery;
+  readonly imageId: string;
+  readonly env: Readonly<NodeJS.ProcessEnv>;
+}
 const LABELS = {
   kind: 'org.jobtracker.maintenance.kind',
   project: 'org.jobtracker.maintenance.project',
@@ -235,12 +241,20 @@ export function assertSameSource(
  * This lock excludes cooperating JobTracker maintenance only. It is deliberately
  * NOT a Compose service and never references source volumes or PGDATA.
  */
-export async function preparePortableMaintenance(
+async function preparePortableMaintenanceCore(
   options: MaintenanceOptions,
   dependencies: MaintenanceDependencies = {},
-): Promise<MaintenanceLease> {
+  requireInternal = false,
+): Promise<
+  Readonly<{
+    lease: MaintenanceLease;
+    source?: InternalSourceDiscovery;
+    imageId: string;
+    env: Readonly<NodeJS.ProcessEnv>;
+  }>
+> {
   const execute = dependencies.execute ?? createDockerRunner();
-  const discover = dependencies.discover;
+  const discover = requireInternal ? undefined : dependencies.discover;
   const discoverInternal =
     dependencies.discoverInternal ??
     (discover === undefined ? discoverPortableSourceInternal : undefined);
@@ -516,15 +530,13 @@ export async function preparePortableMaintenance(
     }
   }
   let verified: PreflightSnapshot;
+  let verifiedInternal: InternalSourceDiscovery | undefined;
   let principal: MaintenanceCode = 'lock-invalid';
   try {
     if (!safeConfiguration(await inspectCreated())) fail('lock-invalid');
     principal = 'source-changed';
     if (discoverInternal) {
-      const verifiedInternal = await discoverInternal(
-        preflightOptions,
-        execute,
-      );
+      verifiedInternal = await discoverInternal(preflightOptions, execute);
       verified = verifiedInternal.publicSnapshot;
       assertSameInternalSource(initialInternal!, verifiedInternal);
     } else {
@@ -569,7 +581,7 @@ export async function preparePortableMaintenance(
       });
     }
   }
-  return Object.freeze({
+  const lease: MaintenanceLease = Object.freeze({
     operationId,
     source: verified,
     lock: Object.freeze({ id: returnedId, name: lockName }),
@@ -583,5 +595,34 @@ export async function preparePortableMaintenance(
         });
       return releasing;
     },
+  });
+  return Object.freeze({ lease, source: verifiedInternal, imageId, env });
+}
+
+export async function preparePortableMaintenance(
+  options: MaintenanceOptions,
+  dependencies: MaintenanceDependencies = {},
+): Promise<MaintenanceLease> {
+  return (await preparePortableMaintenanceCore(options, dependencies)).lease;
+}
+
+/** Internal orchestration boundary: the source is the exact second discovery
+ * compared under the acquired lease. Public maintenance leases remain redacted.
+ */
+export async function preparePortableMaintenanceInternal(
+  options: MaintenanceOptions,
+  dependencies: Omit<MaintenanceDependencies, 'discover'> = {},
+): Promise<InternalMaintenanceContext> {
+  const context = await preparePortableMaintenanceCore(
+    options,
+    { ...dependencies, discover: undefined },
+    true,
+  );
+  if (!context.source) fail('source-changed');
+  return Object.freeze({
+    lease: context.lease,
+    source: context.source,
+    imageId: context.imageId,
+    env: context.env,
   });
 }
