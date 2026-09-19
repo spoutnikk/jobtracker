@@ -2,9 +2,16 @@
 import {
   PortablePgdataProbeError,
   probePortablePgdata,
+  probePortablePgdataWithContext,
 } from './portable-pgdata-orchestrator';
-import { MaintenanceError } from './portable-maintenance';
-import type { DockerExecutor } from './portable-preflight';
+import {
+  MaintenanceError,
+  type InternalMaintenanceContext,
+} from './portable-maintenance';
+import type {
+  DockerExecutor,
+  InternalSourceDiscovery,
+} from './portable-preflight';
 
 const operationId = '12345678-1234-4234-8234-123456789abc';
 const probeUuid = '87654321-4321-4321-8321-cba987654321';
@@ -26,9 +33,10 @@ const proxyKeys = [
   'all_proxy',
 ];
 
-function fixture() {
+function fixture(externalOperationId = operationId) {
   const events: string[] = [];
   const state = {
+    probeUuid,
     present: false,
     started: false,
     createExit: 0 as number | null,
@@ -44,7 +52,7 @@ function fixture() {
   const labels = {
     'org.jobtracker.maintenance.kind': 'pgdata-probe',
     'org.jobtracker.maintenance.project': 'portable',
-    'org.jobtracker.maintenance.operation': operationId,
+    'org.jobtracker.maintenance.operation': externalOperationId,
   };
   const container: Record<string, any> = {
     Id: containerId,
@@ -104,9 +112,9 @@ function fixture() {
     events.push('release');
     return { released: true };
   });
-  const prepare = jest.fn(async () => ({
+  const context: InternalMaintenanceContext = {
     lease: {
-      operationId,
+      operationId: externalOperationId,
       source: {} as never,
       lock: { id: 'c'.repeat(64), name: 'lock' },
       release,
@@ -121,10 +129,11 @@ function fixture() {
       },
       platform: {},
       volumeIdentities: { postgres: { mountpoint }, uploads: {} },
-    },
+    } as InternalSourceDiscovery,
     imageId,
     env: { PATH: '/bin' },
-  })) as any;
+  };
+  const prepare = jest.fn(async () => context);
   const execute = jest.fn<
     ReturnType<DockerExecutor>,
     Parameters<DockerExecutor>
@@ -176,11 +185,77 @@ function fixture() {
     image: 'maintenance:local',
   };
   const run = () =>
-    probePortablePgdata(options, { execute, prepare, uuid: () => probeUuid });
-  return { state, container, events, execute, prepare, release, run };
+    probePortablePgdata(options, {
+      execute,
+      prepare,
+      uuid: () => state.probeUuid,
+    });
+  const runWithContext = () =>
+    probePortablePgdataWithContext(context, {
+      execute,
+      uuid: () => probeUuid,
+    });
+  return {
+    state,
+    container,
+    context,
+    events,
+    execute,
+    prepare,
+    release,
+    run,
+    runWithContext,
+  };
 }
 
 describe('orchestrated PGDATA probe', () => {
+  describe('with an externally owned maintenance context', () => {
+    it('runs and cleans up without preparing or releasing the lease', async () => {
+      const f = fixture();
+      await expect(f.runWithContext()).resolves.toEqual({
+        ok: true,
+        postgresMajor: 17,
+      });
+      expect(f.events).toEqual(['create', 'start', 'wait', 'logs', 'cleanup']);
+      expect(f.prepare).not.toHaveBeenCalled();
+      expect(f.release).not.toHaveBeenCalled();
+    });
+
+    it('preserves a primary error after successful cleanup', async () => {
+      const f = fixture();
+      f.state.waitOutput = '1\n';
+      await expect(f.runWithContext()).rejects.toMatchObject({
+        code: 'probe-failed',
+        cleanupFailure: undefined,
+      });
+      expect(f.events.slice(-1)).toEqual(['cleanup']);
+      expect(f.release).not.toHaveBeenCalled();
+    });
+
+    it('reports cleanup failure without attempting lease release', async () => {
+      const f = fixture();
+      f.state.removeExit = 1;
+      await expect(f.runWithContext()).rejects.toMatchObject({
+        code: 'cleanup-failed',
+        cleanupFailure: 'probe-cleanup-failed',
+      });
+      expect(f.release).not.toHaveBeenCalled();
+    });
+
+    it('uses the operation label from the externally owned lease', async () => {
+      const externalOperationId = 'abcdef12-3456-4789-8abc-def012345678';
+      const f = fixture(externalOperationId);
+      await f.runWithContext();
+      const create = f.execute.mock.calls.find(
+        ([request]) => request.args[0] === 'create',
+      )![0].args;
+      expect(create).toContain(
+        `org.jobtracker.maintenance.operation=${externalOperationId}`,
+      );
+      expect(f.release).not.toHaveBeenCalled();
+    });
+  });
+
   it('runs the exact safe lifecycle and keeps the lease through cleanup', async () => {
     const f = fixture();
     await expect(f.run()).resolves.toEqual({ ok: true, postgresMajor: 17 });
@@ -205,6 +280,27 @@ describe('orchestrated PGDATA probe', () => {
       imageId,
       '/app/portable-pgdata-probe-cli.js',
     ]);
+    expect(f.release).toHaveBeenCalledTimes(1);
+  });
+
+  it('releases the acquired lease when the probe UUID is invalid', async () => {
+    const f = fixture();
+    f.state.probeUuid = 'invalid';
+    await expect(f.run()).rejects.toMatchObject({ code: 'configuration' });
+    expect(f.execute).not.toHaveBeenCalled();
+    expect(f.release).toHaveBeenCalledTimes(1);
+    expect(f.events).toEqual(['release']);
+  });
+
+  it('preserves the configuration error when release fails after an invalid UUID', async () => {
+    const f = fixture();
+    f.state.probeUuid = 'invalid';
+    f.release.mockResolvedValue({ released: false, error: 'cleanup-failed' });
+    await expect(f.run()).rejects.toMatchObject({
+      code: 'configuration',
+      cleanupFailure: 'lease-release-failed',
+    });
+    expect(f.execute).not.toHaveBeenCalled();
     expect(f.release).toHaveBeenCalledTimes(1);
   });
 
@@ -500,6 +596,18 @@ describe('orchestrated PGDATA probe', () => {
       code: 'probe-failed',
       cleanupFailure: 'probe-cleanup-failed',
     });
+  });
+
+  it('does not let release failure overwrite primary and cleanup failures', async () => {
+    const f = fixture();
+    f.state.waitOutput = '1\n';
+    f.state.removeExit = 1;
+    f.release.mockResolvedValue({ released: false, error: 'cleanup-failed' });
+    await expect(f.run()).rejects.toMatchObject({
+      code: 'probe-failed',
+      cleanupFailure: 'probe-cleanup-failed',
+    });
+    expect(f.release).toHaveBeenCalledTimes(1);
   });
 
   it('reports cleanup failure after otherwise successful probe', async () => {

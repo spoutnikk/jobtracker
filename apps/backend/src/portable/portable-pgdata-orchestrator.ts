@@ -3,6 +3,7 @@ import { createDockerRunner } from './portable-docker';
 import {
   MaintenanceError,
   preparePortableMaintenanceInternal,
+  type InternalMaintenanceContext,
   type MaintenanceDependencies,
   type MaintenanceOptions,
 } from './portable-maintenance';
@@ -50,10 +51,13 @@ export class PortablePgdataProbeError extends Error {
   }
 }
 
-export interface PortablePgdataProbeDependencies {
+export interface PortablePgdataProbeContextDependencies {
   readonly execute?: DockerExecutor;
-  readonly maintenance?: Omit<MaintenanceDependencies, 'execute' | 'discover'>;
   readonly uuid?: () => string;
+}
+
+export interface PortablePgdataProbeDependencies extends PortablePgdataProbeContextDependencies {
+  readonly maintenance?: Omit<MaintenanceDependencies, 'execute' | 'discover'>;
   readonly prepare?: typeof preparePortableMaintenanceInternal;
 }
 
@@ -137,23 +141,11 @@ function mapMaintenance(error: unknown): PortablePgdataProbeError {
   return new PortablePgdataProbeError('create-failed');
 }
 
-export async function probePortablePgdata(
-  options: MaintenanceOptions,
-  dependencies: PortablePgdataProbeDependencies = {},
+export async function probePortablePgdataWithContext(
+  context: InternalMaintenanceContext,
+  dependencies: PortablePgdataProbeContextDependencies = {},
 ): Promise<PgdataProbeResult> {
   const execute = dependencies.execute ?? createDockerRunner();
-  let context: Awaited<ReturnType<typeof preparePortableMaintenanceInternal>>;
-  try {
-    context = await (
-      dependencies.prepare ?? preparePortableMaintenanceInternal
-    )(options, {
-      ...dependencies.maintenance,
-      execute,
-    });
-  } catch (error) {
-    throw mapMaintenance(error);
-  }
-
   const source: InternalSourceDiscovery = context.source;
   const mountpoint = source.volumeIdentities.postgres.mountpoint;
   let suffix: string;
@@ -163,20 +155,6 @@ export async function probePortablePgdata(
     suffix = '';
   }
   if (!/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/.test(suffix)) {
-    try {
-      const released = await context.lease.release();
-      if (!released.released)
-        throw new PortablePgdataProbeError(
-          'configuration',
-          'lease-release-failed',
-        );
-    } catch (error) {
-      if (error instanceof PortablePgdataProbeError) throw error;
-      throw new PortablePgdataProbeError(
-        'configuration',
-        'lease-release-failed',
-      );
-    }
     throw new PortablePgdataProbeError('configuration');
   }
   const name = `${source.publicSnapshot.projectName}-jobtracker-pgdata-probe-${suffix}`;
@@ -419,6 +397,50 @@ export async function probePortablePgdata(
         : new PortablePgdataProbeError('create-failed');
   } finally {
     const cleanupFailure = await cleanup();
+    if (cleanupFailure) {
+      if (primary)
+        primary = new PortablePgdataProbeError(primary.code, cleanupFailure);
+      else
+        primary = new PortablePgdataProbeError(
+          'cleanup-failed',
+          cleanupFailure,
+        );
+    }
+  }
+  if (primary) throw primary;
+  return result!;
+}
+
+export async function probePortablePgdata(
+  options: MaintenanceOptions,
+  dependencies: PortablePgdataProbeDependencies = {},
+): Promise<PgdataProbeResult> {
+  const execute = dependencies.execute ?? createDockerRunner();
+  let context: InternalMaintenanceContext;
+  try {
+    context = await (
+      dependencies.prepare ?? preparePortableMaintenanceInternal
+    )(options, {
+      ...dependencies.maintenance,
+      execute,
+    });
+  } catch (error) {
+    throw mapMaintenance(error);
+  }
+
+  let primary: PortablePgdataProbeError | undefined;
+  let result: PgdataProbeResult | undefined;
+  try {
+    result = await probePortablePgdataWithContext(context, {
+      execute,
+      uuid: dependencies.uuid,
+    });
+  } catch (error) {
+    primary =
+      error instanceof PortablePgdataProbeError
+        ? error
+        : new PortablePgdataProbeError('create-failed');
+  } finally {
     let released = false;
     try {
       released = (await context.lease.release()).released;
@@ -429,20 +451,12 @@ export async function probePortablePgdata(
       if (primary)
         primary = new PortablePgdataProbeError(
           primary.code,
-          cleanupFailure ?? 'lease-release-failed',
+          primary.cleanupFailure ?? 'lease-release-failed',
         );
       else
         primary = new PortablePgdataProbeError(
           'lease-release-failed',
-          cleanupFailure ?? 'lease-release-failed',
-        );
-    } else if (cleanupFailure) {
-      if (primary)
-        primary = new PortablePgdataProbeError(primary.code, cleanupFailure);
-      else
-        primary = new PortablePgdataProbeError(
-          'cleanup-failed',
-          cleanupFailure,
+          'lease-release-failed',
         );
     }
   }
